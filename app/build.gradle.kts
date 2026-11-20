@@ -35,5 +35,8 @@ dependencies {
     // Android sing-box core. Runtime lifecycle/CommandServer adapter is the next step.
     implementation("com.github.singbox-android:libbox:1.14.4")
 
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
