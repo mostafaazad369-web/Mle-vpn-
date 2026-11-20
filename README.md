@@ -23,7 +23,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - GitHub Actions workflow for unit tests and debug APK artifact generation
 
 ## Current limitations
-- Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected. Additional profiles are tried only when automatic failover is enabled, and only after end-to-end HTTPS verification.
+- Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; current V2Ray transports include WebSocket, gRPC, HTTP and HTTPUpgrade. QUIC, XHTTP and unsupported security options are rejected rather than silently downgraded. Additional profiles are tried only when automatic failover is enabled, and only after end-to-end HTTPS verification.
 - The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
