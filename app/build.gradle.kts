@@ -22,6 +22,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
