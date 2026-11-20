@@ -6,7 +6,7 @@ import java.security.MessageDigest
 
 /**
  * Small per-install route history. It stores measurements only (never profile
- * URLs, credentials or generated sing-box JSON). Scores decay through EWMA.
+ * URLs, credentials or generated sing-box JSON). New verification durations are smoothed with EWMA.
  */
 class MleRouteHealthStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("mle_route_health_v1", Context.MODE_PRIVATE)
@@ -14,7 +14,7 @@ class MleRouteHealthStore(context: Context) {
     data class Health(
         val attempts: Int,
         val successes: Int,
-        val latencyEwmaMs: Double?,
+        val verificationDurationEwmaMs: Double?,
         val consecutiveFailures: Int,
         val lastSuccessAtMs: Long
     ) {
@@ -27,7 +27,7 @@ class MleRouteHealthStore(context: Context) {
         return Health(
             attempts = json.optInt("attempts").coerceAtLeast(0),
             successes = json.optInt("successes").coerceAtLeast(0),
-            latencyEwmaMs = if (json.has("latency")) json.optDouble("latency").takeIf { it.isFinite() && it >= 0 } else null,
+            latencyEwmaMs = if (json.has("verificationMs")) json.optDouble("latency").takeIf { it.isFinite() && it >= 0 } else null,
             consecutiveFailures = json.optInt("failures").coerceAtLeast(0),
             lastSuccessAtMs = json.optLong("lastSuccess").coerceAtLeast(0)
         )
@@ -49,7 +49,7 @@ class MleRouteHealthStore(context: Context) {
         val h = read(id)
         val recencyBonus = if (h.lastSuccessAtMs > 0 &&
             System.currentTimeMillis() - h.lastSuccessAtMs < 24 * 60 * 60 * 1000L) 0.05 else 0.0
-        val latencyScore = h.latencyEwmaMs?.let { 1.0 / (1.0 + it / 500.0) } ?: 0.0
+        val verificationScore = h.latencyEwmaMs?.let { 1.0 / (1.0 + it / 500.0) } ?: 0.0
         val score = h.successRate * 0.65 + latencyScore * 0.30 + recencyBonus -
             h.consecutiveFailures.coerceAtMost(5) * 0.15
         id to score
