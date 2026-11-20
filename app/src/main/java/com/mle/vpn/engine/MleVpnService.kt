@@ -69,6 +69,8 @@ class MleVpnService : VpnService() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val profileIds = intent.getStringArrayListExtra(EXTRA_PROFILE_IDS).orEmpty()
+                val healthStore = MleRouteHealthStore(this)
                 val candidates = (intent.getStringArrayListExtra(EXTRA_CONFIG_CANDIDATES)
                     ?.filter { it.isNotBlank() }
                     ?.distinct()
@@ -89,6 +91,8 @@ class MleVpnService : VpnService() {
                     var lastFailure = "هیچ مسیر قابل استفاده‌ای پیدا نشد."
                     for ((index, candidateConfig) in candidates.withIndex()) {
                         if (stopping.get()) break
+                        val profileId = profileIds.getOrNull(index) ?: "unknown-$index"
+                        val attemptStartedAt = android.os.SystemClock.elapsedRealtime()
                         try {
                             MleVpnStatus.starting()
                             getSystemService(NotificationManager::class.java).notify(
@@ -104,6 +108,7 @@ class MleVpnService : VpnService() {
                             val failure = verifyInternetThroughVpn()
                             if (failure == null) {
                                 connected = true
+                                healthStore.recordSuccess(profileId, android.os.SystemClock.elapsedRealtime() - attemptStartedAt)
                                 MleVpnStatus.internetVerified()
                                 getSystemService(NotificationManager::class.java).notify(
                                     NOTIFICATION_ID,
@@ -112,11 +117,13 @@ class MleVpnService : VpnService() {
                                 break
                             }
                             lastFailure = failure
+                            healthStore.recordFailure(profileId)
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
                             runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
                         } catch (error: Exception) {
                             lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
+                            healthStore.recordFailure(profileId)
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
                             runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
@@ -335,6 +342,7 @@ class MleVpnService : VpnService() {
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
         const val EXTRA_CONFIG_CANDIDATES = "com.mle.vpn.extra.CONFIG_CANDIDATES"
+        const val EXTRA_PROFILE_IDS = "com.mle.vpn.extra.PROFILE_IDS"
         private const val MAX_FAILOVER_CANDIDATES = 3
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
