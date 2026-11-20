@@ -16,6 +16,7 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.VLESS -> buildVless(URI(profile.sourceUri))
         ProfileProtocol.TROJAN -> buildTrojan(URI(profile.sourceUri))
         ProfileProtocol.VMESS -> buildVmess(profile.sourceUri)
+        ProfileProtocol.SHADOWSOCKS -> buildShadowsocks(profile.sourceUri)
         else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
     }
 
@@ -94,6 +95,17 @@ object SingBoxOutboundBuilder {
             else -> error("انتقال Trojan هنوز پشتیبانی نمی‌شود.")
         }
         return out
+    }
+
+    private fun buildShadowsocks(raw: String): JSONObject {
+        val parsed = ShadowsocksLinkParser.parse(raw)
+        return JSONObject()
+            .put("type", "shadowsocks")
+            .put("tag", "proxy")
+            .put("server", parsed.host)
+            .put("server_port", requirePort(parsed.port))
+            .put("method", parsed.method)
+            .put("password", parsed.password)
     }
 
     private fun buildVmess(raw: String): JSONObject {
