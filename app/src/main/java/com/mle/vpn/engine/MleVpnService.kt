@@ -192,7 +192,7 @@ class MleVpnService : VpnService() {
             "MLE-VPN",
             "Underlying network configured: network=$candidate applied=$applied"
         )
-        selectedUnderlyingNetwork?.let { manager.getLinkProperties(it)?.interfaceName }
+        return selectedUnderlyingNetwork?.let { manager.getLinkProperties(it)?.interfaceName }
     }
 
     /** Resolve proxy hostnames on the captured physical network before the VPN TUN is installed. */
