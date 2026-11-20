@@ -12,6 +12,9 @@ import androidx.core.app.NotificationCompat
 import com.mle.vpn.MainActivity
 import com.mle.vpn.R
 import java.util.concurrent.atomic.AtomicBoolean
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
 
 /**
  * Android VPN service foundation.
@@ -150,9 +153,9 @@ data class TunConfig(
     init {
         require(mtu in 1280..9000) { "MTU must be between 1280 and 9000." }
         require(dnsServers.isNotEmpty()) { "At least one DNS server is required." }
-        require(dnsServers.all { address ->
-            address.isNotBlank() && address.length <= 45 && address.none(Char::isWhitespace)
-        }) { "DNS server entries must be non-empty IP literals." }
+        require(dnsServers.all(::isIpLiteral)) {
+            "DNS server entries must be valid IPv4 or IPv6 literals, not hostnames."
+        }
         require(allowedApplications.isEmpty() || disallowedApplications.isEmpty()) {
             "Allow-list and deny-list cannot be combined."
         }
@@ -166,5 +169,13 @@ data class TunConfig(
         require(disallowedApplications.distinct().size == disallowedApplications.size) {
             "Deny-list contains duplicate package names."
         }
+    }
+
+    private fun isIpLiteral(value: String): Boolean {
+        if (value.isBlank() || value.length > 45 || value.any { !(it.isDigit() || it == '.' || it == ':') }) {
+            return false
+        }
+        val parsed = runCatching { InetAddress.getByName(value) }.getOrNull()
+        return parsed is Inet4Address || parsed is Inet6Address
     }
 }
