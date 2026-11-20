@@ -67,6 +67,20 @@ object SingBoxOutboundBuilder {
             }
             "grpc" -> out.put("transport", JSONObject().put("type", "grpc")
                 .put("service_name", q["serviceName"] ?: q["servicename"] ?: ""))
+            "http", "h2" -> {
+                val transport = JSONObject().put("type", "http")
+                q["host"]?.takeIf { it.isNotBlank() }?.let {
+                    transport.put("host", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+                }
+                q["path"]?.let { transport.put("path", it) }
+                out.put("transport", transport)
+            }
+            "httpupgrade" -> {
+                val transport = JSONObject().put("type", "httpupgrade")
+                q["host"]?.takeIf { it.isNotBlank() }?.let { transport.put("host", it) }
+                q["path"]?.let { transport.put("path", it) }
+                out.put("transport", transport)
+            }
             else -> error("انتقال VLESS از نوع $type هنوز پشتیبانی نمی‌شود.")
         }
         return out
@@ -97,6 +111,20 @@ object SingBoxOutboundBuilder {
             }
             "grpc" -> out.put("transport", JSONObject().put("type", "grpc")
                 .put("service_name", q["serviceName"] ?: ""))
+            "http", "h2" -> {
+                val transport = JSONObject().put("type", "http")
+                q["host"]?.takeIf { it.isNotBlank() }?.let {
+                    transport.put("host", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+                }
+                q["path"]?.let { transport.put("path", it) }
+                out.put("transport", transport)
+            }
+            "httpupgrade" -> {
+                val transport = JSONObject().put("type", "httpupgrade")
+                q["host"]?.takeIf { it.isNotBlank() }?.let { transport.put("host", it) }
+                q["path"]?.let { transport.put("path", it) }
+                out.put("transport", transport)
+            }
             else -> error("انتقال Trojan هنوز پشتیبانی نمی‌شود.")
         }
         return out
@@ -290,6 +318,24 @@ object SingBoxOutboundBuilder {
             }
             "grpc" -> out.put("transport", JSONObject().put("type", "grpc")
                 .put("service_name", vmess.optString("path")))
+            "http", "h2" -> {
+                val transport = JSONObject().put("type", "http")
+                val hostHeader = vmess.optString("host")
+                if (hostHeader.isNotBlank()) {
+                    transport.put("host", JSONArray(hostHeader.split(',').map(String::trim)))
+                }
+                val path = vmess.optString("path")
+                if (path.isNotBlank()) transport.put("path", path)
+                out.put("transport", transport)
+            }
+            "httpupgrade" -> {
+                val transport = JSONObject().put("type", "httpupgrade")
+                val hostHeader = vmess.optString("host")
+                if (hostHeader.isNotBlank()) transport.put("host", hostHeader)
+                val path = vmess.optString("path")
+                if (path.isNotBlank()) transport.put("path", path)
+                out.put("transport", transport)
+            }
             else -> error("VMess transport is not supported: ${vmess.optString("net")}")
         }
         return out
