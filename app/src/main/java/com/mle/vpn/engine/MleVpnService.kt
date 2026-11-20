@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
+import android.net.Network
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -41,6 +42,8 @@ class MleVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
+    @Volatile private var selectedUnderlyingNetwork: Network? = null
+    internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
     override fun onCreate() {
         super.onCreate()
@@ -132,6 +135,7 @@ class MleVpnService : VpnService() {
                 !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         }
         val applied = setUnderlyingNetworks(candidate?.let { arrayOf(it) })
+        selectedUnderlyingNetwork = candidate.takeIf { applied }
         android.util.Log.i(
             "MLE-VPN",
             "Underlying network configured: network=$candidate applied=$applied"
