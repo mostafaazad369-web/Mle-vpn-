@@ -6,6 +6,9 @@ import android.net.NetworkCapabilities
 import android.net.VpnService
 import android.os.Build
 import android.os.Process
+import android.os.ParcelFileDescriptor
+import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 import android.system.OsConstants
 import io.nekohasekai.libbox.*
 import java.io.File
@@ -22,6 +25,7 @@ import java.net.NetworkInterface
  */
 class MlePlatformInterface(private val service: VpnService) : PlatformInterface {
     private val connectivity = service.getSystemService(ConnectivityManager::class.java)
+    private val networkCallbacks = ConcurrentHashMap<InterfaceUpdateListener, ConnectivityManager.NetworkCallback>()
 
     override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
     override fun autoDetectInterfaceControl(fd: Int) {
@@ -66,7 +70,8 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
         }
 
         val descriptor = checkNotNull(builder.establish()) { "Android failed to establish the VPN TUN interface." }
-        return descriptor.detachFd()
+        service.holdTunDescriptor(descriptor)
+        return descriptor.fd
     }
 
     override fun findConnectionOwner(
@@ -98,7 +103,8 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
             override fun onAvailable(network: Network) = reportNetwork(listener, network)
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = reportNetwork(listener, network)
         }
-        runCatching { connectivity.registerDefaultNetworkCallback(callback) }
+        networkCallbacks.put(listener, callback)?.let { old -> runCatching { connectivity.unregisterNetworkCallback(old) } }
+        connectivity.registerDefaultNetworkCallback(callback)
     }
 
     private fun reportNetwork(listener: InterfaceUpdateListener, network: Network) {
@@ -114,7 +120,7 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
     }
 
     override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
-        // Callback ownership is intentionally conservative; the monitor is re-created with service lifecycle.
+        networkCallbacks.remove(listener)?.let { callback -> runCatching { connectivity.unregisterNetworkCallback(callback) } }
     }
 
     override fun getInterfaces(): NetworkInterfaceIterator {
@@ -151,6 +157,11 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
         return MleNetworkInterfaceIterator(items.iterator())
     }
 
+    override fun sendNotification(notification: io.nekohasekai.libbox.Notification) {
+        Log.i(TAG, "sing-box notification: " + notification.title)
+    }
+    override fun cancelNotification(identifier: String, typeID: Int) = Unit
+
     override fun underNetworkExtension(): Boolean = false
     override fun includeAllNetworks(): Boolean = false
     override fun readWIFIState(): WIFIState? = null
@@ -186,6 +197,8 @@ internal class MleStringIterator(private val values: Iterator<String>) : StringI
     override fun hasNext(): Boolean = values.hasNext()
     override fun next(): String = values.next()
 }
+
+private const val TAG = "MLE-Platform"
 
 private class MleNetworkInterfaceIterator(
     private val values: Iterator<io.nekohasekai.libbox.NetworkInterface>
