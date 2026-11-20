@@ -26,6 +26,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import com.mle.vpn.profile.ImportedProfile
 import com.mle.vpn.profile.ProfileImporter
+import com.mle.vpn.profile.ProfileFailoverPlanner
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
@@ -90,12 +91,9 @@ private fun MleApp() {
             return
         }
         val orderedProfiles = if (automaticFailover) ProfileFailoverPlanner.order(profiles, profile.id) else listOf(profile)
-        val configs = runCatching { orderedProfiles.map { SingBoxConfigBuilder.build(it).toString() } }
-            .getOrElse { error ->
-                Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
-                return
-            }
-        val configCandidates = configs.getOrElse { error ->
+        val configCandidates = runCatching {
+            orderedProfiles.map { SingBoxConfigBuilder.build(it).toString() }
+        }.getOrElse { error ->
             Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
             return
         }
