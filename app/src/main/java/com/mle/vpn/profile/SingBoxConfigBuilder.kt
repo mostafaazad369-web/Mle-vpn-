@@ -10,6 +10,7 @@ import org.json.JSONObject
 object SingBoxConfigBuilder {
     fun build(profile: ImportedProfile): JSONObject {
         val proxy = SingBoxOutboundBuilder.build(profile)
+            .put("domain_resolver", "bootstrap")
         val inbounds = JSONArray().put(
             JSONObject()
                 .put("type", "tun")
@@ -32,8 +33,14 @@ object SingBoxConfigBuilder {
             .put("path", "/dns-query")
             .put("tls", JSONObject().put("enabled", true).put("server_name", "cloudflare-dns.com"))
             .put("detour", "proxy")
+        // Resolve the proxy endpoint through Android's underlying-network
+        // resolver first; otherwise DoH itself would detour through a proxy
+        // whose hostname may still need DNS (bootstrap recursion).
+        val bootstrapDns = JSONObject()
+            .put("type", "local")
+            .put("tag", "bootstrap")
         val dns = JSONObject()
-            .put("servers", JSONArray().put(dnsServer))
+            .put("servers", JSONArray().put(bootstrapDns).put(dnsServer))
             .put("final", "secure-dns")
             .put("strategy", "prefer_ipv4")
         // Android's VpnService owns the outer TUN. Tell sing-box to use
@@ -43,6 +50,7 @@ object SingBoxConfigBuilder {
             .put("final", "proxy")
             .put("auto_detect_interface", true)
             .put("override_android_vpn", true)
+            .put("default_domain_resolver", "bootstrap")
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
