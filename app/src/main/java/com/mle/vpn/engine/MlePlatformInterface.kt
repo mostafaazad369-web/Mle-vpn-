@@ -127,7 +127,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
         return ConnectionOwner().also {
             it.userId = uid
             it.userName = packages.firstOrNull() ?: ""
-            it.setAndroidPackageNames(MleStringIterator(packages.iterator()))
+            it.setAndroidPackageNames(MleStringIterator(packages))
         }
     }
 
@@ -172,9 +172,9 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 addresses = MleStringIterator(native.interfaceAddresses.map {
                     val address = if (it.address is Inet6Address) it.address.hostAddress.substringBefore("%") else it.address.hostAddress
                     "$address/${it.networkPrefixLength}"
-                }.iterator())
-                dnsServer = MleStringIterator(props.dnsServers.mapNotNull { it.hostAddress }.iterator())
-                gateway = MleStringIterator(props.routes.mapNotNull { it.gateway?.hostAddress }.iterator())
+                })
+                dnsServer = MleStringIterator(props.dnsServers.mapNotNull { it.hostAddress })
+                gateway = MleStringIterator(props.routes.mapNotNull { it.gateway?.hostAddress })
                 type = when {
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libbox.InterfaceTypeWIFI
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Libbox.InterfaceTypeCellular
@@ -221,10 +221,11 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
     override fun createBridge(options: BridgeOptions?): BridgeSession = error("Platform bridge is not supported.")
 }
 
-internal class MleStringIterator(private val values: Iterator<String>) : StringIterator {
-    override fun len(): Int = 0
-    override fun hasNext(): Boolean = values.hasNext()
-    override fun next(): String = values.next()
+internal class MleStringIterator(private val values: List<String>) : StringIterator {
+    private var index = 0
+    override fun len(): Int = values.size
+    override fun hasNext(): Boolean = index < values.size
+    override fun next(): String = values[index++]
 }
 
 private const val TAG = "MLE-Platform"
