@@ -20,13 +20,20 @@ class MleBoxRuntime(
     private val platform: MlePlatformInterface
 ) : CommandServerHandler {
     private var commandServer: CommandServer? = null
+    private var activeConfig: String? = null
     private val lifecycleMutex = Mutex()
 
     suspend fun start(configJson: String) = withContext(Dispatchers.IO) {
         lifecycleMutex.withLock {
             require(configJson.isNotBlank()) { "VPN configuration is empty." }
-            check(commandServer == null) { "sing-box is already running." }
             (service.application as MleApplication).ensureLibboxSetup()
+            commandServer?.let { running ->
+                if (activeConfig != configJson) {
+                    running.startOrReloadService(configJson, OverrideOptions())
+                    activeConfig = configJson
+                }
+                return@withLock
+            }
             Libbox.promoteOOMDraft()
             Libbox.discardPowerReportDraft()
             val server = CommandServer(this@MleBoxRuntime, platform)
@@ -34,6 +41,7 @@ class MleBoxRuntime(
                 server.start()
                 server.startOrReloadService(configJson, OverrideOptions())
                 commandServer = server
+                activeConfig = configJson
             } catch (error: Throwable) {
                 runCatching { server.closeService() }
                 runCatching { server.close() }
@@ -46,6 +54,7 @@ class MleBoxRuntime(
         lifecycleMutex.withLock {
             val server = commandServer ?: return@withLock
             commandServer = null
+            activeConfig = null
             runCatching { server.closeService() }
             runCatching { server.close() }
             Libbox.discardPowerReportDraft()
