@@ -60,7 +60,7 @@ class MleRouteHealthStoreTest {
         assertEquals(1, health.attempts)
         assertEquals(1, health.successes)
         assertEquals(0, health.consecutiveFailures)
-        assertEquals(120.0, health.latencyEwmaMs!!, 0.001)
+        assertEquals(120.0, health.verificationDurationEwmaMs!!, 0.001)
         val allPrefs = context.getSharedPreferences("mle_route_health_v1", Context.MODE_PRIVATE).all
         assertTrue(allPrefs.values.none { it.toString().contains("private-profile-id") })
     }
