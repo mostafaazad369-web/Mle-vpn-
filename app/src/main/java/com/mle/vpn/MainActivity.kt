@@ -76,7 +76,7 @@ private fun MleApp() {
             }
         }) { padding ->
             when (selectedTab) {
-                0 -> HomeScreen(selectedServer, { selectedTab = 1 }, { showNotice = true }, padding)
+                0 -> HomeScreen(selectedServer, profiles.size, { selectedTab = 1 }, { if (profiles.isEmpty()) showImport = true else showNotice = true }, padding)
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
                 2 -> ProfilesScreen(profiles, { showImport = true }, { id ->
                     vault.delete(id)
@@ -143,7 +143,7 @@ private fun MleApp() {
 }
 
 @Composable
-private fun HomeScreen(server: String, onServers: () -> Unit, onConnect: () -> Unit, padding: PaddingValues) {
+private fun HomeScreen(server: String, profileCount: Int, onServers: () -> Unit, onConnect: () -> Unit, padding: PaddingValues) {
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -170,7 +170,7 @@ private fun HomeScreen(server: String, onServers: () -> Unit, onConnect: () -> U
                     Icon(Icons.Default.PowerSettingsNew, null, tint = Mint, modifier = Modifier.size(58.dp))
                     Spacer(Modifier.height(8.dp))
                     Text("اتصال", color = Mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                    Text("آماده‌سازی", color = Muted, fontSize = 12.sp)
+                    Text(if (profileCount > 0) "$profileCount کانفیگ ذخیره‌شده" else "ابتدا کانفیگ اضافه کن", color = Muted, fontSize = 12.sp)
                 }
             }
         }
@@ -197,7 +197,7 @@ private fun HomeScreen(server: String, onServers: () -> Unit, onConnect: () -> U
             Icon(Icons.Default.ChevronLeft, null, tint = Muted)
         }
         Spacer(Modifier.height(22.dp))
-        Text("نسخه 1.0.0 • پیش‌نمایش رابط کاربری", color = Muted, fontSize = 11.sp)
+        Text("نسخه 1.0.0 • هسته اتصال در حال تکمیل", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(18.dp))
     }
 }
