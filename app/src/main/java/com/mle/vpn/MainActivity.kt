@@ -14,6 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalContext
+import com.mle.vpn.profile.ImportedProfile
+import com.mle.vpn.profile.ProfileImporter
+import com.mle.vpn.profile.ProfileParseResult
+import com.mle.vpn.profile.ProfileVault
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,13 +46,20 @@ private fun MleApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedServer by remember { mutableStateOf("بهترین موقعیت") }
     var showNotice by remember { mutableStateOf(false) }
+    var showImport by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
+    var importError by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val vault = remember { ProfileVault(context) }
+    var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
+    LaunchedEffect(Unit) { profiles = vault.loadAll() }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
         secondary = Violet, onBackground = Color.White, onSurface = Color.White
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "تنظیمات" to Icons.Default.Settings)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -66,8 +78,57 @@ private fun MleApp() {
             when (selectedTab) {
                 0 -> HomeScreen(selectedServer, { selectedTab = 1 }, { showNotice = true }, padding)
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
+                2 -> ProfilesScreen(profiles, { showImport = true }, { id ->
+                    vault.delete(id)
+                    profiles = vault.loadAll()
+                }, padding)
                 else -> SettingsScreen(padding)
             }
+        }
+        if (showImport) {
+            AlertDialog(
+                onDismissRequest = { showImport = false; importError = null },
+                containerColor = Panel,
+                title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("لینک اشتراک یا کانفیگ را وارد کن. اطلاعات اتصال به‌صورت رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = importText,
+                            onValueChange = { importText = it; importError = null },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3,
+                            placeholder = { Text("vless:// یا vmess:// ...") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                focusedBorderColor = Mint, unfocusedBorderColor = Muted,
+                                cursorColor = Mint
+                            )
+                        )
+                        importError?.let { Text(it, color = Color(0xFFFF7B86), fontSize = 12.sp) }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        when (val result = ProfileImporter.parse(importText)) {
+                            is ProfileParseResult.Success -> {
+                                vault.save(result.profile)
+                                profiles = vault.loadAll()
+                                importText = ""
+                                importError = null
+                                showImport = false
+                            }
+                            is ProfileParseResult.Failure -> importError = result.reason
+                        }
+                    }) { Text("ذخیره امن", color = Mint) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showImport = false; importError = null }) {
+                        Text("انصراف", color = Muted)
+                    }
+                }
+            )
         }
         if (showNotice) {
             AlertDialog(
@@ -173,5 +234,53 @@ private fun SettingsScreen(padding: PaddingValues) {
                 Icon(Icons.Default.ChevronLeft, null, tint = Muted)
             }
         }
+    }
+}
+
+
+@Composable
+private fun ProfilesScreen(
+    profiles: List<ImportedProfile>,
+    onAdd: () -> Unit,
+    onDelete: (String) -> Unit,
+    padding: PaddingValues
+) {
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)
+    ) {
+        Text("کانفیگ‌های من", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("پروفایل‌ها روی همین دستگاه رمزگذاری‌شده ذخیره می‌شوند.", color = Muted, fontSize = 13.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+        Button(onClick = onAdd, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
+            Icon(Icons.Default.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("افزودن کانفیگ")
+        }
+        Spacer(Modifier.height(18.dp))
+        if (profiles.isEmpty()) {
+            Box(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(24.dp), contentAlignment = Alignment.Center) {
+                Text("هنوز کانفیگی اضافه نشده است.", color = Muted)
+            }
+        } else {
+            profiles.forEach { profile ->
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        .background(Panel, RoundedCornerShape(16.dp)).padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.VpnKey, null, tint = Mint)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(profile.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("${profile.protocol} • ${profile.host}:${profile.port}", color = Muted, fontSize = 11.sp)
+                    }
+                    IconButton(onClick = { onDelete(profile.id) }) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color(0xFFFF7B86))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("توجه: ذخیره کانفیگ فعال است؛ اتصال واقعی پس از تکمیل آداپتور libbox در دسترس قرار می‌گیرد.", color = Muted, fontSize = 12.sp)
     }
 }
