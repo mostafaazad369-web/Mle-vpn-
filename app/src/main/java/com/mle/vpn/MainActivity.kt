@@ -19,7 +19,9 @@ import com.mle.vpn.profile.ImportedProfile
 import com.mle.vpn.profile.ProfileImporter
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
+import com.mle.vpn.profile.SubscriptionFetcher
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,6 +51,8 @@ private fun MleApp() {
     var showImport by remember { mutableStateOf(false) }
     var importText by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf<String?>(null) }
+    var importing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
@@ -92,14 +96,14 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("یک لینک، چند لینک در خطوط جداگانه یا متن اشتراک Base64 را وارد کن. اطلاعات اتصال رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
+                        Text("لینک HTTPS اشتراک، چند لینک در خطوط جداگانه یا متن Base64 را وارد کن. اطلاعات اتصال رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
                             onValueChange = { importText = it; importError = null },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3,
-                            placeholder = { Text("vless:// ...\nvmess:// ...\nیا متن اشتراک Base64") },
+                            placeholder = { Text("https://example.com/subscription\nvless:// ...\nیا متن اشتراک Base64") },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                                 focusedBorderColor = Mint, unfocusedBorderColor = Muted,
@@ -110,11 +114,16 @@ private fun MleApp() {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        runCatching { ProfileImporter.parseBatch(importText) }
-                            .onSuccess { batch ->
+                    TextButton(enabled = !importing, onClick = {
+                        importing = true
+                        importError = null
+                        scope.launch {
+                            runCatching {
+                                val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
+                                ProfileImporter.parseBatch(source)
+                            }.onSuccess { batch ->
                                 if (batch.profiles.isEmpty()) {
-                                    importError = "کانفیگ قابل‌قبولی پیدا نشد؛ فرمت لینک‌ها را بررسی کن."
+                                    importError = "کانفیگ قابل‌قبولی پیدا نشد؛ ${batch.rejectedCount} مورد رد شد."
                                 } else {
                                     batch.profiles.forEach(vault::save)
                                     profiles = vault.loadAll()
@@ -122,11 +131,12 @@ private fun MleApp() {
                                     importError = null
                                     showImport = false
                                 }
-                            }
-                            .onFailure { error ->
+                            }.onFailure { error ->
                                 importError = error.message ?: "ورود کانفیگ انجام نشد."
                             }
-                    }) { Text("ذخیره امن", color = Mint) }
+                            importing = false
+                        }
+                    }) { Text(if (importing) "در حال دریافت..." else "دریافت و ذخیره امن", color = Mint) }
                 },
                 dismissButton = {
                     TextButton(onClick = { showImport = false; importError = null }) {
