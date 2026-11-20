@@ -5,8 +5,10 @@ import android.app.Activity
 import android.net.VpnService
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +32,7 @@ import com.mle.vpn.profile.SubscriptionFetcher
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
+import com.mle.vpn.engine.MleVpnService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
@@ -67,20 +70,50 @@ private fun MleApp() {
     var exportProfile by remember { mutableStateOf<ImportedProfile?>(null) }
     var vpnPermissionGranted by remember { mutableStateOf(false) }
     var vpnPermissionMessage by remember { mutableStateOf("اجازه VPN هنوز بررسی نشده است.") }
-    val vpnPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        vpnPermissionGranted = result.resultCode == Activity.RESULT_OK
-        vpnPermissionMessage = if (vpnPermissionGranted) {
-            "اجازه سیستم صادر شد؛ اما موتور اتصال sing-box هنوز به سرویس متصل نشده و ترافیک شما از VPN عبور نمی‌کند."
-        } else {
-            "درخواست اجازه VPN لغو شد؛ هیچ تونلی فعال نشده است."
-        }
-        showNotice = true
-    }
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
+
+    fun startSelectedProfile() {
+        val profile = profiles.firstOrNull()
+        if (profile == null) {
+            showImport = true
+            return
+        }
+        val config = runCatching { SingBoxConfigBuilder.build(profile).toString() }
+            .getOrElse { error ->
+                Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
+                return
+            }
+        val serviceIntent = Intent(context, MleVpnService::class.java).apply {
+            action = MleVpnService.ACTION_START
+            putExtra(MleVpnService.EXTRA_CONFIG, config)
+        }
+        runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
+            .onSuccess {
+                vpnPermissionGranted = true
+                vpnPermissionMessage = "درخواست راه‌اندازی موتور sing-box ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
+                showNotice = true
+            }
+            .onFailure { error ->
+                vpnPermissionGranted = false
+                vpnPermissionMessage = error.message ?: "راه‌اندازی سرویس VPN ناموفق بود."
+                showNotice = true
+            }
+    }
+
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            vpnPermissionGranted = true
+            startSelectedProfile()
+        } else {
+            vpnPermissionGranted = false
+            vpnPermissionMessage = "درخواست اجازه VPN لغو شد؛ تونلی فعال نشده است."
+            showNotice = true
+        }
+    }
     LaunchedEffect(Unit) { profiles = vault.loadAll() }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -111,9 +144,7 @@ private fun MleApp() {
                     } else {
                         val permissionIntent = VpnService.prepare(context)
                         if (permissionIntent == null) {
-                            vpnPermissionGranted = true
-                            vpnPermissionMessage = "اجازه سیستم قبلاً صادر شده است؛ اما موتور اتصال sing-box هنوز به سرویس متصل نشده و ترافیک شما از VPN عبور نمی‌کند."
-                            showNotice = true
+                            startSelectedProfile()
                         } else {
                             vpnPermissionLauncher.launch(permissionIntent)
                         }
