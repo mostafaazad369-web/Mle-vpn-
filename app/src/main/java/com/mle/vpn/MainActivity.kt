@@ -1,6 +1,9 @@
 package com.mle.vpn
 
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -21,6 +24,7 @@ import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
 import com.mle.vpn.profile.SingBoxOutboundBuilder
+import com.mle.vpn.profile.SingBoxConfigBuilder
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -53,6 +57,7 @@ private fun MleApp() {
     var importText by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
+    var exportProfile by remember { mutableStateOf<ImportedProfile?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val vault = remember { ProfileVault(context) }
@@ -83,12 +88,32 @@ private fun MleApp() {
             when (selectedTab) {
                 0 -> HomeScreen(selectedServer, profiles.size, { selectedTab = 1 }, { if (profiles.isEmpty()) showImport = true else showNotice = true }, padding)
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
-                2 -> ProfilesScreen(profiles, { showImport = true }, { id ->
+                2 -> ProfilesScreen(profiles, { showImport = true }, { profile -> exportProfile = profile }, { id ->
                     vault.delete(id)
                     profiles = vault.loadAll()
                 }, padding)
                 else -> SettingsScreen(padding)
             }
+        }
+        exportProfile?.let { profile ->
+            AlertDialog(
+                onDismissRequest = { exportProfile = null },
+                containerColor = Panel,
+                title = { Text("پیکربندی sing-box", color = Mint, fontWeight = FontWeight.Bold) },
+                text = { Text("پیکربندی JSON برای بازبینی و خروجی ساخته می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val json = SingBoxConfigBuilder.build(profile).toString(2)
+                        val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        clipboard.setPrimaryClip(ClipData.newPlainText("MLE sing-box config", json))
+                        Toast.makeText(context, "پیکربندی در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
+                        exportProfile = null
+                    }) { Text("کپی JSON", color = Mint) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exportProfile = null }) { Text("بستن", color = Muted) }
+                }
+            )
         }
         if (showImport) {
             AlertDialog(
@@ -265,6 +290,7 @@ private fun SettingsScreen(padding: PaddingValues) {
 private fun ProfilesScreen(
     profiles: List<ImportedProfile>,
     onAdd: () -> Unit,
+    onExport: (ImportedProfile) -> Unit,
     onDelete: (String) -> Unit,
     padding: PaddingValues
 ) {
@@ -296,6 +322,9 @@ private fun ProfilesScreen(
                     Column(Modifier.weight(1f)) {
                         Text(profile.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
                         Text("${profile.protocol} • ${profile.host}:${profile.port}", color = Muted, fontSize = 11.sp)
+                    }
+                    IconButton(onClick = { onExport(profile) }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "خروجی JSON", tint = Violet)
                     }
                     IconButton(onClick = { onDelete(profile.id) }) {
                         Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color(0xFFFF7B86))
