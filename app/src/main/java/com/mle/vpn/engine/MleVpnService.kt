@@ -82,7 +82,7 @@ class MleVpnService : VpnService() {
     }
 
     /**
-     * Called by the future libbox PlatformInterface.OpenTun adapter only after
+     * Called by the libbox PlatformInterface.openTun adapter only after
      * the packet engine has been started and its configuration validated.
      */
     @Synchronized
