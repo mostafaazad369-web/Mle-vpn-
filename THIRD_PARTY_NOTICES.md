@@ -18,7 +18,7 @@ Any APK distributing this dependency must comply with GPL-3.0, including providi
 - Integrated release: `v26.11.9` (`libv2ray.aar`)
 - Release asset SHA-256: `cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155`
 - AndroidLibXrayLite license: GNU LGPL v3.0 (see [licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt))
-- Xray-core license: Mozilla Public License 2.0; see upstream source distribution.
+- Xray-core license: Mozilla Public License 2.0 (see [licenses/MPL-2.0-Xray-core.txt](licenses/MPL-2.0-Xray-core.txt)).
 
 The build downloads the pinned AAR, verifies its SHA-256 digest, and applies the attributed, same-length gomobile namespace repackaging in [scripts/repackage-gomobile-aar.py](scripts/repackage-gomobile-aar.py) so its gomobile runtime does not collide with the existing sing-box AAR. The resulting AAR is generated under the Gradle build directory and is not committed. Python 3 is required for this build step.
 
