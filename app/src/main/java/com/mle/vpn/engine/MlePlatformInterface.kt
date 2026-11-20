@@ -40,21 +40,30 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
         val builder = service.Builder().setSession("MLE VPN").setMtu(options.mtu)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
+        var ipv4AddressCount = 0
         val ipv4 = options.inet4Address
         while (ipv4.hasNext()) {
             val address = ipv4.next()
             builder.addAddress(address.address(), address.prefix())
+            ipv4AddressCount++
         }
+        var ipv6AddressCount = 0
         val ipv6 = options.inet6Address
         while (ipv6.hasNext()) {
             val address = ipv6.next()
             builder.addAddress(address.address(), address.prefix())
+            ipv6AddressCount++
         }
 
+        var dnsCount = 0
+        var routeCount = 0
         if (options.autoRoute) {
             if (options.dnsMode.value != Libbox.DNSModeDisabled) {
                 val dns = options.dnsServerAddress
-                while (dns.hasNext()) builder.addDnsServer(dns.next())
+                while (dns.hasNext()) {
+                    builder.addDnsServer(dns.next())
+                    dnsCount++
+                }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val v4Routes = options.inet4RouteAddress
@@ -62,9 +71,11 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     while (v4Routes.hasNext()) {
                         val route = v4Routes.next()
                         builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                        routeCount++
                     }
                 } else if (options.inet4Address.hasNext()) {
                     builder.addRoute("0.0.0.0", 0)
+                    routeCount++
                 }
                 val v6Routes = options.inet6RouteAddress
                 if (v6Routes.hasNext()) {
@@ -74,6 +85,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     }
                 } else if (options.inet6Address.hasNext()) {
                     builder.addRoute("::", 0)
+                    routeCount++
                 }
                 val v4Excluded = options.inet4RouteExcludeAddress
                 while (v4Excluded.hasNext()) {
@@ -90,6 +102,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 while (v4Routes.hasNext()) {
                     val route = v4Routes.next()
                     builder.addRoute(route.address(), route.prefix())
+                    routeCount++
                 }
                 val v6Routes = options.inet6RouteRange
                 while (v6Routes.hasNext()) {
