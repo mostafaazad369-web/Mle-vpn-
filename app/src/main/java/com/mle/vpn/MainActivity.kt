@@ -92,18 +92,27 @@ private fun MleApp() {
             showImport = true
             return
         }
-        val orderedProfiles = if (automaticFailover) ProfileFailoverPlanner.order(profiles, profile.id) else listOf(profile)
-        val configCandidates = orderedProfiles.mapNotNull { candidate ->
-            runCatching { SingBoxConfigBuilder.build(candidate).toString() }.getOrNull()
+        val orderedProfiles = if (automaticFailover) {
+            val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
+            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { it.id })
+            val ranked = rankedIds.mapNotNull { id -> bounded.firstOrNull { it.id == id } }
+            listOfNotNull(bounded.firstOrNull { it.id == profile.id }) +
+                ranked.filterNot { it.id == profile.id }
+        } else listOf(profile)
+        val validCandidates = orderedProfiles.mapNotNull { candidate ->
+            runCatching { candidate to SingBoxConfigBuilder.build(candidate).toString() }.getOrNull()
         }
-        if (configCandidates.isEmpty()) {
+        if (validCandidates.isEmpty()) {
             Toast.makeText(context, "هیچ‌یک از پروفایل‌های انتخاب‌شده کانفیگ قابل‌اجرا نداشت.", Toast.LENGTH_LONG).show()
             return
         }
+        val configCandidates = validCandidates.map { it.second }
+        val candidateProfileIds = validCandidates.map { it.first.id }
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
             action = MleVpnService.ACTION_START
             putExtra(MleVpnService.EXTRA_CONFIG, configCandidates.first())
             putStringArrayListExtra(MleVpnService.EXTRA_CONFIG_CANDIDATES, ArrayList(configCandidates))
+            putStringArrayListExtra(MleVpnService.EXTRA_PROFILE_IDS, ArrayList(candidateProfileIds))
         }
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
