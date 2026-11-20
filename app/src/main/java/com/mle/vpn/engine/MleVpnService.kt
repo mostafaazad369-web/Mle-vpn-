@@ -57,6 +57,7 @@ class MleVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 stopping.set(false)
+                MleVpnStatus.starting()
                 startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
                 if (!::boxRuntime.isInitialized) {
                     boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
@@ -64,11 +65,13 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     runCatching { boxRuntime.start(config) }
                         .onSuccess {
+                            MleVpnStatus.tunnelActive()
                             getSystemService(NotificationManager::class.java)
-                                .notify(NOTIFICATION_ID, buildNotification("موتور sing-box فعال شد"))
+                                .notify(NOTIFICATION_ID, buildNotification("تونل VPN فعال شد"))
                         }
                         .onFailure { error ->
                             android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
+                            MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
                             runCatching { boxRuntime.stop() }
                             stopTunnelResources()
                             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -126,6 +129,7 @@ class MleVpnService : VpnService() {
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
+            MleVpnStatus.disconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -149,6 +153,7 @@ class MleVpnService : VpnService() {
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
+            MleVpnStatus.disconnected()
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
