@@ -129,7 +129,7 @@ class MleVpnService : VpnService() {
                             stopTunnelResources(markStopping = false)
                         } catch (error: Exception) {
                             lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
-                            healthStore.recordFailure(profileId)
+                            healthStore.recordFailure("$engineId:$profileId")
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
                             runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
