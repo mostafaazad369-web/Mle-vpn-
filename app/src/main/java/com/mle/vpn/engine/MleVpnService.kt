@@ -113,12 +113,12 @@ class MleVpnService : VpnService() {
                             lastFailure = failure
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
                             runCatching { boxRuntime.stop() }
-                            stopTunnelResources()
+                            stopTunnelResources(markStopping = false)
                         } catch (error: Exception) {
                             lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
                             runCatching { boxRuntime.stop() }
-                            stopTunnelResources()
+                            stopTunnelResources(markStopping = false)
                         }
                     }
                     if (!connected) {
@@ -258,8 +258,8 @@ class MleVpnService : VpnService() {
     }
 
     @Synchronized
-    private fun stopTunnelResources() {
-        stopping.set(true)
+    private fun stopTunnelResources(markStopping: Boolean = true) {
+        if (markStopping) stopping.set(true)
         runCatching { tun?.close() }
         tun = null
     }
