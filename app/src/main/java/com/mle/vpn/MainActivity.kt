@@ -76,6 +76,9 @@ private fun MleApp() {
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
+    var telegramSources by remember { mutableStateOf(emptyList<String>()) }
+    var fetchingSource by remember { mutableStateOf<String?>(null) }
+    var sourceStatus by remember { mutableStateOf<String?>(null) }
 
     fun startSelectedProfile() {
         val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
@@ -118,6 +121,7 @@ private fun MleApp() {
     LaunchedEffect(Unit) {
         profiles = vault.loadAll()
         selectedProfileId = profiles.firstOrNull()?.id
+        telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -125,7 +129,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -194,7 +198,37 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                else -> SettingsScreen(padding)
+                3 -> SettingsScreen(padding)
+                else -> TelegramSourcesScreen(
+                    sources = telegramSources,
+                    fetchingSource = fetchingSource,
+                    status = sourceStatus,
+                    onFetch = { channel ->
+                        if (fetchingSource == null) {
+                            fetchingSource = channel
+                            sourceStatus = null
+                            scope.launch {
+                                runCatching {
+                                    val links = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
+                                    val batch = ProfileImporter.parseBatch(links)
+                                    val existing = profiles.map { it.sourceUri }.toSet()
+                                    val supported = batch.profiles.filter { profile ->
+                                        profile.sourceUri !in existing &&
+                                            runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    }
+                                    supported.forEach(vault::save)
+                                    profiles = vault.loadAll()
+                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
+                                    "$channel: ${supported.size} کانفیگ جدید ذخیره شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود."
+                                }.onSuccess { sourceStatus = it }
+                                    .onFailure { sourceStatus = "$channel: ${it.message ?: "دریافت منبع ناموفق بود."}" }
+                                fetchingSource = null
+                            }
+                        }
+                    },
+                    padding = padding
+                )
             }
         }
         exportProfile?.let { profile ->
@@ -380,6 +414,55 @@ private fun ServerScreen(selected: String, onSelect: (String) -> Unit, padding: 
             }
         }
         Text("این موارد فعلاً گزینه‌های نمایشی هستند؛ سرور واقعی پس از اتصال موتور VPN اضافه می‌شود.", color = Muted, fontSize = 12.sp)
+    }
+}
+
+
+@Composable
+private fun TelegramSourcesScreen(
+    sources: List<String>,
+    fetchingSource: String?,
+    status: String?,
+    onFetch: (String) -> Unit,
+    padding: PaddingValues
+) {
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)
+    ) {
+        Text("منابع تلگرام", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("${sources.size} منبع عمومی در فهرست؛ دریافت فقط با انتخاب خودت انجام می‌شود.", color = Muted, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
+        Text("این نام‌ها از فهرست اولیه وارد شده‌اند و فعال یا معتبر بودن همه آن‌ها تضمین نشده است. فقط پیش‌نمایش عمومی t.me خوانده می‌شود؛ کانال خصوصی یا ورود به حساب تلگرام پشتیبانی نمی‌شود.", color = Muted, fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 16.dp))
+        status?.let {
+            Text(it, color = Mint, fontSize = 12.sp, modifier = Modifier.fillMaxWidth()
+                .background(Panel, RoundedCornerShape(12.dp)).padding(12.dp))
+            Spacer(Modifier.height(12.dp))
+        }
+        sources.forEach { channel ->
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    .background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("@$channel", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    Text("پیش‌نمایش عمومی تلگرام", color = Muted, fontSize = 10.sp)
+                }
+                OutlinedButton(
+                    onClick = { onFetch(channel) },
+                    enabled = fetchingSource == null,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint)
+                ) {
+                    if (fetchingSource == channel) {
+                        CircularProgressIndicator(Modifier.size(14.dp), color = Mint, strokeWidth = 2.dp)
+                    } else {
+                        Text("دریافت", fontSize = 11.sp)
+                    }
+                }
+            }
+        }
     }
 }
 
