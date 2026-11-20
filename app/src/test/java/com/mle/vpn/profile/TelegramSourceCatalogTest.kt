@@ -1,6 +1,5 @@
 package com.mle.vpn.profile
 
-import android.app.Application
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 class TelegramSourceCatalogTest {
     @Test
     fun loadsOneHundredUniqueSafeChannelNames() {
-        val app = RuntimeEnvironment.getApplication<Application>()
+        val app = RuntimeEnvironment.getApplication()
         val sources = TelegramSourceCatalog.load(app.assets)
         assertEquals(100, sources.size)
         assertEquals(100, sources.distinctBy(String::lowercase).size)
