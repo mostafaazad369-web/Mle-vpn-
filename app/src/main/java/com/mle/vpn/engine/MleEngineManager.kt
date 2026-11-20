@@ -23,7 +23,7 @@ class SingBoxEngineAdapter(
     override val id: String = "sing-box"
     override val displayName: String = "sing-box"
 
-    override suspend fun start(config: String) = runtime.start(config)
+    override suspend fun start(config: String) { runtime.start(config) }
     override suspend fun stop() = runtime.stop()
 }
 
