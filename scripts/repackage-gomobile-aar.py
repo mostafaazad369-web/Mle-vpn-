@@ -3,12 +3,12 @@
 # https://github.com/mlmvpn/mlmvpn_android/blob/main/scripts/repackage-psiphon-aar.py
 # Licensed under GNU GPLv3; preserve visible attribution to mlmvpn.
 """
-Move Xray's bundled gomobile runtime out of the `go` namespace.
+Move Xray's bundled gomobile runtime out of the `go` namespace to avoid collisions with sing-box.
 
 WHY THIS EXISTS
 ---------------
 This APK carries two gomobile-built libraries: `libv2ray.aar` (Xray) and
-`xraytunnel-<ver>.aar` (Xray's Go controller). gomobile gives every library it
+`libv2ray.aar` (Xray's Go controller). gomobile gives every library it
 builds the SAME two things:
 
   * the Java runtime classes `go.Seq`, `go.Universe`, `go.error`
@@ -17,14 +17,14 @@ builds the SAME two things:
 so putting both in one APK fails twice over -- `Duplicate class go.Seq` at compile time,
 and `2 files found with path lib/arm64-v8a/libgojni.so` at packaging time. Neither is a
 merge conflict that a packaging rule can resolve: the two `libgojni.so` are different Go
-programs (35 MB of Xray, 31 MB of Xray), so `pickFirst` would silently ship one and
+programs (the Xray core), so `pickFirst` would silently ship one and
 leave every native method of the other unresolvable at runtime. That is a crash on first
 use of whichever core lost, with nothing at build time to warn about it.
 
 WHAT IT DOES
 ------------
 Rewrites the Xray AAR so its runtime lives in `pg` instead of `go` and its native
-library is `libpgjni.so` instead of `libgojni.so`. Xray's copy is left untouched, so the
+library is `libpgjni.so` instead of `libgojni.so`. sing-box's copy is left untouched, so the
 two no longer collide anywhere.
 
 Every replacement is BYTE-FOR-BYTE THE SAME LENGTH -- `go` -> `pg`, `gojni` -> `pgjni` --
