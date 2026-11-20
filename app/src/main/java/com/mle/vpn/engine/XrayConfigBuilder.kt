@@ -122,9 +122,11 @@ object XrayConfigBuilder {
         source.optJSONObject("tls")?.takeIf { it.optBoolean("enabled") }?.let { tls ->
             val reality = tls.optJSONObject("reality")
             if (reality != null && reality.optBoolean("enabled")) {
+                val serverName = tls.optString("server_name")
+                require(serverName.isNotBlank()) { "Reality server name (SNI) is required." }
                 stream.put("security", "reality")
                 val realitySettings = JSONObject()
-                    .put("serverName", tls.optString("server_name"))
+                    .put("serverName", serverName)
                     .put("publicKey", reality.getString("public_key"))
                     .put("shortId", reality.optString("short_id"))
                 tls.optJSONObject("utls")?.takeIf { it.optBoolean("enabled") }
