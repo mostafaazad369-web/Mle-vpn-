@@ -54,9 +54,10 @@ class MleEngineManager(adapters: List<MleEngineAdapter>) {
         require(config.isNotBlank()) { "VPN configuration is empty." }
         val next = engines[engineId]
             ?: error("موتور $engineId در این نسخه نصب یا فعال نشده است.")
-        if (activeEngine !== next) {
-            activeEngine?.stop()
+        val previous = activeEngine
+        if (previous != null) {
             activeEngine = null
+            previous.stop()
         }
         next.start(config)
         activeEngine = next
