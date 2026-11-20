@@ -36,8 +36,13 @@ object SingBoxConfigBuilder {
             .put("servers", JSONArray().put(dnsServer))
             .put("final", "secure-dns")
             .put("strategy", "prefer_ipv4")
+        // Android's VpnService owns the outer TUN. Tell sing-box to use
+        // the Android VPN as the upstream path and bind proxy sockets to the
+        // detected underlying network, avoiding a route loop / black-holed TUN.
         val route = JSONObject()
             .put("final", "proxy")
+            .put("auto_detect_interface", true)
+            .put("override_android_vpn", true)
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
