@@ -60,7 +60,7 @@ The planner must never treat a TCP port-open result, a successful JSON schema ch
 The existing libbox dependency is GPL-3.0. Any additional engine must be reviewed for compatible licensing, redistribution terms and required attribution before it is bundled into an APK. MLM VPN source code must not be copied unless its licence and attribution conditions are met.
 
 ## Build
-Use Android Studio with JDK 17, Android SDK Platform 35, Gradle 8.9 or newer compatible with the Android Gradle Plugin, and Python 3. Gradle downloads the pinned Xray AAR, verifies its SHA-256 checksum, and uses it directly. The AAR is generated under `app/build/` and is not committed. The GitHub Actions workflow runs unit tests and uploads a debug APK artifact after a successful build.
+Use Android Studio with JDK 17, Android SDK Platform 35, Gradle 8.9 or newer compatible with the Android Gradle Plugin. Gradle downloads the pinned Xray AAR, verifies its SHA-256 checksum, and uses it directly. The AAR is generated under `app/build/` and is not committed. The GitHub Actions workflow runs unit tests and uploads a debug APK artifact after a successful build.
 
 ## Runtime notes
 See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
