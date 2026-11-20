@@ -2,6 +2,7 @@ package com.mle.vpn.engine
 
 import android.content.Context
 import org.json.JSONObject
+import java.security.MessageDigest
 
 /**
  * Small per-install route history. It stores measurements only (never profile
@@ -65,5 +66,8 @@ class MleRouteHealthStore(context: Context) {
         prefs.edit().putString(key(id), json.toString()).apply()
     }
 
-    private fun key(id: String) = "route_" + id.hashCode().toUInt().toString(16)
+    private fun key(id: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(id.toByteArray(Charsets.UTF_8))
+        return "route_" + digest.take(16).joinToString("") { "%02x".format(it) }
+    }
 }
