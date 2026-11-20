@@ -17,6 +17,8 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.TROJAN -> buildTrojan(URI(profile.sourceUri))
         ProfileProtocol.VMESS -> buildVmess(profile.sourceUri)
         ProfileProtocol.SHADOWSOCKS -> buildShadowsocks(profile.sourceUri)
+        ProfileProtocol.HYSTERIA2 -> buildHysteria2(URI(profile.sourceUri))
+        ProfileProtocol.TUIC -> buildTuic(URI(profile.sourceUri))
         else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
     }
 
@@ -106,6 +108,75 @@ object SingBoxOutboundBuilder {
             .put("server_port", requirePort(parsed.port))
             .put("method", parsed.method)
             .put("password", parsed.password)
+    }
+
+    private fun buildHysteria2(uri: URI): JSONObject {
+        val password = uri.rawUserInfo?.let(::decode)?.takeIf { it.isNotBlank() }
+            ?: error("رمز عبور Hysteria2 وجود ندارد.")
+        val q = query(uri.rawQuery)
+        val out = JSONObject().put("type", "hysteria2").put("tag", "proxy")
+            .put("server", uri.host ?: error("آدرس سرور Hysteria2 معتبر نیست."))
+            .put("server_port", requirePort(uri.port))
+            .put("password", password)
+        val tls = JSONObject().put("enabled", true)
+        q["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
+        q["alpn"]?.takeIf { it.isNotBlank() }?.let {
+            tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+        }
+        if (q["insecure"] == "1" || q["allowInsecure"] == "1" || q["allow_insecure"] == "1") {
+            tls.put("insecure", true)
+        }
+        out.put("tls", tls)
+        val obfsType = q["obfs"]?.takeIf { it.isNotBlank() }
+        val obfsPassword = q["obfs-password"] ?: q["obfs_password"]
+        if (obfsType != null) {
+            require(obfsType == "salamander") { "نوع obfuscation در Hysteria2 پشتیبانی نمی‌شود: $obfsType" }
+            require(!obfsPassword.isNullOrBlank()) { "رمز obfuscation برای Hysteria2 وجود ندارد." }
+            out.put("obfs", JSONObject().put("type", obfsType).put("password", obfsPassword))
+        } else {
+            require(obfsPassword.isNullOrBlank()) { "رمز obfuscation بدون تعیین نوع آن معتبر نیست." }
+        }
+        q["upmbps"]?.toIntOrNull()?.let { require(it > 0); out.put("up_mbps", it) }
+        q["downmbps"]?.toIntOrNull()?.let { require(it > 0); out.put("down_mbps", it) }
+        return out
+    }
+
+    private fun buildTuic(uri: URI): JSONObject {
+        val credentials = uri.rawUserInfo?.let(::decode)
+            ?: error("اطلاعات ورود TUIC وجود ندارد.")
+        val separator = credentials.indexOf(':')
+        require(separator > 0 && separator < credentials.lastIndex) {
+            "لینک TUIC باید شامل UUID و رمز عبور باشد."
+        }
+        val uuid = credentials.substring(0, separator)
+        require(runCatching { java.util.UUID.fromString(uuid) }.isSuccess) {
+            "UUID کانفیگ TUIC معتبر نیست."
+        }
+        val password = credentials.substring(separator + 1)
+        val q = query(uri.rawQuery)
+        val congestion = q["congestion_control"] ?: q["congestion-control"] ?: "cubic"
+        require(congestion in setOf("cubic", "new_reno", "bbr")) {
+            "الگوریتم کنترل ازدحام TUIC پشتیبانی نمی‌شود."
+        }
+        val out = JSONObject().put("type", "tuic").put("tag", "proxy")
+            .put("server", uri.host ?: error("آدرس سرور TUIC معتبر نیست."))
+            .put("server_port", requirePort(uri.port))
+            .put("uuid", uuid).put("password", password)
+            .put("congestion_control", congestion)
+            .put("udp_relay_mode", q["udp_relay_mode"] ?: q["udp-relay-mode"] ?: "native")
+            .put("zero_rtt_handshake", false)
+        val relayMode = out.getString("udp_relay_mode")
+        require(relayMode in setOf("native", "quic")) { "حالت UDP در TUIC معتبر نیست." }
+        val tls = JSONObject().put("enabled", true)
+        q["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
+        if (q["insecure"] == "1" || q["allowInsecure"] == "1" || q["allow_insecure"] == "1") {
+            tls.put("insecure", true)
+        }
+        q["alpn"]?.takeIf { it.isNotBlank() }?.let {
+            tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+        }
+        out.put("tls", tls)
+        return out
     }
 
     private fun buildVmess(raw: String): JSONObject {
