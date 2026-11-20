@@ -116,8 +116,10 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
             while (exclude.hasNext()) runCatching { builder.addDisallowedApplication(exclude.next()) }
         }
 
+        Log.i(TAG, "Opening TUN: mtu=${options.mtu}, autoRoute=${options.autoRoute}, addresses=$addressCount, dns=$dnsCount, routes=$routeCount")
         val descriptor = checkNotNull(builder.establish()) { "Android failed to establish the VPN TUN interface." }
         service.holdTunDescriptor(descriptor)
+        Log.i(TAG, "Android TUN established, fd=${descriptor.fd}")
         return descriptor.fd
     }
 
