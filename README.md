@@ -60,7 +60,7 @@ The planner must never treat a TCP port-open result, a successful JSON schema ch
 The existing libbox dependency is GPL-3.0. Any additional engine must be reviewed for compatible licensing, redistribution terms and required attribution before it is bundled into an APK. MLM VPN source code must not be copied unless its licence and attribution conditions are met.
 
 ## Build
-Use Android Studio with JDK 17, Android SDK Platform 35, Gradle 8.9 or newer compatible with the Android Gradle Plugin, and Python 3. Gradle downloads the pinned Xray AAR, verifies its SHA-256 checksum, and repackages its gomobile namespace before compiling. The AAR is generated under `app/build/` and is not committed. The GitHub Actions workflow runs unit tests and uploads a debug APK artifact after a successful build.
+Use Android Studio with JDK 17, Android SDK Platform 35, Gradle 8.9 or newer compatible with the Android Gradle Plugin, and Python 3. Gradle downloads the pinned Xray AAR, verifies its SHA-256 checksum, and uses it directly. The AAR is generated under `app/build/` and is not committed. The GitHub Actions workflow runs unit tests and uploads a debug APK artifact after a successful build.
 
 ## Runtime notes
 See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
@@ -70,4 +70,4 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is G
 
 
 ## Attribution
-The gomobile AAR namespace-repackaging build script is adapted from MLM VPN's GPL-3.0 tooling. Original developer attribution is preserved in the app settings/About text and in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). MLE VPN is an independent project and is not affiliated with MLM VPN.
+The route-selection and adaptive-failover design was informed by the public FLUX/MAE architecture documents in [MLM VPN](https://github.com/mlmvpn/mlmvpn_android). MLE VPN remains an independent implementation; no MLM VPN source files or native binaries are bundled.
