@@ -68,6 +68,7 @@ class MleVpnService : VpnService() {
                 }
                 stopping.set(false)
                 trafficProbeJob?.cancel()
+                configureUnderlyingNetwork()
                 MleVpnStatus.starting()
                 startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
                 if (!::boxRuntime.isInitialized) {
@@ -123,8 +124,9 @@ class MleVpnService : VpnService() {
                 ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
         } ?: manager.allNetworks.firstOrNull { network ->
             val caps = manager.getNetworkCapabilities(network)
-            caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN).not()
+            caps != null &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         }
         val applied = setUnderlyingNetworks(candidate?.let { arrayOf(it) })
         android.util.Log.i(
