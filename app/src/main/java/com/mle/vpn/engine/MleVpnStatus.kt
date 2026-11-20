@@ -8,6 +8,8 @@ enum class MleConnectionPhase {
     DISCONNECTED,
     STARTING,
     TUNNEL_ACTIVE,
+    INTERNET_VERIFIED,
+    NO_INTERNET,
     ERROR
 }
 
@@ -36,6 +38,20 @@ object MleVpnStatus {
         mutableStatus.value = MleConnectionStatus(
             MleConnectionPhase.TUNNEL_ACTIVE,
             "تونل VPN فعال است؛ دسترسی به سرور و اینترنت هنوز جداگانه تأیید نشده است."
+        )
+    }
+
+    fun internetVerified() {
+        mutableStatus.value = MleConnectionStatus(
+            MleConnectionPhase.INTERNET_VERIFIED,
+            "عبور ترافیک و دسترسی HTTPS از داخل VPN تأیید شد."
+        )
+    }
+
+    fun trafficUnavailable(message: String) {
+        mutableStatus.value = MleConnectionStatus(
+            MleConnectionPhase.NO_INTERNET,
+            message.ifBlank { "تونل فعال است اما دسترسی اینترنت از داخل VPN تأیید نشد." }
         )
     }
 
