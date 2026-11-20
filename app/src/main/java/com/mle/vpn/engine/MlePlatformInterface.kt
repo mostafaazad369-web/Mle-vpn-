@@ -159,7 +159,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
     private fun reportNetwork(listener: InterfaceUpdateListener, network: Network) {
         val requestedCaps = connectivity.getNetworkCapabilities(network) ?: return
         val physicalNetwork = if (requestedCaps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-            service.underlyingNetworks?.firstOrNull() ?: return
+            service.currentUnderlyingNetwork ?: return
         } else network
         val props = connectivity.getLinkProperties(physicalNetwork) ?: return
         val caps = connectivity.getNetworkCapabilities(physicalNetwork) ?: return
