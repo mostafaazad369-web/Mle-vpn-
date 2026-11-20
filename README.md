@@ -1,6 +1,6 @@
 # MLE VPN
 
-An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-box 1.14.4 core integration.
+An Android VPN client with a custom Kotlin/Jetpack Compose interface and selectable sing-box 1.14.4 / Xray (libv2ray) data-plane engines.
 
 ## Brand
 - App name: MLE VPN
@@ -16,7 +16,10 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - Per-profile TCP endpoint preflight diagnostics
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
-- Native `Libbox.checkConfig` validation before startup
+- Native `Libbox.checkConfig` validation before sing-box startup
+- Selectable Xray `libv2ray` runtime with Android TUN fd handoff and Xray tun inbound
+- Xray outbound conversion for VLESS, VMess and Trojan supported variants
+- SHA-256-pinned Xray AAR download and gomobile namespace repackaging during Gradle preBuild
 - libbox initialization, CommandServer lifecycle wrapper and Android PlatformInterface adapter
 - Android TUN setup with route/DNS configuration, protected outbound sockets and descriptor lifecycle handling
 - Start and stop actions from the home screen
@@ -36,8 +39,8 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 ### Runtime status (honest capability list)
 
-- **Available:** the existing sing-box/libbox engine and the profile formats accepted by the current converter.
-- **Planned, not yet connectable:** Xray, WireGuard/WARP, AmneziaWG, OpenVPN, Psiphon, Tor and Geph. These require their own compatible runtime adapters, dependency/ABI checks, lifecycle integration and device testing before they can be exposed as working connection options.
+- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. Xray currently accepts VLESS, VMess and Trojan variants that `XrayConfigBuilder` maps explicitly.
+- **Planned, not yet connectable:** WireGuard/WARP, AmneziaWG, OpenVPN, Psiphon, Tor and Geph. They still require native runtime adapters, dependency/ABI checks, lifecycle integration and device testing.
 
 ### Target architecture
 
@@ -50,17 +53,21 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 7. Apply hard requirements (for example UDP or IPv6) before ranking, and add cooldown/hysteresis before automatic route switching.
 8. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
 
-The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs.
+The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs. Xray and sing-box share one Android VpnService TUN owner; only one data-plane engine may run at a time.
 
 ### Licensing
 
 The existing libbox dependency is GPL-3.0. Any additional engine must be reviewed for compatible licensing, redistribution terms and required attribution before it is bundled into an APK. MLM VPN source code must not be copied unless its licence and attribution conditions are met.
 
 ## Build
-Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. The repository also includes a GitHub Actions workflow that runs unit tests and uploads a debug APK artifact after a successful build.
+Use Android Studio with JDK 17, Android SDK Platform 35, Gradle 8.9 or newer compatible with the Android Gradle Plugin, and Python 3. Gradle downloads the pinned Xray AAR, verifies its SHA-256 checksum, and repackages its gomobile namespace before compiling. The AAR is generated under `app/build/` and is not committed. The GitHub Actions workflow runs unit tests and uploads a debug APK artifact after a successful build.
 
 ## Runtime notes
 See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
 
 ## Third-party licensing
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is GPL-3.0; redistributions must comply with its license and source-availability requirements.
+
+
+## Attribution
+The gomobile AAR namespace-repackaging build script is adapted from MLM VPN's GPL-3.0 tooling. Original developer attribution is preserved in the app settings/About text and in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). MLE VPN is an independent project and is not affiliated with MLM VPN.
