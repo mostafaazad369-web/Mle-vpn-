@@ -4,7 +4,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.IpPrefix
-import android.net.VpnService
 import android.os.Build
 import android.os.Process
 import android.os.ParcelFileDescriptor
@@ -25,7 +24,7 @@ import java.net.NetworkInterface
  * socket protection, connection ownership and interface discovery are native
  * Android implementations.
  */
-class MlePlatformInterface(private val service: VpnService) : PlatformInterface {
+class MlePlatformInterface(private val service: MleVpnService) : PlatformInterface {
     private val connectivity = service.getSystemService(ConnectivityManager::class.java)
     private val networkCallbacks = ConcurrentHashMap<InterfaceUpdateListener, ConnectivityManager.NetworkCallback>()
 
@@ -174,7 +173,6 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
                     "$address/${it.networkPrefixLength}"
                 }.iterator())
                 dnsServer = MleStringIterator(props.dnsServers.mapNotNull { it.hostAddress }.iterator())
-                dnsSearchDomain = MleStringIterator(props.domains?.split(' ')?.filter(String::isNotBlank).orEmpty().iterator())
                 gateway = MleStringIterator(props.routes.mapNotNull { it.gateway?.hostAddress }.iterator())
                 type = when {
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libbox.InterfaceTypeWIFI
@@ -220,9 +218,6 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
     override fun tailscaleHostname(): String = "${Build.MANUFACTURER} ${Build.MODEL}"
     override fun usePlatformBridge(): Boolean = false
     override fun createBridge(options: BridgeOptions?): BridgeSession = error("Platform bridge is not supported.")
-    override fun usePlatformAutoRedirect(): Boolean = false
-    override fun createAutoRedirect(options: ByteArray?, handler: AutoRedirectHandler?): AutoRedirectSession =
-        error("Root auto-redirect is not supported.")
 }
 
 internal class MleStringIterator(private val values: Iterator<String>) : StringIterator {
