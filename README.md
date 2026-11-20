@@ -39,19 +39,22 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 ### Runtime status (honest capability list)
 
-- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. Xray currently accepts VLESS, VMess and Trojan variants that `XrayConfigBuilder` maps explicitly.
-- **Planned, not yet connectable:** WireGuard/WARP, AmneziaWG, OpenVPN, Psiphon, Tor and Geph. They still require native runtime adapters, dependency/ABI checks, lifecycle integration and device testing.
+- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP variants explicitly handled by its builder. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks.
+- **Not yet connectable as separate engines:** FLUX, MAE, WARP/Aether, AmneziaWG, OpenVPN, Psiphon, Tor, Geph, Lantern, URnetwork, Proton, Windscribe and FENIX. Each still needs its own reviewed runtime/auth flow or a verified mapping through an existing core.
+- **Companion tools not yet integrated:** Gereh messenger, Cloud panel, Config Studio, Cloudflare Doctor, MLM Scout, Game Booster, GitHub Tunnel, Telegram Proxy, LAN sharing, signed engine store and backup/restore.
 
 ### Target architecture
 
 1. Keep Android `VpnService` as the single owner of the device TUN.
 2. Put each packet engine behind a common adapter boundary; never let two engines compete for the same TUN.
-3. `MleEngineManager` owns the active data-plane adapter; currently only the existing sing-box adapter is registered. The selected Android `VpnService` remains the single TUN owner.
+3. `MleEngineManager` owns the active data-plane adapter; sing-box and Xray adapters are registered. The selected Android `VpnService` remains the single TUN owner.
 4. The first fallback pass tries up to three saved sing-box profiles, beginning with the user's selected profile; a candidate is accepted only after a real HTTPS request succeeds through the VPN tunnel.
 5. Probe candidates using their own transport and then verify a real request through the candidate route.
 6. Rank saved profiles using locally stored success history, consecutive failures and an EWMA of end-to-end verification duration. This first history store is per installation, not yet partitioned by underlying network; real RTT/throughput probes and network-specific learning remain future work.
 7. Apply hard requirements (for example UDP or IPv6) before ranking, and add cooldown/hysteresis before automatic route switching.
 8. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
+
+The full MLM feature inventory and status are tracked in [docs/MLM_FEATURE_PARITY_CHECKLIST.md](docs/MLM_FEATURE_PARITY_CHECKLIST.md); keep this list updated as features are implemented.
 
 The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs. Xray and sing-box share one Android VpnService TUN owner; only one data-plane engine may run at a time.
 
