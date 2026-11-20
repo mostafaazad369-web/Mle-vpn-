@@ -105,6 +105,7 @@ private fun MleApp() {
             }
             .onFailure { error ->
                 vpnPermissionGranted = false
+                MleVpnStatus.failed(error.message ?: "راه‌اندازی سرویس VPN ناموفق بود.")
                 vpnPermissionMessage = error.message ?: "راه‌اندازی سرویس VPN ناموفق بود."
                 showNotice = true
             }
@@ -116,6 +117,7 @@ private fun MleApp() {
             startSelectedProfile()
         } else {
             vpnPermissionGranted = false
+            MleVpnStatus.disconnected()
             vpnPermissionMessage = "درخواست اجازه VPN لغو شد؛ تونلی فعال نشده است."
             showNotice = true
         }
