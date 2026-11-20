@@ -25,6 +25,8 @@ class SingBoxConfigBuilderTest {
         assertEquals("hijack", config.getJSONArray("inbounds").getJSONObject(0).getString("dns_mode"))
         assertEquals("https", config.getJSONObject("dns").getJSONArray("servers").getJSONObject(0).getString("type"))
         assertEquals("proxy", config.getJSONObject("route").getString("final"))
+        assertTrue(config.getJSONObject("route").getBoolean("auto_detect_interface"))
+        assertTrue(config.getJSONObject("route").getBoolean("override_android_vpn"))
         assertTrue(config.getJSONObject("route").getBoolean("override_android_vpn"))
         val outbounds = config.getJSONArray("outbounds")
         assertEquals("vless", outbounds.getJSONObject(0).getString("type"))
