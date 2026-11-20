@@ -1,60 +1,47 @@
-# SlipNet + sing-box chain — implementation specification
+# DNS tunnel + sing-box chain — implementation specification
 
-## Can this guarantee access during a national-network shutdown?
+## No guaranteed bypass
 
-No client can guarantee this. A chain only works if the current network still permits at least one required path and a reachable compatible server exists. If international routes, DNS, the required CDN, the tunnel endpoint, or the relevant transport are completely blocked, software on the phone cannot create connectivity from nothing.
+No client can guarantee connectivity during a nationwide shutdown. A chain works only while the access network permits at least one usable transport and a compatible server is reachable. If all routes to the required server are blocked, the phone cannot manufacture connectivity.
 
-The correct goal is a tested set of fallback transports and servers, with honest per-network results—not a promise that one fixed combination always works.
+## Independent integration approach
 
-## Verified topology to implement
+MLE will not copy or redistribute the SlipNet application, its source, binaries, branding, or UI. Its current repository notice explicitly prohibits reuse of its code/name/logo and redistribution. Use independently licensed protocol implementations and standards-compatible components instead. This document refers to publicly described protocol concepts for interoperability research only.
 
-Use SlipNet as an upstream local proxy and sing-box as the only Android full-device VPN/TUN owner:
+## Topology
 
-Android apps -> sing-box TUN -> SOCKS5 outbound (127.0.0.1:port) -> SlipNet tunnel -> compatible remote server -> Internet
+Android apps -> sing-box TUN (single Android VPN owner) -> local SOCKS5 outbound -> independently implemented DNS/SSH/HTTPS tunnel adapter -> compatible remote server -> Internet.
 
-SlipNet's official README documents that its CLI starts a local SOCKS5 proxy and supports DNSTT, NoizDNS, VayDNS, SSH, and other tunnel modes. Its README also documents DNS scanner and end-to-end tunnel testing. The local proxy is the integration seam; do not attempt to run two independent Android VPN services simultaneously.
+Android should have one active VpnService/TUN owner. The DNS tunnel adapter is a loopback-only upstream process; sing-box owns the device TUN.
 
-## Why this topology
+## Startup and verification
 
-Android documents that only one VPN interface can be active for a user/profile at a time. Therefore MLE should own one VpnService/TUN through sing-box. SlipNet runs as a loopback-only upstream tunnel process and must not try to establish a second full-device TUN in chain mode.
+1. Import a user-provided profile and validate it; do not hard-code public credentials.
+2. Start the independent upstream tunnel bound to loopback only.
+3. Wait for the SOCKS5 listener and verify the SOCKS handshake.
+4. Test a real HTTPS request through the upstream proxy; a local TCP accept is not enough.
+5. Start sing-box/libbox TUN with a SOCKS outbound to the local listener. Protect/bind the tunnel socket to the underlying network to avoid routing loops.
+6. Verify end-to-end HTTPS through the full TUN, inspect exit IP, and check DNS and IPv6 leaks.
+7. Report CONNECTED only after every check passes. On failure, stop sing-box first, then the upstream adapter.
 
-## Required startup sequence
+## Fallback selection
 
-1. Validate and decrypt the user's SlipNet profile. Never hard-code public credentials or ship unknown third-party configs.
-2. Start the SlipNet runtime with a loopback-only SOCKS5 listener on an available local port.
-3. Wait for the listener; verify the process is alive and the SOCKS handshake succeeds.
-4. Perform an end-to-end request through SlipNet's SOCKS proxy. A successful local TCP connect alone is insufficient.
-5. Start sing-box/libbox with the Android TUN inbound and a SOCKS outbound targeting the loopback listener. The sing-box tunnel socket must be protected/bound to the underlying network so it does not loop back into its own TUN.
-6. Verify a real HTTPS request through the full TUN, inspect the exit IP, and run DNS/IPv6 leak checks.
-7. Only then report CONNECTED. If any stage fails, stop sing-box first, then SlipNet, and report the exact failing stage.
+Do not assume one DNS transport always works. Probe only configured profiles on the current network, with bounded timeouts and cooldowns. Select a profile only after a full end-to-end test. DNS tunneling is useful only if the network permits the relevant DNS path and a compatible DNS tunnel server is available. HTTPS/Naive-style and VLESS-over-WebSocket paths require correctly configured reachable origins, domains, certificates and servers. A CDN hostname or SNI value alone is not a bypass.
 
-## Fallback and selection policy
+## Runtime requirements
 
-Do not assume DNSTT, NoizDNS, VayDNS or Slipstream always wins. Test the available configured profiles on the current network. Prefer the fastest profile that passes end-to-end reachability and leak checks; prefer a more stable profile if latency is close. Apply bounded timeouts, cooldown failed profiles, and never endlessly retry one blocked endpoint.
+- One Android TUN owner.
+- Loopback-only local proxy.
+- Protected underlying-network sockets to prevent TUN loops.
+- Encrypted profile storage; redact credentials from logs.
+- Foreground-service lifecycle, process supervision and reconnect handling.
+- IPv4/IPv6/DNS leak checks and sustained traffic tests.
+- Reverse-order shutdown on errors or permission revocation.
 
-Recommended profile order is network-dependent:
-- DNS-only egress: DNSTT / NoizDNS / VayDNS, if the network's DNS path permits the configured tunnel domain and server.
-- HTTPS-only egress: a configured NaiveProxy or TLS/WebSocket profile, if its endpoint is reachable.
-- SSH reachable: direct SSH or SSH layered over a working DNS tunnel.
-- Tor bridge mode: only when a configured bridge is reachable and the chosen SlipNet edition includes that mode.
+## Source and licensing review
 
-A CDN hostname or SNI value is not a magic bypass. It works only with a correctly configured origin, valid domain/certificate/route, compatible server and provider terms. Do not generate fake CDN settings or public credentials.
+The SlipNet repository currently displays a source-available notice that forbids copying/redistributing/publishing its app or code and forbids using its name/logo in another project. Therefore MLE must not bundle its APK, binaries, source or branding without explicit written permission. Any protocol implementation used instead must be independently sourced and have a license permitting MLE's intended distribution. Review each dependency and preserve its notices.
 
-## Important engineering checks
+## MLE status
 
-- Single TUN owner in chain mode.
-- Loopback-only SOCKS listener; do not expose unauthenticated proxy on LAN.
-- Protect tunnel sockets from VPN routing loops.
-- Encrypted profile storage and redaction of passwords/private keys from logs.
-- Process supervision, Android foreground-service lifecycle, boot/network-change handling.
-- IPv4, IPv6, DNS and WebRTC leak checks.
-- End-to-end HTTPS tests and sustained stability test, not ping-only selection.
-- Stop both runtimes in reverse startup order on failure or revoke.
-
-## Licensing / redistribution blocker
-
-SlipNet's official README states AGPL-3.0 and describes the project as source-available with explicit restrictions/conditions around redistribution and republishing. Before copying its Android source, embedding its binaries, modifying it, or distributing an APK containing it, review the current license and obtain any additional permission needed from the copyright holder. Keep the integration behind the SlipNetRuntime interface until that review is complete. Do not silently copy its branding or UI.
-
-## MLE code status
-
-SlipNetSingBoxChain.kt currently defines the orchestration contract and failure-safe startup/shutdown order. It is not a functioning runtime adapter yet. The next implementation work is to build/package the permitted SlipNet Android runtime and sing-box/libbox runtime, implement the two runtime interfaces, add the VpnService foreground lifecycle, and run tests on actual mobile networks. No connection-success claim is valid before that work passes device tests.
+The generic `DnsTunnelSingBoxChain.kt` file defines the orchestration contract only. It is not a working tunnel runtime. Still required: an independently licensed tunnel implementation, sing-box/libbox Android runtime, VpnService integration, real profile parser, and device tests. No successful-connection claim is valid until those tests pass.
