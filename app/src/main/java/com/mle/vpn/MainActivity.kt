@@ -273,7 +273,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. فعلاً فقط VLESS، VMess و Trojan با تنظیمات پشتیبانی‌شده ذخیره می‌شوند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. VLESS، VMess، Trojan، Shadowsocks، Hysteria2، TUIC، AnyTLS، SOCKS و HTTP با گونه‌های پشتیبانی‌شده قابل ذخیره‌اند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
