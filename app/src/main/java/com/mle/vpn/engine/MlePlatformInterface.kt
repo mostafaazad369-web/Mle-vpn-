@@ -127,7 +127,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
         return ConnectionOwner().also {
             it.userId = uid
             it.userName = packages.firstOrNull() ?: ""
-            it.setAndroidPackageNames(MleStringIterator(packages))
+            it.setAndroidPackageNames(MleStringIterator(packages.toList()))
         }
     }
 
