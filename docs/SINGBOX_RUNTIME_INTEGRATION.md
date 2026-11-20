@@ -14,7 +14,7 @@
 2. The app calls `VpnService.prepare()` and waits for the system consent result.
 3. The app builds a sing-box configuration from the selected saved profile and starts `MleVpnService`.
 4. The service enters foreground mode and starts `MleBoxRuntime`.
-5. `MleBoxRuntime` ensures libbox setup, creates and starts `CommandServer`, then submits the JSON configuration.
+5. `MleBoxRuntime` ensures libbox setup, calls the native `Libbox.checkConfig` schema validator, creates and starts `CommandServer`, then submits the JSON configuration.
 6. sing-box calls `MlePlatformInterface.openTun`; the adapter configures Android addresses, DNS, route prefixes, excluded routes where supported, and per-app filters.
 7. The returned file descriptor is retained by the VPN service for the lifetime of the native engine. Outbound sockets are protected through `VpnService.protect(fd)`.
 8. Stop, service revocation, or a startup error closes the command server and TUN descriptor.
@@ -26,7 +26,8 @@
 - Optional root-only platform features, SSH agent, shell, bridge, and auto-redirect are intentionally unsupported.
 - The network monitor and process-owner APIs still need device-level testing across Android versions.
 - No claim is made that any profile works on restricted/mobile national-network conditions; this depends on the endpoint, transport, DNS, carrier and routing environment.
-- A successful command-server start is not proof of internet reachability. End-to-end traffic and leak tests are still required.
+- Native `Libbox.checkConfig` rejects malformed or unsupported sing-box JSON before a TUN is requested.
+- A successful schema check and command-server start are not proof of internet reachability. End-to-end traffic and DNS/IP leak tests are still required.
 
 ## References
 
