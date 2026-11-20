@@ -19,6 +19,9 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.SHADOWSOCKS -> buildShadowsocks(profile.sourceUri)
         ProfileProtocol.HYSTERIA2 -> buildHysteria2(URI(profile.sourceUri))
         ProfileProtocol.TUIC -> buildTuic(URI(profile.sourceUri))
+        ProfileProtocol.ANYTLS -> buildAnyTls(URI(profile.sourceUri))
+        ProfileProtocol.SOCKS -> buildSocks(URI(profile.sourceUri))
+        ProfileProtocol.HTTP -> buildHttp(URI(profile.sourceUri))
         else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
     }
 
@@ -176,6 +179,85 @@ object SingBoxOutboundBuilder {
             tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
         }
         out.put("tls", tls)
+        return out
+    }
+
+
+    private fun buildAnyTls(uri: URI): JSONObject {
+        val password = uri.rawUserInfo?.let(::decode)?.takeIf { it.isNotBlank() }
+            ?: error("رمز AnyTLS وجود ندارد.")
+        val q = query(uri.rawQuery)
+        val security = q["security"].orEmpty().ifBlank { "tls" }.lowercase()
+        require(security == "tls") { "AnyTLS به TLS نیاز دارد." }
+        val out = JSONObject()
+            .put("type", "anytls")
+            .put("tag", "proxy")
+            .put("server", uri.host ?: error("آدرس سرور AnyTLS معتبر نیست."))
+            .put("server_port", requirePort(uri.port))
+            .put("password", password)
+        val tls = JSONObject().put("enabled", true)
+        q["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
+        q["alpn"]?.takeIf { it.isNotBlank() }?.let {
+            tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+        }
+        q["fp"]?.takeIf { it.isNotBlank() }?.let {
+            tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", it))
+        }
+        out.put("tls", tls)
+        return out
+    }
+
+    private fun buildSocks(uri: URI): JSONObject {
+        val q = query(uri.rawQuery)
+        val version = q["version"] ?: q["ver"] ?: "5"
+        require(version in setOf("4", "4a", "5")) { "نسخه SOCKS باید 4، 4a یا 5 باشد." }
+        val out = JSONObject()
+            .put("type", "socks")
+            .put("tag", "proxy")
+            .put("server", uri.host ?: error("آدرس سرور SOCKS معتبر نیست."))
+            .put("server_port", requirePort(uri.port))
+            .put("version", version)
+        val credentials = uri.rawUserInfo?.let(::decode)
+        if (!credentials.isNullOrBlank()) {
+            val separator = credentials.indexOf(':')
+            require(separator > 0 && separator < credentials.lastIndex) {
+                "اطلاعات ورود SOCKS باید شامل نام کاربری و رمز عبور باشد."
+            }
+            out.put("username", credentials.substring(0, separator))
+                .put("password", credentials.substring(separator + 1))
+        }
+        val network = q["network"]?.lowercase()
+        if (network != null) {
+            require(network in setOf("tcp", "udp")) { "نوع شبکه SOCKS معتبر نیست." }
+            out.put("network", network)
+        }
+        return out
+    }
+
+    private fun buildHttp(uri: URI): JSONObject {
+        val q = query(uri.rawQuery)
+        val out = JSONObject()
+            .put("type", "http")
+            .put("tag", "proxy")
+            .put("server", uri.host ?: error("آدرس سرور HTTP معتبر نیست."))
+            .put("server_port", requirePort(uri.port))
+        val credentials = uri.rawUserInfo?.let(::decode)
+        if (!credentials.isNullOrBlank()) {
+            val separator = credentials.indexOf(':')
+            require(separator > 0 && separator < credentials.lastIndex) {
+                "اطلاعات ورود HTTP باید شامل نام کاربری و رمز عبور باشد."
+            }
+            out.put("username", credentials.substring(0, separator))
+                .put("password", credentials.substring(separator + 1))
+        }
+        if (q["security"].equals("tls", ignoreCase = true) || q["tls"] == "1") {
+            val tls = JSONObject().put("enabled", true)
+            q["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
+            q["alpn"]?.takeIf { it.isNotBlank() }?.let {
+                tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
+            }
+            out.put("tls", tls)
+        }
         return out
     }
 
