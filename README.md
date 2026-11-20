@@ -15,6 +15,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
 - Per-profile TCP endpoint preflight diagnostics
 - Android VPN permission flow
+- Native `Libbox.checkConfig` validation before startup
 - libbox initialization, CommandServer lifecycle wrapper and Android PlatformInterface adapter
 - Android TUN setup with route/DNS configuration, protected outbound sockets and descriptor lifecycle handling
 - Start and stop actions from the home screen
