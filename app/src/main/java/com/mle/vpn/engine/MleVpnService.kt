@@ -77,6 +77,9 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     runCatching { boxRuntime.start(config) }
                         .onSuccess {
+                            // The VPN TUN is now registered; publish the physical
+                            // network as its underlay before probing app traffic.
+                            configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
                             trafficProbeJob?.cancel()
                             trafficProbeJob = serviceScope.launch {
@@ -177,6 +180,7 @@ class MleVpnService : VpnService() {
 
     internal fun requestEngineStop() {
         stopping.set(true)
+        trafficProbeJob?.cancel()
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
