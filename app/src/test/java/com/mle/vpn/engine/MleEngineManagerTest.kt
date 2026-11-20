@@ -1,7 +1,7 @@
 package com.mle.vpn.engine
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,7 +50,7 @@ class MleEngineManagerTest {
 
 @RunWith(RobolectricTestRunner::class)
 class MleRouteHealthStoreTest {
-    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val context: Context = RuntimeEnvironment.getApplication()
 
     @Test
     fun recordsSuccessAndLatencyWithoutStoringProfilePayload() {
