@@ -251,7 +251,11 @@ class MleVpnService : VpnService() {
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
-            MleVpnStatus.disconnected()
+            if (MleVpnStatus.status.value.phase !in setOf(
+                    MleConnectionPhase.NO_INTERNET, MleConnectionPhase.ERROR
+                )) {
+                MleVpnStatus.disconnected()
+            }
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
