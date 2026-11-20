@@ -27,8 +27,8 @@ class MleApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        filesDir.mkdirs()
-        cacheDir.mkdirs()
+        check(filesDir.exists() || filesDir.mkdirs()) { "Unable to create app files directory." }
+        check(cacheDir.exists() || cacheDir.mkdirs()) { "Unable to create app cache directory." }
         applicationScope.launch {
             runCatching { ensureLibboxSetup() }
                 .onFailure { Log.e(TAG, "libbox initialization failed", it) }
@@ -38,7 +38,7 @@ class MleApplication : Application() {
     suspend fun ensureLibboxSetup() = setupMutex.withLock {
         if (setupComplete) return@withLock
 
-        val workingDirectory = getExternalFilesDir(null) ?: File(filesDir, "libbox")
+        val workingDirectory = File(filesDir, "libbox")
         if (!workingDirectory.exists() && !workingDirectory.mkdirs()) {
             error("Unable to create libbox working directory.")
         }
