@@ -36,6 +36,7 @@ import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
 import com.mle.vpn.engine.MleVpnStatus
 import com.mle.vpn.engine.MleRouteHealthStore
+import com.mle.vpn.engine.XrayConfigBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
 private fun MleApp() {
     val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedEngine by remember { mutableStateOf(context.getSharedPreferences("mle_settings", 0).getString("engine_id", "sing-box") ?: "sing-box") }
     var automaticFailover by remember {
         mutableStateOf(context.getSharedPreferences("mle_settings", 0).getBoolean("automatic_failover", false))
     }
@@ -95,13 +97,16 @@ private fun MleApp() {
         }
         val orderedProfiles = if (automaticFailover) {
             val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
-            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { it.id })
-            val ranked = rankedIds.mapNotNull { id -> bounded.firstOrNull { it.id == id } }
+            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$selectedEngine:${it.id}" })
+            val ranked = rankedIds.mapNotNull { key -> bounded.firstOrNull { "$selectedEngine:${it.id}" == key } }
             listOfNotNull(bounded.firstOrNull { it.id == profile.id }) +
                 ranked.filterNot { it.id == profile.id }
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
-            runCatching { candidate to SingBoxConfigBuilder.build(candidate).toString() }.getOrNull()
+            runCatching {
+                val json = if (selectedEngine == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate)
+                candidate to json.toString()
+            }.getOrNull()
         }
         if (validCandidates.isEmpty()) {
             Toast.makeText(context, "هیچ‌یک از پروفایل‌های انتخاب‌شده کانفیگ قابل‌اجرا نداشت.", Toast.LENGTH_LONG).show()
@@ -112,13 +117,14 @@ private fun MleApp() {
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
             action = MleVpnService.ACTION_START
             putExtra(MleVpnService.EXTRA_CONFIG, configCandidates.first())
+            putExtra(MleVpnService.EXTRA_ENGINE_ID, selectedEngine)
             putStringArrayListExtra(MleVpnService.EXTRA_CONFIG_CANDIDATES, ArrayList(configCandidates))
             putStringArrayListExtra(MleVpnService.EXTRA_PROFILE_IDS, ArrayList(candidateProfileIds))
         }
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
                 vpnPermissionGranted = true
-                vpnPermissionMessage = "درخواست راه‌اندازی موتور sing-box ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
+                vpnPermissionMessage = "درخواست راه‌اندازی موتور ${if (selectedEngine == "xray") "Xray" else "sing-box"} ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
                 showNotice = true
             }
             .onFailure { error ->
@@ -225,6 +231,11 @@ private fun MleApp() {
                 3 -> SettingsScreen(
                     padding = padding,
                     automaticFailover = automaticFailover,
+                    selectedEngine = selectedEngine,
+                    onEngineChange = { engine ->
+                        selectedEngine = engine
+                        context.getSharedPreferences("mle_settings", 0).edit().putString("engine_id", engine).apply()
+                    },
                     onAutomaticFailoverChange = {
                         automaticFailover = it
                         context.getSharedPreferences("mle_settings", 0).edit()
@@ -517,11 +528,35 @@ private fun TelegramSourcesScreen(
 private fun SettingsScreen(
     padding: PaddingValues,
     automaticFailover: Boolean,
-    onAutomaticFailoverChange: (Boolean) -> Unit
+    onAutomaticFailoverChange: (Boolean) -> Unit,
+    selectedEngine: String,
+    onEngineChange: (String) -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(padding).padding(22.dp)) {
         Text("تنظیمات", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(20.dp))
+        Text("موتور اتصال", color = Muted, fontSize = 12.sp)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp)
+                .background(Panel, RoundedCornerShape(16.dp)).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FilterChip(
+                selected = selectedEngine == "sing-box",
+                onClick = { onEngineChange("sing-box") },
+                label = { Text("sing-box") }
+            )
+            FilterChip(
+                selected = selectedEngine == "xray",
+                onClick = { onEngineChange("xray") },
+                label = { Text("Xray") }
+            )
+        }
+        Text(
+            if (selectedEngine == "xray") "Xray: VLESS، VMess و Trojan با گونه‌های تبدیل پشتیبانی‌شده."
+            else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.",
+            color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp)
+        )
         Row(
             Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -532,7 +567,7 @@ private fun SettingsScreen(
             }
             Switch(checked = automaticFailover, onCheckedChange = onAutomaticFailoverChange)
         }
-        listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0").forEach { item ->
+        listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0 • Build مستقل با قدردانی از mlmvpn").forEach { item ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(item.first, color = Color.White, fontWeight = FontWeight.SemiBold)
