@@ -12,6 +12,11 @@ import androidx.core.app.NotificationCompat
 import com.mle.vpn.MainActivity
 import com.mle.vpn.R
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -26,6 +31,8 @@ import java.net.InetAddress
 class MleVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private lateinit var boxRuntime: MleBoxRuntime
 
     override fun onCreate() {
         super.onCreate()
@@ -35,15 +42,39 @@ class MleVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopTunnelResources()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                stopping.set(true)
+                serviceScope.launch {
+                    if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                    stopTunnelResources()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
             ACTION_START -> {
+                val config = intent.getStringExtra(EXTRA_CONFIG)
+                if (config.isNullOrBlank()) {
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
                 stopping.set(false)
-                startForeground(NOTIFICATION_ID, buildNotification("در انتظار راه‌اندازی موتور اتصال"))
-                // The libbox CommandServer/packet engine adapter is not wired yet.
-                // Do not establish a TUN here: that would interrupt all traffic.
+                startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
+                if (!::boxRuntime.isInitialized) {
+                    boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
+                }
+                serviceScope.launch {
+                    runCatching { boxRuntime.start(config) }
+                        .onSuccess {
+                            getSystemService(NotificationManager::class.java)
+                                .notify(NOTIFICATION_ID, buildNotification("موتور sing-box فعال شد"))
+                        }
+                        .onFailure { error ->
+                            android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
+                            runCatching { boxRuntime.stop() }
+                            stopTunnelResources()
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
+                }
             }
             else -> stopSelf(startId)
         }
@@ -83,6 +114,23 @@ class MleVpnService : VpnService() {
         return descriptor.detachFd().also { tun = null }
     }
 
+    @Synchronized
+    internal fun holdTunDescriptor(descriptor: ParcelFileDescriptor) {
+        check(!stopping.get()) { "VPN service is stopping." }
+        runCatching { tun?.close() }
+        tun = descriptor
+    }
+
+    internal fun requestEngineStop() {
+        stopping.set(true)
+        serviceScope.launch {
+            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            stopTunnelResources()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
     fun protectTunnelSocket(fd: Int): Boolean = protect(fd)
 
     @Synchronized
@@ -98,6 +146,10 @@ class MleVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        serviceScope.launch {
+            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+        }
+        serviceScope.cancel()
         stopTunnelResources()
         super.onDestroy()
     }
@@ -138,6 +190,7 @@ class MleVpnService : VpnService() {
     companion object {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
+        const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
     }
