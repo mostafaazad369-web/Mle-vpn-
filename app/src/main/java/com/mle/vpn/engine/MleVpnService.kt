@@ -140,17 +140,16 @@ class MleVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        stopping.set(true)
-        stopTunnelResources()
+        requestEngineStop()
         super.onRevoke()
     }
 
     override fun onDestroy() {
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            stopTunnelResources()
+            serviceScope.cancel()
         }
-        serviceScope.cancel()
-        stopTunnelResources()
         super.onDestroy()
     }
 
