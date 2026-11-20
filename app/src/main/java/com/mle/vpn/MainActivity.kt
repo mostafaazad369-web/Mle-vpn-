@@ -1,11 +1,15 @@
 package com.mle.vpn
 
 import android.os.Bundle
+import android.app.Activity
+import android.net.VpnService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,6 +62,17 @@ private fun MleApp() {
     var importError by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
     var exportProfile by remember { mutableStateOf<ImportedProfile?>(null) }
+    var vpnPermissionGranted by remember { mutableStateOf(false) }
+    var vpnPermissionMessage by remember { mutableStateOf("اجازه VPN هنوز بررسی نشده است.") }
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        vpnPermissionGranted = result.resultCode == Activity.RESULT_OK
+        vpnPermissionMessage = if (vpnPermissionGranted) {
+            "اجازه سیستم صادر شد؛ اما موتور اتصال sing-box هنوز به سرویس متصل نشده و ترافیک شما از VPN عبور نمی‌کند."
+        } else {
+            "درخواست اجازه VPN لغو شد؛ هیچ تونلی فعال نشده است."
+        }
+        showNotice = true
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val vault = remember { ProfileVault(context) }
@@ -86,7 +101,20 @@ private fun MleApp() {
             }
         }) { padding ->
             when (selectedTab) {
-                0 -> HomeScreen(selectedServer, profiles.size, { selectedTab = 1 }, { if (profiles.isEmpty()) showImport = true else showNotice = true }, padding)
+                0 -> HomeScreen(selectedServer, profiles.size, { selectedTab = 1 }, {
+                    if (profiles.isEmpty()) {
+                        showImport = true
+                    } else {
+                        val permissionIntent = VpnService.prepare(context)
+                        if (permissionIntent == null) {
+                            vpnPermissionGranted = true
+                            vpnPermissionMessage = "اجازه سیستم قبلاً صادر شده است؛ اما موتور اتصال sing-box هنوز به سرویس متصل نشده و ترافیک شما از VPN عبور نمی‌کند."
+                            showNotice = true
+                        } else {
+                            vpnPermissionLauncher.launch(permissionIntent)
+                        }
+                    }
+                }, padding)
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
                 2 -> ProfilesScreen(profiles, { showImport = true }, { profile -> exportProfile = profile }, { id ->
                     vault.delete(id)
@@ -182,8 +210,8 @@ private fun MleApp() {
             AlertDialog(
                 onDismissRequest = { showNotice = false },
                 containerColor = Panel,
-                title = { Text("اتصال هنوز فعال نشده", color = Mint, fontWeight = FontWeight.Bold) },
-                text = { Text("رابط کاربری آماده است؛ برای ایجاد تونل واقعی باید موتور VPN و کانفیگ معتبر به برنامه اضافه و آزمایش شود.", color = Color.White) },
+                title = { Text(if (vpnPermissionGranted) "مجوز VPN صادر شد" else "وضعیت مجوز VPN", color = Mint, fontWeight = FontWeight.Bold) },
+                text = { Text(vpnPermissionMessage, color = Color.White) },
                 confirmButton = { TextButton(onClick = { showNotice = false }) { Text("متوجه شدم", color = Mint) } }
             )
         }
@@ -226,7 +254,7 @@ private fun HomeScreen(server: String, profileCount: Int, onServers: () -> Unit,
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
             Icon(Icons.Default.PowerSettingsNew, null)
             Spacer(Modifier.width(9.dp))
-            Text("شروع اتصال", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text("آماده‌سازی اتصال", fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
