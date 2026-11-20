@@ -23,7 +23,7 @@ class ProfileVault(context: Context) {
 
     @Synchronized
     fun save(profile: ImportedProfile) {
-        val list = loadAll().filterNot { it.id == profile.id }.toMutableList()
+        val list = loadAll().filterNot { it.id == profile.id || it.sourceUri == profile.sourceUri }.toMutableList()
         list += profile
         val json = JSONArray()
         list.forEach { p ->
