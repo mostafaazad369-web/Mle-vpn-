@@ -40,7 +40,7 @@ class MleVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private lateinit var boxRuntime: MleBoxRuntime
+    private lateinit var engineManager: MleEngineManager
     private var trafficProbeJob: Job? = null
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
@@ -56,7 +56,7 @@ class MleVpnService : VpnService() {
                 stopping.set(true)
                 trafficProbeJob?.cancel()
                 serviceScope.launch {
-                    if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                    if (::engineManager.isInitialized) runCatching { engineManager.stop() }
                     stopTunnelResources()
                     MleVpnStatus.disconnected()
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -80,8 +80,9 @@ class MleVpnService : VpnService() {
                 configureUnderlyingNetwork()
                 MleVpnStatus.starting()
                 startForeground(NOTIFICATION_ID, buildNotification("در حال بررسی مسیرهای اتصال"))
-                if (!::boxRuntime.isInitialized) {
-                    boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
+                if (!::engineManager.isInitialized) {
+                    val singBox = MleBoxRuntime(this, MlePlatformInterface(this))
+                    engineManager = MleEngineManager(listOf(SingBoxEngineAdapter(singBox)))
                 }
                 serviceScope.launch {
                     var connected = false
@@ -94,7 +95,7 @@ class MleVpnService : VpnService() {
                                 NOTIFICATION_ID,
                                 buildNotification("آزمایش مسیر ${index + 1} از ${candidates.size}")
                             )
-                            boxRuntime.start(candidateConfig)
+                            engineManager.start("sing-box", candidateConfig)
                             configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
                             // Give Android and the packet engine a moment to install
@@ -112,12 +113,12 @@ class MleVpnService : VpnService() {
                             }
                             lastFailure = failure
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
-                            runCatching { boxRuntime.stop() }
+                            runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
                         } catch (error: Exception) {
                             lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
-                            runCatching { boxRuntime.stop() }
+                            runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
                         }
                     }
@@ -224,7 +225,7 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         trafficProbeJob?.cancel()
         serviceScope.launch {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            if (::engineManager.isInitialized) runCatching { engineManager.stop() }
             stopTunnelResources()
             MleVpnStatus.disconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -249,7 +250,7 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            if (::engineManager.isInitialized) runCatching { engineManager.stop() }
             stopTunnelResources()
             if (MleVpnStatus.status.value.phase !in setOf(
                     MleConnectionPhase.NO_INTERNET, MleConnectionPhase.ERROR
