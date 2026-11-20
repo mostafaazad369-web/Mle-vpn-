@@ -6,7 +6,7 @@ import kotlinx.coroutines.withContext
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
-import go.Seq
+import pg.Seq
 import org.json.JSONObject
 import java.util.UUID
 
