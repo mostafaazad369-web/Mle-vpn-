@@ -69,48 +69,86 @@ class MleVpnService : VpnService() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val candidates = (intent.getStringArrayListExtra(EXTRA_CONFIG_CANDIDATES)
+                    ?.filter { it.isNotBlank() }
+                    ?.distinct()
+                    ?.take(MAX_FAILOVER_CANDIDATES)
+                    .orEmpty())
+                    .ifEmpty { listOf(config) }
                 stopping.set(false)
                 trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
                 MleVpnStatus.starting()
-                startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
+                startForeground(NOTIFICATION_ID, buildNotification("در حال بررسی مسیرهای اتصال"))
                 if (!::boxRuntime.isInitialized) {
                     boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
                 }
                 serviceScope.launch {
-                    runCatching { boxRuntime.start(config) }
-                        .onSuccess {
-                            // The VPN TUN is now registered; publish the physical
-                            // network as its underlay before probing app traffic.
+                    var connected = false
+                    var lastFailure = "هیچ مسیر قابل استفاده‌ای پیدا نشد."
+                    for ((index, candidateConfig) in candidates.withIndex()) {
+                        if (stopping.get()) break
+                        try {
+                            MleVpnStatus.starting()
+                            getSystemService(NotificationManager::class.java).notify(
+                                NOTIFICATION_ID,
+                                buildNotification("آزمایش مسیر ${index + 1} از ${candidates.size}")
+                            )
+                            boxRuntime.start(candidateConfig)
                             configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
-                            trafficProbeJob?.cancel()
-                            trafficProbeJob = serviceScope.launch {
-                                while (isActive && !stopping.get()) {
-                                    val failure = verifyInternetThroughVpn()
-                                    if (failure == null) {
-                                        MleVpnStatus.internetVerified()
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
-                                        )
-                                    } else {
-                                        MleVpnStatus.trafficUnavailable(failure)
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
-                                        )
-                                    }
-                                    delay(15_000)
-                                }
+                            // Give Android and the packet engine a moment to install
+                            // routes before testing a real HTTPS request through TUN.
+                            delay(2_000)
+                            val failure = verifyInternetThroughVpn()
+                            if (failure == null) {
+                                connected = true
+                                MleVpnStatus.internetVerified()
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID,
+                                    buildNotification("اینترنت از مسیر ${index + 1} تأیید شد")
+                                )
+                                break
                             }
-                        }
-                        .onFailure { error ->
-                            android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
-                            MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
+                            lastFailure = failure
+                            android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
                             runCatching { boxRuntime.stop() }
                             stopTunnelResources()
+                        } catch (error: Exception) {
+                            lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
+                            android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
+                            runCatching { boxRuntime.stop() }
+                            stopTunnelResources()
+                        }
+                    }
+                    if (!connected) {
+                        if (!stopping.get()) {
+                            MleVpnStatus.trafficUnavailable(
+                                "هیچ‌یک از ${candidates.size} مسیر آزمایشی اینترنت نداد. آخرین خطا: $lastFailure"
+                            )
                             stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
+                        return@launch
+                    }
+                    trafficProbeJob?.cancel()
+                    trafficProbeJob = serviceScope.launch {
+                        while (isActive && !stopping.get()) {
+                            val failure = verifyInternetThroughVpn()
+                            if (failure == null) {
+                                MleVpnStatus.internetVerified()
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
+                                )
+                            } else {
+                                MleVpnStatus.trafficUnavailable(failure)
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
+                                )
+                            }
+                            delay(15_000)
+                        }
+                    }
                 }
             }
             else -> stopSelf(startId)
@@ -291,6 +329,8 @@ class MleVpnService : VpnService() {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
+        const val EXTRA_CONFIG_CANDIDATES = "com.mle.vpn.extra.CONFIG_CANDIDATES"
+        private const val MAX_FAILOVER_CANDIDATES = 3
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
     }
