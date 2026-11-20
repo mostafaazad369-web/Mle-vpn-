@@ -20,6 +20,11 @@ import kotlinx.coroutines.launch
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /**
  * Android VPN service foundation.
@@ -33,6 +38,7 @@ class MleVpnService : VpnService() {
     private val stopping = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
+    private var trafficProbeJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -43,6 +49,7 @@ class MleVpnService : VpnService() {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopping.set(true)
+                trafficProbeJob?.cancel()
                 serviceScope.launch {
                     if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
                     stopTunnelResources()
@@ -58,6 +65,7 @@ class MleVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 stopping.set(false)
+                trafficProbeJob?.cancel()
                 MleVpnStatus.starting()
                 startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
                 if (!::boxRuntime.isInitialized) {
@@ -67,8 +75,24 @@ class MleVpnService : VpnService() {
                     runCatching { boxRuntime.start(config) }
                         .onSuccess {
                             MleVpnStatus.tunnelActive()
-                            getSystemService(NotificationManager::class.java)
-                                .notify(NOTIFICATION_ID, buildNotification("تونل VPN فعال شد"))
+                            trafficProbeJob?.cancel()
+                            trafficProbeJob = serviceScope.launch {
+                                while (isActive && !stopping.get()) {
+                                    val failure = verifyInternetThroughVpn()
+                                    if (failure == null) {
+                                        MleVpnStatus.internetVerified()
+                                        getSystemService(NotificationManager::class.java).notify(
+                                            NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
+                                        )
+                                    } else {
+                                        MleVpnStatus.trafficUnavailable(failure)
+                                        getSystemService(NotificationManager::class.java).notify(
+                                            NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
+                                        )
+                                    }
+                                    delay(15_000)
+                                }
+                            }
                         }
                         .onFailure { error ->
                             android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
@@ -151,6 +175,7 @@ class MleVpnService : VpnService() {
 
     override fun onDestroy() {
         stopping.set(true)
+        trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
@@ -165,6 +190,41 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         runCatching { tun?.close() }
         tun = null
+    }
+
+    /**
+     * Performs a real HTTPS request from this app process while the VPN is active.
+     * Because the app is included in the Android VPN, this checks the actual
+     * TUN -> sing-box outbound -> remote server -> internet path, not just TUN setup.
+     * Returns null on success or a diagnostic message on failure.
+     */
+    private fun verifyInternetThroughVpn(): String? {
+        val endpoints = listOf(
+            "https://cp.cloudflare.com/generate_204",
+            "https://connectivitycheck.gstatic.com/generate_204",
+            "https://www.cloudflare.com/cdn-cgi/trace"
+        )
+        val failures = mutableListOf<String>()
+        for (endpoint in endpoints) {
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 6_000
+                    readTimeout = 6_000
+                    instanceFollowRedirects = false
+                    useCaches = false
+                }
+                val code = connection.responseCode
+                if (code in 200..399) return null
+                failures += "${URL(endpoint).host}: HTTP $code"
+            } catch (error: Exception) {
+                failures += "${URL(endpoint).host}: ${error.javaClass.simpleName}"
+            } finally {
+                connection?.disconnect()
+            }
+        }
+        return "تونل فعال است اما آزمون HTTPS از داخل VPN ناموفق بود: ${failures.joinToString("؛ ")}"
     }
 
     private fun createNotificationChannel() {
