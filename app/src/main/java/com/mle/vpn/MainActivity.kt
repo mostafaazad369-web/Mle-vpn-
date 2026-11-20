@@ -33,6 +33,7 @@ import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
+import com.mle.vpn.engine.MleVpnStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
@@ -79,6 +80,7 @@ private fun MleApp() {
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
     var fetchingSource by remember { mutableStateOf<String?>(null) }
     var sourceStatus by remember { mutableStateOf<String?>(null) }
+    val connectionStatus by MleVpnStatus.status.collectAsState()
 
     fun startSelectedProfile() {
         val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
@@ -149,6 +151,7 @@ private fun MleApp() {
                 0 -> HomeScreen(
                     server = selectedServer,
                     profileCount = profiles.size,
+                    connectionDetail = connectionStatus.detail,
                     onServers = { selectedTab = 1 },
                     onConnect = {
                         if (profiles.isEmpty()) {
@@ -331,6 +334,7 @@ private fun MleApp() {
 private fun HomeScreen(
     server: String,
     profileCount: Int,
+    connectionDetail: String,
     onServers: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -360,7 +364,18 @@ private fun HomeScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.PowerSettingsNew, null, tint = Mint, modifier = Modifier.size(58.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text("اتصال", color = Mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        when (connectionStatus.phase) {
+                            com.mle.vpn.engine.MleConnectionPhase.DISCONNECTED -> "قطع"
+                            com.mle.vpn.engine.MleConnectionPhase.STARTING -> "در حال اتصال"
+                            com.mle.vpn.engine.MleConnectionPhase.TUNNEL_ACTIVE -> "تونل فعال"
+                            com.mle.vpn.engine.MleConnectionPhase.ERROR -> "خطا"
+                        },
+                        color = if (connectionStatus.phase == com.mle.vpn.engine.MleConnectionPhase.ERROR) Color(0xFFFF7B86) else Mint,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(connectionDetail, color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center)
                     Text(if (profileCount > 0) "$profileCount کانفیگ ذخیره‌شده" else "ابتدا کانفیگ اضافه کن", color = Muted, fontSize = 12.sp)
                 }
             }
