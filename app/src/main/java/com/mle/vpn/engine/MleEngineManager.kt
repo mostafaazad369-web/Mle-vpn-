@@ -33,7 +33,7 @@ class XrayEngineAdapter(
     override val id: String = "xray"
     override val displayName: String = "Xray"
 
-    override suspend fun start(config: String) = runtime.start(config)
+    override suspend fun start(config: String) { runtime.start(config) }
     override suspend fun stop() = runtime.stop()
 }
 
