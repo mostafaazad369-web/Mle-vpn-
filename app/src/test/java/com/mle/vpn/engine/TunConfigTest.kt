@@ -37,4 +37,25 @@ class TunConfigTest {
             disallowedApplications = listOf("com.example.denied")
         )
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsBlankDnsEntry() {
+        TunConfig(dnsServers = listOf(""))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsMalformedApplicationPackageName() {
+        TunConfig(allowedApplications = listOf("not a package"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsDuplicateApplicationEntries() {
+        TunConfig(allowedApplications = listOf("com.example.app", "com.example.app"))
+    }
+
+    @Test
+    fun acceptsValidApplicationPackageName() {
+        val config = TunConfig(allowedApplications = listOf("com.example.app"))
+        assertEquals(1, config.allowedApplications.size)
+    }
 }
