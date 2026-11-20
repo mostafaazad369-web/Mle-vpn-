@@ -27,6 +27,8 @@ class MleBoxRuntime(
         lifecycleMutex.withLock {
             require(configJson.isNotBlank()) { "VPN configuration is empty." }
             (service.application as MleApplication).ensureLibboxSetup()
+            // Validate against the actual bundled sing-box schema before opening TUN.
+            Libbox.checkConfig(configJson)
             commandServer?.let { running ->
                 if (activeConfig != configJson) {
                     running.startOrReloadService(configJson, OverrideOptions())
