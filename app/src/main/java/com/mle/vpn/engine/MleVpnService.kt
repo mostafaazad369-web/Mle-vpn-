@@ -156,7 +156,7 @@ data class TunConfig(
         require(allowedApplications.isEmpty() || disallowedApplications.isEmpty()) {
             "Allow-list and deny-list cannot be combined."
         }
-        val packageNamePattern = Regex("[A-Za-z_][A-Za-z0-9_]*(\\\\.[A-Za-z_][A-Za-z0-9_]*)+")
+        val packageNamePattern = Regex("""[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+""")
         require((allowedApplications + disallowedApplications).all(packageNamePattern::matches)) {
             "Application filters must contain valid package names."
         }
