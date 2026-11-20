@@ -64,8 +64,10 @@ object ShadowsocksLinkParser {
     }
 
     private fun decodeUserInfo(value: String): String {
-        val decoded = runCatching { decodeBase64(value) }.getOrNull()
-        return decoded ?: URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name())
+        if (value.contains(':')) {
+            return URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name())
+        }
+        return decodeBase64(value)
     }
 
     private fun decodeBase64(value: String): String {
