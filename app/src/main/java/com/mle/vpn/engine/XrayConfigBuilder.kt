@@ -2,6 +2,7 @@ package com.mle.vpn.engine
 
 import com.mle.vpn.profile.ImportedProfile
 import com.mle.vpn.profile.ProfileProtocol
+import com.mle.vpn.profile.ShadowsocksLinkParser
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,7 +13,7 @@ import org.json.JSONObject
  */
 object XrayConfigBuilder {
     fun build(profile: ImportedProfile): JSONObject {
-        require(profile.protocol in setOf(ProfileProtocol.VLESS, ProfileProtocol.VMESS, ProfileProtocol.TROJAN)) {
+        require(profile.protocol in setOf(ProfileProtocol.VLESS, ProfileProtocol.VMESS, ProfileProtocol.TROJAN, ProfileProtocol.SHADOWSOCKS)) {
             "این نوع پروفایل فعلاً در موتور Xray پشتیبانی نمی‌شود."
         }
         val normalized = SingBoxOutboundBuilder.build(profile)
@@ -20,6 +21,7 @@ object XrayConfigBuilder {
             ProfileProtocol.VLESS -> vless(normalized)
             ProfileProtocol.VMESS -> vmess(normalized)
             ProfileProtocol.TROJAN -> trojan(normalized)
+            ProfileProtocol.SHADOWSOCKS -> shadowsocks(profile.sourceUri)
             else -> error("Unsupported Xray profile.")
         }.put("tag", "proxy")
 
@@ -84,6 +86,18 @@ object XrayConfigBuilder {
         return JSONObject().put("protocol", "trojan")
             .put("settings", JSONObject().put("servers", JSONArray().put(server)))
             .put("streamSettings", streamSettings(source))
+    }
+
+    private fun shadowsocks(sourceUri: String): JSONObject {
+        val credentials = ShadowsocksLinkParser.parse(sourceUri)
+        val server = JSONObject()
+            .put("address", credentials.host)
+            .put("port", credentials.port)
+            .put("method", credentials.method)
+            .put("password", credentials.password)
+        return JSONObject()
+            .put("protocol", "shadowsocks")
+            .put("settings", JSONObject().put("servers", JSONArray().put(server)))
     }
 
     private fun streamSettings(source: JSONObject): JSONObject {
