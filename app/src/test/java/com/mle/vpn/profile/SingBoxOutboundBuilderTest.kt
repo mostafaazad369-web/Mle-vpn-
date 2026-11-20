@@ -56,7 +56,17 @@ class SingBoxOutboundBuilderTest {
 }
 
 
+@RunWith(RobolectricTestRunner::class)
 class MleAdaptiveRoutePlannerTest {
+    private fun profile(protocol: ProfileProtocol, uri: String) = ImportedProfile(
+        id = "test-id",
+        protocol = protocol,
+        displayName = "Test node",
+        host = "example.com",
+        port = 443,
+        sourceUri = uri
+    )
+
     private fun candidate(
         id: String,
         verified: Boolean = true,
