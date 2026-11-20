@@ -69,14 +69,16 @@ class MleVpnService : VpnService() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
-                val profileIds = intent.getStringArrayListExtra(EXTRA_PROFILE_IDS).orEmpty()
+                val rawConfigs = intent.getStringArrayListExtra(EXTRA_CONFIG_CANDIDATES).orEmpty()
+                val rawProfileIds = intent.getStringArrayListExtra(EXTRA_PROFILE_IDS).orEmpty()
+                val candidatePairs = rawConfigs.mapIndexedNotNull { index, candidate ->
+                    candidate.takeIf { it.isNotBlank() }?.let {
+                        it to (rawProfileIds.getOrNull(index) ?: "unknown-$index")
+                    }
+                }.distinctBy { it.first }.take(MAX_FAILOVER_CANDIDATES)
+                val candidates = candidatePairs.map { it.first }.ifEmpty { listOf(config) }
+                val profileIds = candidatePairs.map { it.second }.ifEmpty { listOf("unknown-0") }
                 val healthStore = MleRouteHealthStore(this)
-                val candidates = (intent.getStringArrayListExtra(EXTRA_CONFIG_CANDIDATES)
-                    ?.filter { it.isNotBlank() }
-                    ?.distinct()
-                    ?.take(MAX_FAILOVER_CANDIDATES)
-                    .orEmpty())
-                    .ifEmpty { listOf(config) }
                 stopping.set(false)
                 trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
