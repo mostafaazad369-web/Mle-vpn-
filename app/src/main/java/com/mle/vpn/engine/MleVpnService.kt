@@ -46,6 +46,7 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
                     stopTunnelResources()
+                    MleVpnStatus.disconnected()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
