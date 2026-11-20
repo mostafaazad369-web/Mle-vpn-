@@ -29,6 +29,9 @@ import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
+import com.mle.vpn.engine.EndpointProbe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -77,6 +80,7 @@ private fun MleApp() {
     val context = LocalContext.current
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
+    var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
     LaunchedEffect(Unit) { profiles = vault.loadAll() }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -116,10 +120,30 @@ private fun MleApp() {
                     }
                 }, padding)
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
-                2 -> ProfilesScreen(profiles, { showImport = true }, { profile -> exportProfile = profile }, { id ->
-                    vault.delete(id)
-                    profiles = vault.loadAll()
-                }, padding)
+                2 -> ProfilesScreen(
+                    profiles = profiles,
+                    probeResults = probeResults,
+                    onAdd = { showImport = true },
+                    onExport = { profile -> exportProfile = profile },
+                    onProbe = { profile ->
+                        probeResults = probeResults + (profile.id to "در حال بررسی درگاه...")
+                        scope.launch {
+                            val result = EndpointProbe.check(profile)
+                            val message = if (result.reachable) {
+                                "${result.message} • ${result.latencyMs} ms (این تست، اتصال VPN را تأیید نمی‌کند)"
+                            } else {
+                                result.message
+                            }
+                            probeResults = probeResults + (profile.id to message)
+                        }
+                    },
+                    onDelete = { id ->
+                        vault.delete(id)
+                        profiles = vault.loadAll()
+                        probeResults = probeResults - id
+                    },
+                    padding = padding
+                )
                 else -> SettingsScreen(padding)
             }
         }
@@ -317,8 +341,10 @@ private fun SettingsScreen(padding: PaddingValues) {
 @Composable
 private fun ProfilesScreen(
     profiles: List<ImportedProfile>,
+    probeResults: Map<String, String>,
     onAdd: () -> Unit,
     onExport: (ImportedProfile) -> Unit,
+    onProbe: (ImportedProfile) -> Unit,
     onDelete: (String) -> Unit,
     padding: PaddingValues
 ) {
@@ -350,6 +376,12 @@ private fun ProfilesScreen(
                     Column(Modifier.weight(1f)) {
                         Text(profile.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
                         Text("${profile.protocol} • ${profile.host}:${profile.port}", color = Muted, fontSize = 11.sp)
+                        probeResults[profile.id]?.let { result ->
+                            Text(result, color = if (result.startsWith("درگاه TCP")) Mint else Muted, fontSize = 10.sp)
+                        }
+                    }
+                    IconButton(onClick = { onProbe(profile) }) {
+                        Icon(Icons.Default.Bolt, contentDescription = "آزمون درگاه سرور", tint = Mint)
                     }
                     IconButton(onClick = { onExport(profile) }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "خروجی JSON", tint = Violet)
