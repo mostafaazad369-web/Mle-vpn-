@@ -22,6 +22,7 @@ class XrayRuntime(private val service: MleVpnService) {
         val upstreamInterface = service.configureUnderlyingNetwork()
             ?: error("رابط شبکه اصلی برای خروجی Xray شناسایی نشد.")
         val config = JSONObject(rawConfig).put("autoOutboundsInterface", upstreamInterface)
+        resolveProxyBeforeTun(config)
         val descriptor = service.establishXrayTun()
         service.holdTunDescriptor(descriptor)
         try {
@@ -45,6 +46,36 @@ class XrayRuntime(private val service: MleVpnService) {
                 .onFailure { Log.w(TAG, "Xray stopLoop failed", it) }
         }
         service.closeTun()
+    }
+
+    /**
+     * Resolve the proxy endpoint using Android's captured physical Network before
+     * installing the VPN TUN. Keep the original hostname as TLS SNI/HTTP host.
+     */
+    private fun resolveProxyBeforeTun(config: JSONObject) {
+        val outbounds = config.getJSONArray("outbounds")
+        val proxy = (0 until outbounds.length())
+            .asSequence()
+            .map { outbounds.getJSONObject(it) }
+            .first { it.optString("tag") == "proxy" }
+        val protocol = proxy.getString("protocol")
+        val settings = proxy.getJSONObject("settings")
+        val server = when (protocol) {
+            "vless", "vmess" -> settings.getJSONArray("vnext").getJSONObject(0)
+            "trojan" -> settings.getJSONArray("servers").getJSONObject(0)
+            else -> error("Unsupported Xray outbound for DNS bootstrap: $protocol")
+        }
+        val hostname = server.getString("address")
+        val ipAddress = service.resolveUnderlyingHost(hostname)
+        server.put("address", ipAddress)
+
+        val stream = proxy.optJSONObject("streamSettings")
+        if (stream?.optString("security") == "tls") {
+            val tls = stream.optJSONObject("tlsSettings") ?: JSONObject().also {
+                stream.put("tlsSettings", it)
+            }
+            if (tls.optString("serverName").isBlank()) tls.put("serverName", hostname)
+        }
     }
 
     private fun initializeCoreEnvironment() {
