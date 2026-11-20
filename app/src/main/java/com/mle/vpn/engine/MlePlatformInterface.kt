@@ -3,6 +3,7 @@ package com.mle.vpn.engine
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.IpPrefix
 import android.net.VpnService
 import android.os.Build
 import android.os.Process
@@ -13,6 +14,7 @@ import android.system.OsConstants
 import io.nekohasekai.libbox.*
 import java.io.File
 import java.net.Inet6Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 
@@ -53,15 +55,46 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
                 val dns = options.dnsServerAddress
                 while (dns.hasNext()) builder.addDnsServer(dns.next())
             }
-            val v4Routes = options.inet4RouteRange
-            while (v4Routes.hasNext()) {
-                val route = v4Routes.next()
-                builder.addRoute(route.address(), route.prefix())
-            }
-            val v6Routes = options.inet6RouteRange
-            while (v6Routes.hasNext()) {
-                val route = v6Routes.next()
-                builder.addRoute(route.address(), route.prefix())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val v4Routes = options.inet4RouteAddress
+                if (v4Routes.hasNext()) {
+                    while (v4Routes.hasNext()) {
+                        val route = v4Routes.next()
+                        builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                    }
+                } else if (options.inet4Address.hasNext()) {
+                    builder.addRoute("0.0.0.0", 0)
+                }
+                val v6Routes = options.inet6RouteAddress
+                if (v6Routes.hasNext()) {
+                    while (v6Routes.hasNext()) {
+                        val route = v6Routes.next()
+                        builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                    }
+                } else if (options.inet6Address.hasNext()) {
+                    builder.addRoute("::", 0)
+                }
+                val v4Excluded = options.inet4RouteExcludeAddress
+                while (v4Excluded.hasNext()) {
+                    val route = v4Excluded.next()
+                    builder.excludeRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                }
+                val v6Excluded = options.inet6RouteExcludeAddress
+                while (v6Excluded.hasNext()) {
+                    val route = v6Excluded.next()
+                    builder.excludeRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                }
+            } else {
+                val v4Routes = options.inet4RouteRange
+                while (v4Routes.hasNext()) {
+                    val route = v4Routes.next()
+                    builder.addRoute(route.address(), route.prefix())
+                }
+                val v6Routes = options.inet6RouteRange
+                while (v6Routes.hasNext()) {
+                    val route = v6Routes.next()
+                    builder.addRoute(route.address(), route.prefix())
+                }
             }
             val include = options.includePackage
             while (include.hasNext()) runCatching { builder.addAllowedApplication(include.next()) }
@@ -115,7 +148,7 @@ class MlePlatformInterface(private val service: VpnService) : PlatformInterface 
         listener.updateDefaultInterface(
             name, index,
             !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED).not()
+            false
         )
     }
 
