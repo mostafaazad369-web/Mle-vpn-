@@ -29,8 +29,10 @@ class MleBoxRuntime(
             (service.application as MleApplication).ensureLibboxSetup()
             // Validate against the actual bundled sing-box schema before opening TUN.
             Libbox.checkConfig(configJson)
+            Log.i(TAG, "sing-box config validation passed")
             commandServer?.let { running ->
                 if (activeConfig != configJson) {
+                    Log.i(TAG, "Reloading sing-box service with selected profile")
                     running.startOrReloadService(configJson, OverrideOptions())
                     activeConfig = configJson
                 }
@@ -41,7 +43,9 @@ class MleBoxRuntime(
             val server = CommandServer(this@MleBoxRuntime, platform)
             try {
                 server.start()
+                Log.i(TAG, "sing-box command server started; starting proxy service")
                 server.startOrReloadService(configJson, OverrideOptions())
+                Log.i(TAG, "sing-box proxy service start request completed")
                 commandServer = server
                 activeConfig = configJson
             } catch (error: Throwable) {
