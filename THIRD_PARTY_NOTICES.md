@@ -20,13 +20,7 @@ Any APK distributing this dependency must comply with GPL-3.0, including providi
 - AndroidLibXrayLite license: GNU LGPL v3.0 (see [licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt))
 - Xray-core license: Mozilla Public License 2.0 (see [licenses/MPL-2.0-Xray-core.txt](licenses/MPL-2.0-Xray-core.txt)).
 
-The build downloads the pinned AAR, verifies its SHA-256 digest, and applies the attributed, same-length gomobile namespace repackaging in [scripts/repackage-gomobile-aar.py](scripts/repackage-gomobile-aar.py) so its gomobile runtime does not collide with the existing sing-box AAR. The resulting AAR is generated under the Gradle build directory and is not committed. Python 3 is required for this build step.
+The build downloads the pinned AAR and verifies its SHA-256 digest. The AAR is generated under the Gradle build directory and is not committed.
 
 The Xray adapter is selectable for VLESS, VMess and Trojan variants explicitly mapped by `XrayConfigBuilder`. Other imported protocols remain sing-box-only unless a matching Xray outbound is added and tested. Xray's Android TUN fd is passed to `CoreController.startLoop`; Android `VpnService` remains the sole TUN owner.
 
-## MLM VPN build-tool attribution
-- Source: https://github.com/mlmvpn/mlmvpn_android
-- Adapted file: [scripts/repackage-gomobile-aar.py](scripts/repackage-gomobile-aar.py)
-- License and required attribution terms: [licenses/MLM-GPL-3.0.txt](licenses/MLM-GPL-3.0.txt)
-
-The AAR repackaging script is adapted from MLM VPN's GPL-3.0 build tooling. Original developer credit is preserved here and in the app's About/settings text. This project is independent and is not affiliated with MLM VPN.
