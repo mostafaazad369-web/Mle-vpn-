@@ -150,8 +150,21 @@ data class TunConfig(
     init {
         require(mtu in 1280..9000) { "MTU must be between 1280 and 9000." }
         require(dnsServers.isNotEmpty()) { "At least one DNS server is required." }
+        require(dnsServers.all { address ->
+            address.isNotBlank() && address.length <= 45 && address.none(Char::isWhitespace)
+        }) { "DNS server entries must be non-empty IP literals." }
         require(allowedApplications.isEmpty() || disallowedApplications.isEmpty()) {
             "Allow-list and deny-list cannot be combined."
+        }
+        val packageNamePattern = Regex("[A-Za-z_][A-Za-z0-9_]*(\\\\.[A-Za-z_][A-Za-z0-9_]*)+")
+        require((allowedApplications + disallowedApplications).all(packageNamePattern::matches)) {
+            "Application filters must contain valid package names."
+        }
+        require(allowedApplications.distinct().size == allowedApplications.size) {
+            "Allow-list contains duplicate package names."
+        }
+        require(disallowedApplications.distinct().size == disallowedApplications.size) {
+            "Deny-list contains duplicate package names."
         }
     }
 }
