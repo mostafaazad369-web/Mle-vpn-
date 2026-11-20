@@ -65,6 +65,7 @@ class MleVpnService : VpnService() {
             }
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
+                val engineId = intent.getStringExtra(EXTRA_ENGINE_ID) ?: "sing-box"
                 if (config.isNullOrBlank()) {
                     stopSelf(startId)
                     return START_NOT_STICKY
@@ -86,7 +87,10 @@ class MleVpnService : VpnService() {
                 startForeground(NOTIFICATION_ID, buildNotification("در حال بررسی مسیرهای اتصال"))
                 if (!::engineManager.isInitialized) {
                     val singBox = MleBoxRuntime(this, MlePlatformInterface(this))
-                    engineManager = MleEngineManager(listOf(SingBoxEngineAdapter(singBox)))
+                    engineManager = MleEngineManager(listOf(
+                        SingBoxEngineAdapter(singBox),
+                        XrayEngineAdapter(XrayRuntime(this))
+                    ))
                 }
                 serviceScope.launch {
                     var connected = false
@@ -101,7 +105,7 @@ class MleVpnService : VpnService() {
                                 NOTIFICATION_ID,
                                 buildNotification("آزمایش مسیر ${index + 1} از ${candidates.size}")
                             )
-                            engineManager.start("sing-box", candidateConfig)
+                            engineManager.start(engineId, candidateConfig)
                             configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
                             // Give Android and the packet engine a moment to install
@@ -110,7 +114,7 @@ class MleVpnService : VpnService() {
                             val failure = verifyInternetThroughVpn()
                             if (failure == null) {
                                 connected = true
-                                healthStore.recordSuccess(profileId, android.os.SystemClock.elapsedRealtime() - attemptStartedAt)
+                                healthStore.recordSuccess("$engineId:$profileId", android.os.SystemClock.elapsedRealtime() - attemptStartedAt)
                                 MleVpnStatus.internetVerified()
                                 getSystemService(NotificationManager::class.java).notify(
                                     NOTIFICATION_ID,
@@ -119,7 +123,7 @@ class MleVpnService : VpnService() {
                                 break
                             }
                             lastFailure = failure
-                            healthStore.recordFailure(profileId)
+                            healthStore.recordFailure("$engineId:$profileId")
                             android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
                             runCatching { engineManager.stop() }
                             stopTunnelResources(markStopping = false)
@@ -171,7 +175,7 @@ class MleVpnService : VpnService() {
      * process default. This gives sing-box a real upstream network to protect
      * and prevents the VPN from selecting its own TUN as the proxy route.
      */
-    private fun configureUnderlyingNetwork() {
+    internal fun configureUnderlyingNetwork(): String? {
         val manager = getSystemService(ConnectivityManager::class.java)
         val candidate = manager.activeNetwork?.takeIf { network ->
             manager.getNetworkCapabilities(network)
@@ -188,6 +192,27 @@ class MleVpnService : VpnService() {
             "MLE-VPN",
             "Underlying network configured: network=$candidate applied=$applied"
         )
+        selectedUnderlyingNetwork?.let { manager.getLinkProperties(it)?.interfaceName }
+    }
+
+    /** Establishes the Android TUN used by Xray's native tun inbound. */
+    internal fun establishXrayTun(): ParcelFileDescriptor {
+        check(!stopping.get()) { "VPN service is stopping." }
+        check(tun == null) { "A TUN interface is already active." }
+        check(VpnService.prepare(this) == null) { "VPN permission has not been granted." }
+        val builder = Builder()
+            .setSession("MLE VPN • Xray")
+            .setMtu(1500)
+            .addAddress("10.73.0.1", 30)
+            .addRoute("0.0.0.0", 0)
+            .addDnsServer("1.1.1.1")
+            .addDnsServer("1.0.0.1")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
+        builder.addAddress("fd73:6d6c:6500::1", 126)
+            .addRoute("::", 0)
+        return checkNotNull(builder.establish()) {
+            "Android did not grant an Xray TUN interface."
+        }
     }
 
     /**
@@ -343,6 +368,7 @@ class MleVpnService : VpnService() {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
+        const val EXTRA_ENGINE_ID = "com.mle.vpn.extra.ENGINE_ID"
         const val EXTRA_CONFIG_CANDIDATES = "com.mle.vpn.extra.CONFIG_CANDIDATES"
         const val EXTRA_PROFILE_IDS = "com.mle.vpn.extra.PROFILE_IDS"
         private const val MAX_FAILOVER_CANDIDATES = 3
