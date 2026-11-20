@@ -87,7 +87,7 @@ object MleEngineCatalog {
     val all = listOf(
         MleEngineCapability(
             "sing-box", "sing-box", MleEngineAvailability.AVAILABLE,
-            setOf("VLESS", "VMess", "Trojan", "Shadowsocks", "Hysteria2", "TUIC")
+            setOf("VLESS", "VMess", "Trojan", "Shadowsocks", "Hysteria2", "TUIC", "AnyTLS", "SOCKS", "HTTP")
         ),
         MleEngineCapability("xray", "Xray", MleEngineAvailability.PLANNED, setOf("VLESS", "VMess", "Trojan")),
         MleEngineCapability("wireguard", "WireGuard / WARP", MleEngineAvailability.PLANNED, setOf("WireGuard")),
