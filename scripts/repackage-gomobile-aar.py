@@ -7,8 +7,8 @@ Move Xray's bundled gomobile runtime out of the `go` namespace to avoid collisio
 
 WHY THIS EXISTS
 ---------------
-This APK carries two gomobile-built libraries: `libv2ray.aar` (Xray) and
-`libv2ray.aar` (Xray's Go controller). gomobile gives every library it
+This APK carries two gomobile-built libraries: `libbox.aar` (sing-box) and
+`libv2ray.aar` (Xray). gomobile gives every library it
 builds the SAME two things:
 
   * the Java runtime classes `go.Seq`, `go.Universe`, `go.error`
@@ -50,10 +50,10 @@ them by file name -- which the rename already changed.
 
 USAGE
 -----
-    python scripts/repackage-xray-aar.py app/libs/xraytunnel-2.0.39.aar
+    python scripts/repackage-gomobile-aar.py app/libs/libv2ray.aar
 
 Writes `<name>-ns.aar` beside the input and prints a verification report. Re-run it after
-upgrading xray-tunnel-core; keep the original AAR so the transformation stays
+upgrading AndroidLibXrayLite; keep the original AAR so the transformation stays
 reproducible from an untouched source.
 """
 
