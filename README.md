@@ -1,6 +1,6 @@
 # MLE VPN
 
-An original Android VPN client UI built from scratch with Kotlin and Jetpack Compose.
+An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-box 1.14.4 core integration.
 
 ## Brand
 - App name: MLE VPN
@@ -9,15 +9,30 @@ An original Android VPN client UI built from scratch with Kotlin and Jetpack Com
 - Violet: #8D7CFF
 - Custom vector launcher icon
 
-## Planned app areas
-- Connection dashboard
-- Server and protocol selection
-- Configuration manager
-- Connection diagnostics
-- Settings and appearance
+## Implemented
+- Persian RTL Compose interface and profile manager
+- Encrypted local profile storage using Android Keystore AES-GCM
+- Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
+- Per-profile TCP endpoint preflight diagnostics
+- Android VPN permission flow
+- libbox initialization, CommandServer lifecycle wrapper and Android PlatformInterface adapter
+- Android TUN setup with route/DNS configuration, protected outbound sockets and descriptor lifecycle handling
+- Start and stop actions from the home screen
+- GitHub Actions workflow for unit tests and debug APK artifact generation
 
-## Current implementation status
-This repository is being initialized. A working VPN tunnel requires a tested protocol engine, Android VpnService integration, and valid server configurations. The app must only display a connected state after a real tunnel has been established.
+## Current limitations
+- Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
+- The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
+- Optional root-only libbox features are intentionally disabled.
+- Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
+- No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
+- A successful build or CommandServer startup alone does not prove end-to-end VPN connectivity.
 
 ## Build
-Open with Android Studio and JDK 17, sync Gradle, then build the app debug variant.
+Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. The repository also includes a GitHub Actions workflow that runs unit tests and uploads a debug APK artifact after a successful build.
+
+## Runtime notes
+See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
+
+## Third-party licensing
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is GPL-3.0; redistributions must comply with its license and source-availability requirements.
