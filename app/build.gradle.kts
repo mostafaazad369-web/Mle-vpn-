@@ -33,6 +33,7 @@ val xraySha256 = "cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e6691
 
 val downloadXrayAar by tasks.registering {
     outputs.file(xrayAar)
+    outputs.upToDateWhen { false }
     doLast {
         val target = xrayAar.get().asFile
         if (!target.exists() || target.length() == 0L) {
