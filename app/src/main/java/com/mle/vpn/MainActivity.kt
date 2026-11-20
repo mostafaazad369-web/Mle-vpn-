@@ -138,18 +138,30 @@ private fun MleApp() {
             }
         }) { padding ->
             when (selectedTab) {
-                0 -> HomeScreen(selectedServer, profiles.size, { selectedTab = 1 }, {
-                    if (profiles.isEmpty()) {
-                        showImport = true
-                    } else {
-                        val permissionIntent = VpnService.prepare(context)
-                        if (permissionIntent == null) {
-                            startSelectedProfile()
+                0 -> HomeScreen(
+                    server = selectedServer,
+                    profileCount = profiles.size,
+                    onServers = { selectedTab = 1 },
+                    onConnect = {
+                        if (profiles.isEmpty()) {
+                            showImport = true
                         } else {
-                            vpnPermissionLauncher.launch(permissionIntent)
+                            val permissionIntent = VpnService.prepare(context)
+                            if (permissionIntent == null) startSelectedProfile()
+                            else vpnPermissionLauncher.launch(permissionIntent)
                         }
-                    }
-                }, padding)
+                    },
+                    onDisconnect = {
+                        runCatching {
+                            context.startService(Intent(context, MleVpnService::class.java).apply {
+                                action = MleVpnService.ACTION_STOP
+                            })
+                        }.onFailure {
+                            Toast.makeText(context, it.message ?: "قطع اتصال انجام نشد", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    padding = padding
+                )
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
                 2 -> ProfilesScreen(
                     profiles = profiles,
@@ -274,7 +286,14 @@ private fun MleApp() {
 }
 
 @Composable
-private fun HomeScreen(server: String, profileCount: Int, onServers: () -> Unit, onConnect: () -> Unit, padding: PaddingValues) {
+private fun HomeScreen(
+    server: String,
+    profileCount: Int,
+    onServers: () -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    padding: PaddingValues
+) {
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -309,7 +328,13 @@ private fun HomeScreen(server: String, profileCount: Int, onServers: () -> Unit,
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
             Icon(Icons.Default.PowerSettingsNew, null)
             Spacer(Modifier.width(9.dp))
-            Text("آماده‌سازی اتصال", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text("اتصال به سرور", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(9.dp))
+        OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) {
+            Icon(Icons.Default.StopCircle, null, tint = Color(0xFFFF7B86))
+            Spacer(Modifier.width(8.dp))
+            Text("قطع اتصال VPN", color = Color(0xFFFF7B86))
         }
         Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -328,7 +353,7 @@ private fun HomeScreen(server: String, profileCount: Int, onServers: () -> Unit,
             Icon(Icons.Default.ChevronLeft, null, tint = Muted)
         }
         Spacer(Modifier.height(22.dp))
-        Text("نسخه 1.0.0 • هسته اتصال در حال تکمیل", color = Muted, fontSize = 11.sp)
+        Text("نسخه 1.0.0 • موتور sing-box در مرحله آزمایش", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -424,6 +449,6 @@ private fun ProfilesScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text("توجه: ذخیره کانفیگ فعال است؛ اتصال واقعی پس از تکمیل آداپتور libbox در دسترس قرار می‌گیرد.", color = Muted, fontSize = 12.sp)
+        Text("توجه: اتصال از موتور sing-box استفاده می‌کند؛ پایداری آن به کیفیت سرور و نتیجه آزمایش روی دستگاه بستگی دارد.", color = Muted, fontSize = 12.sp)
     }
 }
