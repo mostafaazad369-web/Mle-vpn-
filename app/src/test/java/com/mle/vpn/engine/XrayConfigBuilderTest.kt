@@ -49,6 +49,19 @@ class XrayConfigBuilderTest {
     }
 
     @Test
+    fun buildsShadowsocksOutbound() {
+        val item = profile("ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ@example.com:8388#test")
+        val config = XrayConfigBuilder.build(item)
+        val outbound = config.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("shadowsocks", outbound.getString("protocol"))
+        val server = outbound.getJSONObject("settings").getJSONArray("servers").getJSONObject(0)
+        assertEquals("example.com", server.getString("address"))
+        assertEquals(8388, server.getInt("port"))
+        assertEquals("aes-256-gcm", server.getString("method"))
+        assertEquals("password", server.getString("password"))
+    }
+
+    @Test
     fun rejectsProtocolsWithoutAnXrayMapping() {
         val item = profile("hysteria2://secret@example.com:443?sni=front.example")
         assertEquals(ProfileProtocol.HYSTERIA2, item.protocol)
