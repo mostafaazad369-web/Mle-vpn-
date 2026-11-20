@@ -195,6 +195,18 @@ class MleVpnService : VpnService() {
         selectedUnderlyingNetwork?.let { manager.getLinkProperties(it)?.interfaceName }
     }
 
+    /** Resolve proxy hostnames on the captured physical network before the VPN TUN is installed. */
+    internal fun resolveUnderlyingHost(host: String): String {
+        require(host.isNotBlank()) { "Proxy server hostname is empty." }
+        val network = checkNotNull(selectedUnderlyingNetwork) {
+            "Physical network is not available for proxy DNS bootstrap."
+        }
+        val resolved = network.getAllByName(host).firstOrNull()
+            ?: error("آدرس سرور از طریق شبکه اصلی قابل resolve نیست.")
+        return resolved.hostAddress?.substringBefore("%")
+            ?: error("نشانی IP سرور قابل استفاده نیست.")
+    }
+
     /** Establishes the Android TUN used by Xray's native tun inbound. */
     internal fun establishXrayTun(): ParcelFileDescriptor {
         check(!stopping.get()) { "VPN service is stopping." }
