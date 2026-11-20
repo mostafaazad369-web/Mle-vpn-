@@ -91,6 +91,7 @@ object ProfileImporter {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
         }
         if (raw.startsWith("vmess://", ignoreCase = true)) return parseVmess(raw)
+        if (raw.startsWith("ss://", ignoreCase = true)) return parseShadowsocks(raw)
 
         return try {
             val uri = URI(raw)
@@ -116,6 +117,22 @@ object ProfileImporter {
         } catch (_: Exception) {
             ProfileParseResult.Failure("ساختار لینک کانفیگ قابل خواندن نیست.")
         }
+    }
+
+    private fun parseShadowsocks(raw: String): ProfileParseResult = try {
+        val parsed = ShadowsocksLinkParser.parse(raw)
+        ProfileParseResult.Success(
+            ImportedProfile(
+                id = java.util.UUID.randomUUID().toString(),
+                protocol = ProfileProtocol.SHADOWSOCKS,
+                displayName = parsed.name.take(80),
+                host = parsed.host,
+                port = parsed.port,
+                sourceUri = raw
+            )
+        )
+    } catch (error: Exception) {
+        ProfileParseResult.Failure(error.message ?: "لینک Shadowsocks معتبر نیست.")
     }
 
     private fun parseVmess(raw: String): ProfileParseResult {
