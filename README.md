@@ -30,6 +30,30 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
 - A successful build or CommandServer startup alone does not prove end-to-end VPN connectivity.
 
+## Multi-engine upgrade roadmap
+
+Development is being extended on the `feature/mlm-engine-upgrade` branch without replacing the existing sing-box runtime.
+
+### Runtime status (honest capability list)
+
+- **Available:** the existing sing-box/libbox engine and the profile formats accepted by the current converter.
+- **Planned, not yet connectable:** Xray, WireGuard/WARP, AmneziaWG, OpenVPN, Psiphon, Tor and Geph. These require their own compatible runtime adapters, dependency/ABI checks, lifecycle integration and device testing before they can be exposed as working connection options.
+
+### Target architecture
+
+1. Keep Android `VpnService` as the single owner of the device TUN.
+2. Put each packet engine behind a common adapter boundary; never let two engines compete for the same TUN.
+3. Probe candidates using their own transport and then verify a real request through the candidate route.
+4. Score routes using measured success rate, latency, throughput and recent failures; remember route health per underlying network.
+5. Apply hard requirements (for example UDP or IPv6) before ranking, and use cooldown/hysteresis to avoid flapping.
+6. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
+
+The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs.
+
+### Licensing
+
+The existing libbox dependency is GPL-3.0. Any additional engine must be reviewed for compatible licensing, redistribution terms and required attribution before it is bundled into an APK. MLM VPN source code must not be copied unless its licence and attribution conditions are met.
+
 ## Build
 Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. The repository also includes a GitHub Actions workflow that runs unit tests and uploads a debug APK artifact after a successful build.
 
