@@ -567,7 +567,7 @@ private fun SettingsScreen(
             }
             Switch(checked = automaticFailover, onCheckedChange = onAutomaticFailoverChange)
         }
-        listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0 • Build مستقل با قدردانی از mlmvpn").forEach { item ->
+        listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0 • الهام‌گرفته از معماری عمومی FLUX/MAE").forEach { item ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(item.first, color = Color.White, fontWeight = FontWeight.SemiBold)
