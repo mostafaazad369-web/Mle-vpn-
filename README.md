@@ -43,11 +43,12 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 1. Keep Android `VpnService` as the single owner of the device TUN.
 2. Put each packet engine behind a common adapter boundary; never let two engines compete for the same TUN.
-3. The first fallback pass tries up to three saved sing-box profiles, beginning with the user's selected profile; a candidate is accepted only after a real HTTPS request succeeds through the VPN tunnel.
+3. `MleEngineManager` owns the active data-plane adapter; currently only the existing sing-box adapter is registered. The selected Android `VpnService` remains the single TUN owner.
+4. The first fallback pass tries up to three saved sing-box profiles, beginning with the user's selected profile; a candidate is accepted only after a real HTTPS request succeeds through the VPN tunnel.
 4. Probe candidates using their own transport and then verify a real request through the candidate route.
-5. Score routes using measured success rate, latency, throughput and recent failures; remember route health per underlying network.
-6. Apply hard requirements (for example UDP or IPv6) before ranking, and use cooldown/hysteresis to avoid flapping.
-7. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
+6. Rank saved profiles using locally stored success history, consecutive failures and an EWMA of end-to-end verification duration. This first history store is per installation, not yet partitioned by underlying network; real RTT/throughput probes and network-specific learning remain future work.
+7. Apply hard requirements (for example UDP or IPv6) before ranking, and add cooldown/hysteresis before automatic route switching.
+8. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
 
 The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs.
 
