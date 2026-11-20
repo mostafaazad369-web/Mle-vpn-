@@ -43,4 +43,21 @@ class ProfileImporterTest {
         assertEquals(1, batch.duplicateCount)
         assertEquals(1, batch.rejectedCount)
     }
+
+    @Test
+    fun importsAnyTlsSocksAndHttpProfiles() {
+        val cases = listOf(
+            "anytls://secret@example.com:443?sni=front.example" to ProfileProtocol.ANYTLS,
+            "socks://user:pass@example.com:1080" to ProfileProtocol.SOCKS,
+            "http://user:pass@example.com:8080" to ProfileProtocol.HTTP
+        )
+        cases.forEach { (uri, expectedProtocol) ->
+            val parsed = ProfileImporter.parse(uri)
+            assertTrue("Expected successful parse for $expectedProtocol", parsed is ProfileParseResult.Success)
+            val profile = (parsed as ProfileParseResult.Success).profile
+            assertEquals(expectedProtocol, profile.protocol)
+            assertEquals(expectedProtocol.name.lowercase(), SingBoxOutboundBuilder.build(profile).getString("type"))
+        }
+    }
+
 }
