@@ -89,7 +89,7 @@ class MleBoxRuntime(
     }
 
     override fun writeDebugMessage(message: String?) {
-        Log.d(TAG, message.orEmpty())
+        Log.i(TAG, message.orEmpty())
     }
 
     override fun connectSSHAgent(): Int = -1
