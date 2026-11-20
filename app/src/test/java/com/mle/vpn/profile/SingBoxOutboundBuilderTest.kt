@@ -107,4 +107,44 @@ class MleAdaptiveRoutePlannerTest {
         )
         assertTrue(com.mle.vpn.engine.MleEngineCatalog.planned().any { it.id == "xray" })
     }
+
+    @Test
+    fun buildsAnyTlsWithRequiredTls() {
+        val uri = "anytls://secret@example.com:443?security=tls&sni=front.example&fp=chrome"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.ANYTLS, uri))
+        assertEquals("anytls", json.getString("type"))
+        assertEquals("secret", json.getString("password"))
+        assertTrue(json.getJSONObject("tls").getBoolean("enabled"))
+        assertEquals("front.example", json.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun buildsAuthenticatedSocks5() {
+        val uri = "socks://user:pass@example.com:1080?version=5&network=tcp"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.SOCKS, uri))
+        assertEquals("socks", json.getString("type"))
+        assertEquals("user", json.getString("username"))
+        assertEquals("pass", json.getString("password"))
+        assertEquals("5", json.getString("version"))
+        assertEquals("tcp", json.getString("network"))
+    }
+
+    @Test
+    fun buildsHttpConnectWithTlsWhenExplicitlyRequested() {
+        val uri = "http://user:pass@example.com:8443?security=tls&sni=proxy.example"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.HTTP, uri))
+        assertEquals("http", json.getString("type"))
+        assertEquals("user", json.getString("username"))
+        assertTrue(json.getJSONObject("tls").getBoolean("enabled"))
+        assertEquals("proxy.example", json.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun rejectsMalformedSocksCredentials() {
+        val uri = "socks://only-user@example.com:1080"
+        assertFalse(runCatching {
+            SingBoxOutboundBuilder.build(profile(ProfileProtocol.SOCKS, uri))
+        }.isSuccess)
+    }
+
 }
