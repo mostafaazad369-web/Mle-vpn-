@@ -41,6 +41,7 @@ object SingBoxConfigBuilder {
         // detected underlying network, avoiding a route loop / black-holed TUN.
         val route = JSONObject()
             .put("final", "proxy")
+            .put("auto_detect_interface", true)
             .put("override_android_vpn", true)
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
