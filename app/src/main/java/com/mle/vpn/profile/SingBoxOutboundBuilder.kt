@@ -136,7 +136,7 @@ object SingBoxOutboundBuilder {
             decode(item.substringBefore('=')) to decode(item.substringAfter('=', ""))
         }
 
-    private fun decode(value: String): String = URLDecoder.decode(value, StandardCharsets.UTF_8.name())
+    private fun decode(value: String): String = URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name())
 
     private fun requirePort(port: Int): Int {
         require(port in 1..65535) { "پورت سرور معتبر نیست." }
