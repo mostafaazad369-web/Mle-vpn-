@@ -16,7 +16,7 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.VLESS -> buildVless(URI(profile.sourceUri))
         ProfileProtocol.TROJAN -> buildTrojan(URI(profile.sourceUri))
         ProfileProtocol.VMESS -> buildVmess(profile.sourceUri)
-        else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: \${profile.protocol}")
+        else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
     }
 
     private fun buildVless(uri: URI): JSONObject {
@@ -78,7 +78,6 @@ object SingBoxOutboundBuilder {
         q["alpn"]?.takeIf { it.isNotBlank() }?.let {
             tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
         }
-        q["allowInsecure"]?.let { tls.put("insecure", it == "1" || it.equals("true", true)) }
         out.put("tls", tls)
         when (q["type"]?.lowercase()) {
             null, "", "tcp" -> Unit
@@ -126,7 +125,7 @@ object SingBoxOutboundBuilder {
             }
             "grpc" -> out.put("transport", JSONObject().put("type", "grpc")
                 .put("service_name", vmess.optString("path")))
-            else -> error("VMess transport is not supported: \${vmess.optString("net")}")
+            else -> error("VMess transport is not supported: ${vmess.optString("net")}")
         }
         return out
     }
