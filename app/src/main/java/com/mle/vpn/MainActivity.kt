@@ -74,10 +74,11 @@ private fun MleApp() {
     val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
+    var selectedProfileId by remember { mutableStateOf<String?>(null) }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
 
     fun startSelectedProfile() {
-        val profile = profiles.firstOrNull()
+        val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
         if (profile == null) {
             showImport = true
             return
@@ -114,7 +115,10 @@ private fun MleApp() {
             showNotice = true
         }
     }
-    LaunchedEffect(Unit) { profiles = vault.loadAll() }
+    LaunchedEffect(Unit) {
+        profiles = vault.loadAll()
+        selectedProfileId = profiles.firstOrNull()?.id
+    }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
         secondary = Violet, onBackground = Color.White, onSurface = Color.White
@@ -165,7 +169,9 @@ private fun MleApp() {
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
                 2 -> ProfilesScreen(
                     profiles = profiles,
+                    selectedProfileId = selectedProfileId,
                     probeResults = probeResults,
+                    onSelect = { selectedProfileId = it.id },
                     onAdd = { showImport = true },
                     onExport = { profile -> exportProfile = profile },
                     onProbe = { profile ->
@@ -183,6 +189,7 @@ private fun MleApp() {
                     onDelete = { id ->
                         vault.delete(id)
                         profiles = vault.loadAll()
+                        if (selectedProfileId == id) selectedProfileId = profiles.firstOrNull()?.id
                         probeResults = probeResults - id
                     },
                     padding = padding
@@ -255,6 +262,7 @@ private fun MleApp() {
                                 } else {
                                     batch.profiles.forEach(vault::save)
                                     profiles = vault.loadAll()
+                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
                                     importText = ""
                                     importError = null
                                     showImport = false
@@ -397,7 +405,9 @@ private fun SettingsScreen(padding: PaddingValues) {
 @Composable
 private fun ProfilesScreen(
     profiles: List<ImportedProfile>,
+    selectedProfileId: String?,
     probeResults: Map<String, String>,
+    onSelect: (ImportedProfile) -> Unit,
     onAdd: () -> Unit,
     onExport: (ImportedProfile) -> Unit,
     onProbe: (ImportedProfile) -> Unit,
@@ -424,7 +434,10 @@ private fun ProfilesScreen(
             profiles.forEach { profile ->
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 10.dp)
-                        .background(Panel, RoundedCornerShape(16.dp)).padding(15.dp),
+                        .background(if (selectedProfileId == profile.id) Mint.copy(alpha = .10f) else Panel, RoundedCornerShape(16.dp))
+                        .border(1.dp, if (selectedProfileId == profile.id) Mint.copy(alpha = .55f) else Color.Transparent, RoundedCornerShape(16.dp))
+                        .clickable { onSelect(profile) }
+                        .padding(15.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Default.VpnKey, null, tint = Mint)
@@ -432,6 +445,7 @@ private fun ProfilesScreen(
                     Column(Modifier.weight(1f)) {
                         Text(profile.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
                         Text("${profile.protocol} • ${profile.host}:${profile.port}", color = Muted, fontSize = 11.sp)
+                        if (selectedProfileId == profile.id) Text("انتخاب‌شده برای اتصال", color = Mint, fontSize = 10.sp)
                         probeResults[profile.id]?.let { result ->
                             Text(result, color = if (result.startsWith("درگاه TCP")) Mint else Muted, fontSize = 10.sp)
                         }
