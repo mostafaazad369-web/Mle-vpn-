@@ -33,7 +33,7 @@ object TelegramChannelFetcher {
     private const val MAX_BYTES = 1_500_000
     private const val MAX_REDIRECTS = 3
     private val shareLink = Regex(
-        """(?i)(?:vless|vmess|trojan|ss|hysteria2?|hy2|tuic|anytls|wireguard|socks|https?)://[^\s\"'<>]+"""
+        """(?i)(?:vless|vmess|trojan|ss|hysteria2?|hy2|tuic|anytls|wireguard|socks)://[^\s\"'<>]+"""
     )
 
     suspend fun fetchShareLinks(channel: String): String = withContext(Dispatchers.IO) {
