@@ -157,4 +157,23 @@ class MleAdaptiveRoutePlannerTest {
         }.isSuccess)
     }
 
+
+    @Test
+    fun buildsVlessHttpUpgradeTransport() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&type=httpupgrade&host=cdn.example.com&path=%2Fedge"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.VLESS, uri))
+        assertEquals("httpupgrade", json.getJSONObject("transport").getString("type"))
+        assertEquals("cdn.example.com", json.getJSONObject("transport").getString("host"))
+        assertEquals("/edge", json.getJSONObject("transport").getString("path"))
+    }
+
+    @Test
+    fun buildsVlessHttp2StyleTransport() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&type=http&host=cdn.example.com&path=%2Fapi"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.VLESS, uri))
+        assertEquals("http", json.getJSONObject("transport").getString("type"))
+        assertEquals("cdn.example.com", json.getJSONObject("transport").getJSONArray("host").getString(0))
+        assertEquals("/api", json.getJSONObject("transport").getString("path"))
+    }
+
 }
