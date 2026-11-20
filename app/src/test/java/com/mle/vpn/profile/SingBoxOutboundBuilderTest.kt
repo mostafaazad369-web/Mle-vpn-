@@ -54,3 +54,57 @@ class SingBoxOutboundBuilderTest {
         assertFalse(json.getJSONObject("tls").optBoolean("insecure", false))
     }
 }
+
+
+class MleAdaptiveRoutePlannerTest {
+    private fun candidate(
+        id: String,
+        verified: Boolean = true,
+        udp: Boolean = true,
+        failures: Int = 0,
+        latency: Long? = 100
+    ) = com.mle.vpn.engine.MleRouteCandidate(
+        id = id,
+        engineId = "sing-box",
+        latencyMs = latency,
+        successRate = 0.9,
+        throughputKbps = 4000,
+        consecutiveFailures = failures,
+        supportsUdp = udp,
+        endToEndVerified = verified
+    )
+
+    @Test
+    fun unverifiedRoutesAreExcludedByDefault() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("unknown", verified = false), candidate("good"))
+        )
+        assertEquals(listOf("good"), ranked.map { it.candidate.id })
+    }
+
+    @Test
+    fun hardUdpRequirementFiltersTcpOnlyRoutes() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("tcp", udp = false), candidate("udp")),
+            com.mle.vpn.engine.MleRouteRequirements(requireUdp = true)
+        )
+        assertEquals(listOf("udp"), ranked.map { it.candidate.id })
+    }
+
+    @Test
+    fun threeConsecutiveFailuresRemoveRoute() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("dead", failures = 3))
+        )
+        assertTrue(ranked.isEmpty())
+    }
+
+    @Test
+    fun catalogDoesNotAdvertisePlannedEnginesAsAvailable() {
+        assertEquals(
+            listOf("sing-box"),
+            com.mle.vpn.engine.MleEngineCatalog.available().map { it.id }
+        )
+        assertTrue(com.mle.vpn.engine.MleEngineCatalog.planned().any { it.id == "xray" })
+    }
+}
