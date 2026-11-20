@@ -27,8 +27,6 @@ class SingBoxConfigBuilderTest {
         assertEquals("proxy", config.getJSONObject("route").getString("final"))
         assertTrue(config.getJSONObject("route").getBoolean("auto_detect_interface"))
         assertTrue(config.getJSONObject("route").getBoolean("override_android_vpn"))
-        assertTrue(!config.getJSONObject("route").has("auto_detect_interface"))
-        assertTrue(config.getJSONObject("route").getBoolean("override_android_vpn"))
         val outbounds = config.getJSONArray("outbounds")
         assertEquals("vless", outbounds.getJSONObject(0).getString("type"))
         assertTrue(outbounds.length() >= 3)
