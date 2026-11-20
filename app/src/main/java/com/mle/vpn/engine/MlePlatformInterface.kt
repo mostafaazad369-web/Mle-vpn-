@@ -2,6 +2,7 @@ package com.mle.vpn.engine
 
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.VpnService
 import android.net.NetworkCapabilities
 import android.net.IpPrefix
 import android.os.Build
