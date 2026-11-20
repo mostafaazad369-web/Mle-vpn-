@@ -372,10 +372,12 @@ private fun HomeScreen(
                         when (connectionPhase) {
                             com.mle.vpn.engine.MleConnectionPhase.DISCONNECTED -> "قطع"
                             com.mle.vpn.engine.MleConnectionPhase.STARTING -> "در حال اتصال"
-                            com.mle.vpn.engine.MleConnectionPhase.TUNNEL_ACTIVE -> "تونل فعال"
+                            com.mle.vpn.engine.MleConnectionPhase.TUNNEL_ACTIVE -> "در حال آزمایش اینترنت"
+                            com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED -> "اینترنت وصل است"
+                            com.mle.vpn.engine.MleConnectionPhase.NO_INTERNET -> "تونل فعال؛ اینترنت قطع"
                             com.mle.vpn.engine.MleConnectionPhase.ERROR -> "خطا"
                         },
-                        color = if (connectionPhase == com.mle.vpn.engine.MleConnectionPhase.ERROR) Color(0xFFFF7B86) else Mint,
+                        color = if ((connectionPhase == com.mle.vpn.engine.MleConnectionPhase.ERROR || connectionPhase == com.mle.vpn.engine.MleConnectionPhase.NO_INTERNET)) Color(0xFFFF7B86) else if (connectionPhase == com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED) Color(0xFF62E6A7) else Mint,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
                     )
