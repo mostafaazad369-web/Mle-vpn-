@@ -317,8 +317,7 @@ private fun HomeScreen(
             }
         }
         Spacer(Modifier.height(34.dp))
-        Text("اتصال امن،
-بدون مرز", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 38.sp)
+        Text("اتصال امن،\nبدون مرز", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 38.sp)
         Spacer(Modifier.height(9.dp))
         Text("کنترل ساده و سریع اتصال اینترنت", color = Muted, fontSize = 14.sp)
         Spacer(Modifier.height(28.dp))
