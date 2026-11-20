@@ -152,6 +152,7 @@ private fun MleApp() {
                     server = selectedServer,
                     profileCount = profiles.size,
                     connectionDetail = connectionStatus.detail,
+                    connectionPhase = connectionStatus.phase,
                     onServers = { selectedTab = 1 },
                     onConnect = {
                         if (profiles.isEmpty()) {
@@ -335,6 +336,7 @@ private fun HomeScreen(
     server: String,
     profileCount: Int,
     connectionDetail: String,
+    connectionPhase: com.mle.vpn.engine.MleConnectionPhase,
     onServers: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -365,13 +367,13 @@ private fun HomeScreen(
                     Icon(Icons.Default.PowerSettingsNew, null, tint = Mint, modifier = Modifier.size(58.dp))
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        when (connectionStatus.phase) {
+                        when (connectionPhase) {
                             com.mle.vpn.engine.MleConnectionPhase.DISCONNECTED -> "قطع"
                             com.mle.vpn.engine.MleConnectionPhase.STARTING -> "در حال اتصال"
                             com.mle.vpn.engine.MleConnectionPhase.TUNNEL_ACTIVE -> "تونل فعال"
                             com.mle.vpn.engine.MleConnectionPhase.ERROR -> "خطا"
                         },
-                        color = if (connectionStatus.phase == com.mle.vpn.engine.MleConnectionPhase.ERROR) Color(0xFFFF7B86) else Mint,
+                        color = if (connectionPhase == com.mle.vpn.engine.MleConnectionPhase.ERROR) Color(0xFFFF7B86) else Mint,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
                     )
