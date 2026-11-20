@@ -21,6 +21,12 @@ data class ImportedProfile(
     val sourceUri: String
 )
 
+data class ProfileBatchResult(
+    val profiles: List<ImportedProfile>,
+    val rejectedCount: Int,
+    val duplicateCount: Int
+)
+
 sealed interface ProfileParseResult {
     data class Success(val profile: ImportedProfile) : ProfileParseResult
     data class Failure(val reason: String) : ProfileParseResult
@@ -46,6 +52,38 @@ object ProfileImporter {
         "socks" to ProfileProtocol.SOCKS,
         "http" to ProfileProtocol.HTTP
     )
+
+    /**
+     * Parses a pasted multi-line or Base64 subscription. Invalid entries are
+     * skipped and counted; duplicate source links are removed before storage.
+     */
+    fun parseBatch(input: String): ProfileBatchResult {
+        require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
+        val raw = input.trim()
+        val decoded = if (raw.contains("://")) raw else {
+            runCatching {
+                String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
+            }.getOrNull()?.takeIf { it.contains("://") } ?: raw
+        }
+        val lines = decoded.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .take(501)
+            .toList()
+        require(lines.size <= 500) { "حداکثر ۵۰۰ کانفیگ در هر بار قابل ورود است." }
+        val accepted = LinkedHashMap<String, ImportedProfile>()
+        var rejected = 0
+        var duplicates = 0
+        lines.forEach { line ->
+            when (val result = parse(line)) {
+                is ProfileParseResult.Success -> {
+                    if (accepted.putIfAbsent(result.profile.sourceUri, result.profile) != null) duplicates++
+                }
+                is ProfileParseResult.Failure -> rejected++
+            }
+        }
+        return ProfileBatchResult(accepted.values.toList(), rejected, duplicates)
+    }
 
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
