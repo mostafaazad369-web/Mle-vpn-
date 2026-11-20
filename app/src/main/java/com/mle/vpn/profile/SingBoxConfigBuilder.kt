@@ -46,7 +46,7 @@ object SingBoxConfigBuilder {
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
         return JSONObject()
-            .put("log", JSONObject().put("level", "warn"))
+            .put("log", JSONObject().put("level", "info"))
             .put("dns", dns)
             .put("inbounds", inbounds)
             .put("outbounds", outbounds)
