@@ -20,6 +20,7 @@ import com.mle.vpn.profile.ProfileImporter
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
+import com.mle.vpn.profile.SingBoxOutboundBuilder
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -96,7 +97,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک در خطوط جداگانه یا متن Base64 را وارد کن. اطلاعات اتصال رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
+                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. فعلاً فقط VLESS، VMess و Trojan با تنظیمات پشتیبانی‌شده ذخیره می‌شوند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
@@ -120,7 +121,14 @@ private fun MleApp() {
                         scope.launch {
                             runCatching {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
-                                ProfileImporter.parseBatch(source)
+                                val parsed = ProfileImporter.parseBatch(source)
+                                val convertible = parsed.profiles.filter { profile ->
+                                    runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                }
+                                parsed.copy(
+                                    profiles = convertible,
+                                    rejectedCount = parsed.rejectedCount + (parsed.profiles.size - convertible.size)
+                                )
                             }.onSuccess { batch ->
                                 if (batch.profiles.isEmpty()) {
                                     importError = "کانفیگ قابل‌قبولی پیدا نشد؛ ${batch.rejectedCount} مورد رد شد."
