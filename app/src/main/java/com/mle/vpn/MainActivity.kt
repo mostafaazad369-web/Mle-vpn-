@@ -92,14 +92,14 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک یا کانفیگ را وارد کن. اطلاعات اتصال به‌صورت رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
+                        Text("یک لینک، چند لینک در خطوط جداگانه یا متن اشتراک Base64 را وارد کن. اطلاعات اتصال رمزگذاری‌شده ذخیره می‌شود.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
                             onValueChange = { importText = it; importError = null },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3,
-                            placeholder = { Text("vless:// یا vmess:// ...") },
+                            placeholder = { Text("vless:// ...\nvmess:// ...\nیا متن اشتراک Base64") },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                                 focusedBorderColor = Mint, unfocusedBorderColor = Muted,
@@ -111,16 +111,21 @@ private fun MleApp() {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        when (val result = ProfileImporter.parse(importText)) {
-                            is ProfileParseResult.Success -> {
-                                vault.save(result.profile)
-                                profiles = vault.loadAll()
-                                importText = ""
-                                importError = null
-                                showImport = false
+                        runCatching { ProfileImporter.parseBatch(importText) }
+                            .onSuccess { batch ->
+                                if (batch.profiles.isEmpty()) {
+                                    importError = "کانفیگ قابل‌قبولی پیدا نشد؛ فرمت لینک‌ها را بررسی کن."
+                                } else {
+                                    batch.profiles.forEach(vault::save)
+                                    profiles = vault.loadAll()
+                                    importText = ""
+                                    importError = null
+                                    showImport = false
+                                }
                             }
-                            is ProfileParseResult.Failure -> importError = result.reason
-                        }
+                            .onFailure { error ->
+                                importError = error.message ?: "ورود کانفیگ انجام نشد."
+                            }
                     }) { Text("ذخیره امن", color = Mint) }
                 },
                 dismissButton = {
