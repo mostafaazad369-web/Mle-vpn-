@@ -43,10 +43,11 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 1. Keep Android `VpnService` as the single owner of the device TUN.
 2. Put each packet engine behind a common adapter boundary; never let two engines compete for the same TUN.
-3. Probe candidates using their own transport and then verify a real request through the candidate route.
-4. Score routes using measured success rate, latency, throughput and recent failures; remember route health per underlying network.
-5. Apply hard requirements (for example UDP or IPv6) before ranking, and use cooldown/hysteresis to avoid flapping.
-6. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
+3. The first fallback pass tries up to three saved sing-box profiles, beginning with the user's selected profile; a candidate is accepted only after a real HTTPS request succeeds through the VPN tunnel.
+4. Probe candidates using their own transport and then verify a real request through the candidate route.
+5. Score routes using measured success rate, latency, throughput and recent failures; remember route health per underlying network.
+6. Apply hard requirements (for example UDP or IPv6) before ranking, and use cooldown/hysteresis to avoid flapping.
+7. Verify traffic and DNS/IPv4/IPv6 leak behavior on real Android devices before marking a release production-ready.
 
 The planner must never treat a TCP port-open result, a successful JSON schema check, or TUN creation alone as proof of a working VPN. Credentials and private keys must never be hardcoded or written to logs.
 
