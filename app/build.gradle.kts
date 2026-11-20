@@ -1,3 +1,7 @@
+import java.net.URL
+import java.net.HttpURLConnection
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -38,16 +42,17 @@ val downloadXrayAar by tasks.registering {
         val target = xrayAar.get().asFile
         if (!target.exists() || target.length() == 0L) {
             target.parentFile.mkdirs()
-            val url = java.net.URL("https://github.com/2dust/AndroidLibXrayLite/releases/download/$xrayVersion/libv2ray.aar")
-            url.openConnection().apply {
-                connectTimeout = 30_000
-                readTimeout = 120_000
-            }.getInputStream().use { input ->
+            val connection = URL("https://github.com/2dust/AndroidLibXrayLite/releases/download/$xrayVersion/libv2ray.aar")
+                .openConnection() as HttpURLConnection
+            connection.connectTimeout = 30_000
+            connection.readTimeout = 120_000
+            connection.inputStream.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             }
+            connection.disconnect()
         }
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-            .digest(target.readBytes()).joinToString("") { "%02x".format(it) }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(target.readBytes()).joinToString("") { byte -> "%02x".format(byte) }
         check(digest == xraySha256) { "Xray AAR checksum mismatch: $digest" }
     }
 }
