@@ -30,9 +30,9 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
 }
+
 val xrayVersion = "v26.11.9"
 val xrayAar = layout.buildDirectory.file("xray/libv2ray.aar")
-val xrayNamespacedAar = layout.buildDirectory.file("xray/libv2ray-ns.aar")
 val xraySha256 = "cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155"
 
 val downloadXrayAar by tasks.registering {
@@ -46,10 +46,13 @@ val downloadXrayAar by tasks.registering {
                 .openConnection() as HttpURLConnection
             connection.connectTimeout = 30_000
             connection.readTimeout = 120_000
-            connection.inputStream.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+            try {
+                connection.inputStream.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+            } finally {
+                connection.disconnect()
             }
-            connection.disconnect()
         }
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(target.readBytes()).joinToString("") { byte -> "%02x".format(byte) }
@@ -57,32 +60,10 @@ val downloadXrayAar by tasks.registering {
     }
 }
 
-val repackageXrayAar by tasks.registering(Exec::class) {
-    dependsOn(downloadXrayAar)
-    inputs.file(xrayAar)
-    outputs.file(xrayNamespacedAar)
-    commandLine(
-        "python3",
-        rootProject.file("scripts/repackage-gomobile-aar.py").absolutePath,
-        xrayAar.get().asFile.absolutePath
-    )
-    doLast {
-        val generated = xrayAar.get().asFile.resolveSibling("libv2ray-ns.aar")
-        check(generated.exists() && generated.length() > 0L) {
-            "Xray AAR namespace repackaging did not produce libv2ray-ns.aar"
-        }
-        val output = xrayNamespacedAar.get().asFile
-        output.parentFile.mkdirs()
-        if (generated.canonicalFile != output.canonicalFile) {
-            generated.copyTo(output, overwrite = true)
-        }
-    }
-}
-
-tasks.named("preBuild").configure { dependsOn(repackageXrayAar) }
+tasks.named("preBuild").configure { dependsOn(downloadXrayAar) }
 
 dependencies {
-    implementation(files(xrayNamespacedAar))
+    implementation(files(xrayAar))
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.compose.ui:ui")
