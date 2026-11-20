@@ -27,6 +27,16 @@ class SingBoxEngineAdapter(
     override suspend fun stop() = runtime.stop()
 }
 
+class XrayEngineAdapter(
+    private val runtime: XrayRuntime
+) : MleEngineAdapter {
+    override val id: String = "xray"
+    override val displayName: String = "Xray"
+
+    override suspend fun start(config: String) = runtime.start(config)
+    override suspend fun stop() = runtime.stop()
+}
+
 class MleEngineManager(adapters: List<MleEngineAdapter>) {
     private val lock = Mutex()
     private val engines = adapters.associateBy { it.id }
