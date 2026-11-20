@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MleApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var automaticFailover by remember { mutableStateOf(false) }
     var selectedServer by remember { mutableStateOf("بهترین موقعیت") }
     var showNotice by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
@@ -88,14 +89,20 @@ private fun MleApp() {
             showImport = true
             return
         }
-        val config = runCatching { SingBoxConfigBuilder.build(profile).toString() }
+        val orderedProfiles = if (automaticFailover) ProfileFailoverPlanner.order(profiles, profile.id) else listOf(profile)
+        val configs = runCatching { orderedProfiles.map { SingBoxConfigBuilder.build(it).toString() } }
             .getOrElse { error ->
                 Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
                 return
             }
+        val configCandidates = configs.getOrElse { error ->
+            Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
+            return
+        }
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
             action = MleVpnService.ACTION_START
-            putExtra(MleVpnService.EXTRA_CONFIG, config)
+            putExtra(MleVpnService.EXTRA_CONFIG, configCandidates.first())
+            putStringArrayListExtra(MleVpnService.EXTRA_CONFIG_CANDIDATES, ArrayList(configCandidates))
         }
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
@@ -204,7 +211,11 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                3 -> SettingsScreen(padding)
+                3 -> SettingsScreen(
+                    padding = padding,
+                    automaticFailover = automaticFailover,
+                    onAutomaticFailoverChange = { automaticFailover = it }
+                )
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
                     fetchingSource = fetchingSource,
@@ -488,10 +499,24 @@ private fun TelegramSourcesScreen(
 }
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues) {
+private fun SettingsScreen(
+    padding: PaddingValues,
+    automaticFailover: Boolean,
+    onAutomaticFailoverChange: (Boolean) -> Unit
+) {
     Column(Modifier.fillMaxSize().padding(padding).padding(22.dp)) {
         Text("تنظیمات", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(20.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("اتصال خودکار به کانفیگ جایگزین", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("در صورت برقرار نشدن اینترنت، حداکثر ۳ پروفایل بررسی می‌شود.", color = Muted, fontSize = 12.sp)
+            }
+            Switch(checked = automaticFailover, onCheckedChange = onAutomaticFailoverChange)
+        }
         listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0").forEach { item ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
