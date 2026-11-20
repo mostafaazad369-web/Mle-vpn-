@@ -27,7 +27,7 @@ class MleRouteHealthStore(context: Context) {
         return Health(
             attempts = json.optInt("attempts").coerceAtLeast(0),
             successes = json.optInt("successes").coerceAtLeast(0),
-            latencyEwmaMs = if (json.has("verificationMs")) json.optDouble("latency").takeIf { it.isFinite() && it >= 0 } else null,
+            verificationDurationEwmaMs = if (json.has("verificationMs")) json.optDouble("verificationMs").takeIf { it.isFinite() && it >= 0 } else null,
             consecutiveFailures = json.optInt("failures").coerceAtLeast(0),
             lastSuccessAtMs = json.optLong("lastSuccess").coerceAtLeast(0)
         )
@@ -36,7 +36,7 @@ class MleRouteHealthStore(context: Context) {
     fun recordSuccess(id: String, latencyMs: Long) {
         val old = read(id)
         val sample = latencyMs.coerceAtLeast(0).toDouble()
-        val ewma = old.latencyEwmaMs?.let { it * 0.7 + sample * 0.3 } ?: sample
+        val ewma = old.verificationDurationEwmaMs?.let { it * 0.7 + sample * 0.3 } ?: sample
         write(id, Health(old.attempts + 1, old.successes + 1, ewma, 0, System.currentTimeMillis()))
     }
 
@@ -49,8 +49,8 @@ class MleRouteHealthStore(context: Context) {
         val h = read(id)
         val recencyBonus = if (h.lastSuccessAtMs > 0 &&
             System.currentTimeMillis() - h.lastSuccessAtMs < 24 * 60 * 60 * 1000L) 0.05 else 0.0
-        val verificationScore = h.latencyEwmaMs?.let { 1.0 / (1.0 + it / 500.0) } ?: 0.0
-        val score = h.successRate * 0.65 + latencyScore * 0.30 + recencyBonus -
+        val verificationScore = h.verificationDurationEwmaMs?.let { 1.0 / (1.0 + it / 500.0) } ?: 0.0
+        val score = h.successRate * 0.65 + verificationScore * 0.30 + recencyBonus -
             h.consecutiveFailures.coerceAtMost(5) * 0.15
         id to score
     }.sortedWith(compareByDescending<Pair<String, Double>> { it.second }.thenBy { ids.indexOf(it.first) })
@@ -62,7 +62,7 @@ class MleRouteHealthStore(context: Context) {
             .put("successes", health.successes)
             .put("failures", health.consecutiveFailures)
             .put("lastSuccess", health.lastSuccessAtMs)
-        health.latencyEwmaMs?.let { json.put("latency", it) }
+        health.verificationDurationEwmaMs?.let { json.put("verificationMs", it) }
         prefs.edit().putString(key(id), json.toString()).apply()
     }
 
