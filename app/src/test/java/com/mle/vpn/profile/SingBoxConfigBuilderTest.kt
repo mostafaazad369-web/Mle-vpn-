@@ -23,12 +23,17 @@ class SingBoxConfigBuilderTest {
         val config = SingBoxConfigBuilder.build(profile)
         assertEquals("tun", config.getJSONArray("inbounds").getJSONObject(0).getString("type"))
         assertEquals("hijack", config.getJSONArray("inbounds").getJSONObject(0).getString("dns_mode"))
-        assertEquals("https", config.getJSONObject("dns").getJSONArray("servers").getJSONObject(0).getString("type"))
+        val dnsServers = config.getJSONObject("dns").getJSONArray("servers")
+        assertEquals("local", dnsServers.getJSONObject(0).getString("type"))
+        assertEquals("bootstrap", dnsServers.getJSONObject(0).getString("tag"))
+        assertEquals("https", dnsServers.getJSONObject(1).getString("type"))
         assertEquals("proxy", config.getJSONObject("route").getString("final"))
         assertTrue(config.getJSONObject("route").getBoolean("auto_detect_interface"))
         assertTrue(config.getJSONObject("route").getBoolean("override_android_vpn"))
+        assertEquals("bootstrap", config.getJSONObject("route").getString("default_domain_resolver"))
         val outbounds = config.getJSONArray("outbounds")
         assertEquals("vless", outbounds.getJSONObject(0).getString("type"))
+        assertEquals("bootstrap", outbounds.getJSONObject(0).getString("domain_resolver"))
         assertTrue(outbounds.length() >= 3)
     }
 }
