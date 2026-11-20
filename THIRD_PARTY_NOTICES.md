@@ -24,3 +24,11 @@ The build downloads the pinned AAR and verifies its SHA-256 digest. The AAR is g
 
 The Xray adapter is selectable for VLESS, VMess and Trojan variants explicitly mapped by `XrayConfigBuilder`. Other imported protocols remain sing-box-only unless a matching Xray outbound is added and tested. Xray's Android TUN fd is passed to `CoreController.startLoop`; Android `VpnService` remains the sole TUN owner.
 
+
+
+## Xray gomobile runtime namespace isolation
+- Adapted build tool: [scripts/repackage-gomobile-aar.py](scripts/repackage-gomobile-aar.py)
+- Original source: https://github.com/mlmvpn/mlmvpn_android/blob/main/scripts/repackage-psiphon-aar.py
+- License and attribution terms: [licenses/MLM-GPL-3.0.txt](licenses/MLM-GPL-3.0.txt)
+
+The build tool is adapted from MLM VPN's GPL-3.0 script and preserves its attribution. It isolates the Xray gomobile Java/JNI runtime namespace from sing-box and handles both SysV-hash and GNU-hash-only ELF builds. MLE VPN remains an independent project and is not affiliated with MLM VPN.
