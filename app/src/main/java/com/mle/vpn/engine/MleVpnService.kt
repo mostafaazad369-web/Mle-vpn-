@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
@@ -107,6 +109,28 @@ class MleVpnService : VpnService() {
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Capture the physical network before Android installs this VPN as the
+     * process default. This gives sing-box a real upstream network to protect
+     * and prevents the VPN from selecting its own TUN as the proxy route.
+     */
+    private fun configureUnderlyingNetwork() {
+        val manager = getSystemService(ConnectivityManager::class.java)
+        val candidate = manager.activeNetwork?.takeIf { network ->
+            manager.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+        } ?: manager.allNetworks.firstOrNull { network ->
+            val caps = manager.getNetworkCapabilities(network)
+            caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN).not()
+        }
+        val applied = setUnderlyingNetworks(candidate?.let { arrayOf(it) })
+        android.util.Log.i(
+            "MLE-VPN",
+            "Underlying network configured: network=$candidate applied=$applied"
+        )
     }
 
     /**
