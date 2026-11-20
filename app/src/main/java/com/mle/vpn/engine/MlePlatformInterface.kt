@@ -32,6 +32,7 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
     override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
     override fun autoDetectInterfaceControl(fd: Int) {
         check(service.protect(fd)) { "Unable to protect sing-box transport socket from VPN routing loop." }
+        Log.v(TAG, "Protected sing-box transport socket fd=$fd")
     }
 
     override fun openTun(options: TunOptions): Int {
@@ -141,8 +142,12 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
     }
 
     private fun reportNetwork(listener: InterfaceUpdateListener, network: Network) {
-        val props = connectivity.getLinkProperties(network) ?: return
-        val caps = connectivity.getNetworkCapabilities(network) ?: return
+        val requestedCaps = connectivity.getNetworkCapabilities(network) ?: return
+        val physicalNetwork = if (requestedCaps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            service.underlyingNetworks?.firstOrNull() ?: return
+        } else network
+        val props = connectivity.getLinkProperties(physicalNetwork) ?: return
+        val caps = connectivity.getNetworkCapabilities(physicalNetwork) ?: return
         val name = props.interfaceName ?: return
         val index = runCatching { NetworkInterface.getByName(name)?.index ?: 0 }.getOrDefault(0)
         listener.updateDefaultInterface(
@@ -163,6 +168,8 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
         for (network in allNetworks) {
             val props = connectivity.getLinkProperties(network) ?: continue
             val caps = connectivity.getNetworkCapabilities(network) ?: continue
+            // Never advertise this VPN's own TUN as a physical upstream NIC.
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue
             val name = props.interfaceName ?: continue
             val native = nativeInterfaces.firstOrNull { it.name == name } ?: continue
             val item = io.nekohasekai.libbox.NetworkInterface().apply {
