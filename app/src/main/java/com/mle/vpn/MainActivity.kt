@@ -62,8 +62,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun MleApp() {
+    val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
-    var automaticFailover by remember { mutableStateOf(false) }
+    var automaticFailover by remember {
+        mutableStateOf(context.getSharedPreferences("mle_settings", 0).getBoolean("automatic_failover", false))
+    }
     var selectedServer by remember { mutableStateOf("بهترین موقعیت") }
     var showNotice by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
@@ -73,7 +76,6 @@ private fun MleApp() {
     var exportProfile by remember { mutableStateOf<ImportedProfile?>(null) }
     var vpnPermissionGranted by remember { mutableStateOf(false) }
     var vpnPermissionMessage by remember { mutableStateOf("اجازه VPN هنوز بررسی نشده است.") }
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
@@ -213,7 +215,11 @@ private fun MleApp() {
                 3 -> SettingsScreen(
                     padding = padding,
                     automaticFailover = automaticFailover,
-                    onAutomaticFailoverChange = { automaticFailover = it }
+                    onAutomaticFailoverChange = {
+                        automaticFailover = it
+                        context.getSharedPreferences("mle_settings", 0).edit()
+                            .putBoolean("automatic_failover", it).apply()
+                    }
                 )
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
