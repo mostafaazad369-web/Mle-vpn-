@@ -91,10 +91,11 @@ private fun MleApp() {
             return
         }
         val orderedProfiles = if (automaticFailover) ProfileFailoverPlanner.order(profiles, profile.id) else listOf(profile)
-        val configCandidates = runCatching {
-            orderedProfiles.map { SingBoxConfigBuilder.build(it).toString() }
-        }.getOrElse { error ->
-            Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
+        val configCandidates = orderedProfiles.mapNotNull { candidate ->
+            runCatching { SingBoxConfigBuilder.build(candidate).toString() }.getOrNull()
+        }
+        if (configCandidates.isEmpty()) {
+            Toast.makeText(context, "هیچ‌یک از پروفایل‌های انتخاب‌شده کانفیگ قابل‌اجرا نداشت.", Toast.LENGTH_LONG).show()
             return
         }
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
