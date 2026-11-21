@@ -124,5 +124,12 @@ fun EngineCatalogScreen(padding: androidx.compose.foundation.layout.PaddingValue
                 }
             }
         }
+        Text(
+            "منابع و انتساب: بخشی از فهرست و قابلیت‌های در حال انتقال از MLM VPN است. توسعه‌دهنده اصلی: mlmvpn — github.com/mlmvpn. مجوز و جزئیات در اسناد پروژه درج شده است.",
+            color = Color(0xFF929BB5),
+            fontSize = 10.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 20.dp),
+            textAlign = TextAlign.Center
+        )
     }
 }
