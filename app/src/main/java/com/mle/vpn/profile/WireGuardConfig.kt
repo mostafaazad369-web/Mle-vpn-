@@ -34,6 +34,8 @@ object WireGuardConfigParser {
     fun parse(text: String): WireGuardProfileData {
         require(text.length in 1..64_000) { "فایل WireGuard خالی یا بیش از حد بزرگ است." }
         var section = ""
+        var seenInterface = false
+        var seenPeer = false
         val interfaceValues = linkedMapOf<String, String>()
         val peerValues = linkedMapOf<String, String>()
         text.lineSequence().forEachIndexed { index, original ->
@@ -43,6 +45,13 @@ object WireGuardConfigParser {
                 section = line.substring(1, line.length - 1).trim().lowercase()
                 require(section == "interface" || section == "peer") {
                     "بخش ناشناخته در خط ${index + 1}."
+                }
+                if (section == "interface") {
+                    require(!seenInterface) { "چند بخش Interface پشتیبانی نمی‌شود." }
+                    seenInterface = true
+                } else {
+                    require(!seenPeer) { "چند بخش Peer در این نسخه پشتیبانی نمی‌شود." }
+                    seenPeer = true
                 }
                 return@forEachIndexed
             }
