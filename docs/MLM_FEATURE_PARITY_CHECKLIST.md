@@ -47,7 +47,7 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Hysteria2, TUIC, AnyTLS, SOCKS and HTTP conversion for sing-box.
 - [x] Batch import, encrypted local profile vault and subscription fetch.
 - [~] Public Telegram preview fetch remains available internally; the source catalog is removed from the primary app navigation.
-- [~] MLM/FLUX-inspired public feeds are hydrated silently in the background; raw/jsDelivr mirror fallback, bounded downloads, ETag cache and last-good cache are used. Profiles are imported only when a local engine builder accepts them; every route still requires real HTTPS verification through TUN. Source names and URLs are not shown in the app.
+- [~] MLM/FLUX-inspired public feeds include protocol-specific VLESS, VMess, Trojan, Shadowsocks and Hysteria 2 subscriptions plus Amnezia-derived bundles; they are hydrated silently in the background. Raw/jsDelivr mirror fallback, bounded downloads, ETag/HTTP 304 revalidation and last-good offline cache are used. Profiles are imported only when a local engine builder accepts them; every route still requires real HTTPS verification through TUN. Source names and URLs are not shown in the app.
 - [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests.
 - [x] Cloudflare WARP peer-key recognition for imported registered WARP `.conf` files; WARP profiles automatically select sing-box for the data plane. Automatic account registration/provisioning is not implemented.
 - [x] Explicit AmneziaWG obfuscation-field detection and fail-closed rejection; no silent downgrade to standard WireGuard.
