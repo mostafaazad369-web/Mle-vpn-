@@ -1,0 +1,59 @@
+name: OpenVPN native Android build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app/src/main/cpp/openvpn/**'
+      - 'scripts/build-openvpn.ps1'
+      - 'scripts/fetch-openvpn-sources.ps1'
+      - 'third_party/openvpn3/**'
+      - '.github/workflows/openvpn-native.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-openvpn:
+    name: Build OpenVPN 3 (${{ matrix.abi }})
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, armeabi-v7a ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Android SDK and NDK r27d
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;27.3.13750724'
+
+      - name: Verify toolchain
+        shell: pwsh
+        run: |
+          if (!(Test-Path "$env:ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake")) {
+            throw "Android NDK toolchain was not installed."
+          }
+          cmake --version
+          ninja --version
+
+      - name: Fetch and verify pinned OpenVPN sources
+        shell: pwsh
+        run: ./scripts/fetch-openvpn-sources.ps1
+
+      - name: Build and audit native library
+        shell: pwsh
+        run: |
+          ./scripts/build-openvpn.ps1 -Ndk "$env:ANDROID_NDK_HOME" -Cmake "cmake" -Generator "Ninja" -Abis @("${{ matrix.abi }}") -SkipFetch
+
+      - name: Upload native library
+        uses: actions/upload-artifact@v4
+        with:
+          name: mleopenvpn-${{ matrix.abi }}
+          path: app/src/main/jniLibs/${{ matrix.abi }}/libmleopenvpn.so
+          if-no-files-found: error
+          retention-days: 14
