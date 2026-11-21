@@ -30,7 +30,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
 - Public feed refresh is user-triggered; scheduled background refresh, persistent source cache/TTL and feed health history are not implemented yet.
-- Only the existing sing-box runtime is connected to the VPN service. Standard WireGuard conf profiles are routed through its WireGuard endpoint (not the removed legacy WireGuard outbound). Automatic WARP registration and AmneziaWG obfuscation/native runtime are not integrated; other MLM engine families remain catalog entries.
+- Only the existing sing-box runtime is connected to the VPN service. Standard WireGuard conf profiles are routed through its WireGuard endpoint (not the removed legacy WireGuard outbound). Automatic WARP registration, AmneziaWG obfuscation/native runtime, and multi-peer WireGuard import are not integrated; other MLM engine families remain catalog entries.
 - Public feeds may contain expired, malicious, duplicate or unsupported nodes; imported links are filtered by the current sing-box outbound builder, but a successful import does not guarantee connectivity.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
