@@ -18,7 +18,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 - Android VPN permission flow
 - Native `Libbox.checkConfig` validation before sing-box startup
 - Selectable Xray `libv2ray` runtime with Android TUN fd handoff and Xray tun inbound
-- Xray outbound conversion for VLESS, VMess and Trojan supported variants
+- Xray outbound conversion for VLESS, VMess, Trojan and Shadowsocks supported variants
 - SHA-256-pinned Xray AAR download and gomobile namespace repackaging during Gradle preBuild
 - libbox initialization, CommandServer lifecycle wrapper and Android PlatformInterface adapter
 - Android TUN setup with route/DNS configuration, protected outbound sockets and descriptor lifecycle handling
@@ -27,7 +27,9 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; current V2Ray transports include WebSocket, gRPC, HTTP and HTTPUpgrade. QUIC, XHTTP and unsupported security options are rejected rather than silently downgraded. Additional profiles are tried only when automatic failover is enabled, and only after end-to-end HTTPS verification.
-- The expanded Telegram source catalog and additional engines beyond sing-box/Xray are not yet integrated.
+- Curated public node feeds inspired by MLM FLUX/Amnezia source catalogs are integrated with GitHub raw/jsDelivr mirrors, bounded downloads, ETag/Last-Modified caching, offline last-good fallback and selected-engine validation; community nodes are untrusted and may be offline.
+- Telegram public-preview source fetching is integrated; private channels and Telegram account login are not supported.
+- Additional engines beyond sing-box/Xray are not yet integrated.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
@@ -39,7 +41,7 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 ### Runtime status (honest capability list)
 
-- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP variants explicitly handled by its builder. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks.
+- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP variants explicitly handled by its builder. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks. Public node feeds based on MLM FLUX/Amnezia source catalogs are now exposed in the Sources screen for protocols the selected engine can convert.
 - **Not yet connectable as separate engines:** FLUX, MAE, WARP/Aether, AmneziaWG, OpenVPN, Psiphon, Tor, Geph, Lantern, URnetwork, Proton, Windscribe and FENIX. Each still needs its own reviewed runtime/auth flow or a verified mapping through an existing core.
 - **Companion tools not yet integrated:** Gereh messenger, Cloud panel, Config Studio, Cloudflare Doctor, MLM Scout, Game Booster, GitHub Tunnel, Telegram Proxy, LAN sharing, signed engine store and backup/restore.
 
