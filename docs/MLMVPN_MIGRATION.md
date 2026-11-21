@@ -50,7 +50,9 @@ These existing features should be extended rather than replaced. MLE documentati
 ## Engine catalog
 
 The source code catalog is `app/src/main/java/com/mle/vpn/engine/catalog/MleEngineCatalog.kt`.
-Every entry has a unique `id` and `iconKey`. Catalog presence is metadata only; it does not claim that an engine is integrated or connectable. Integration states are deliberately explicit.
+Every entry has a unique `id` and `iconKey`; the catalog now includes Gereh as a separately gated subsystem. `EngineCatalogScreen.kt` exposes the inventory in the MLE UI with a distinct glyph per engine while preserving the existing MLE theme. A unit test checks unique IDs/icon keys and key requested entries.
+
+The first executable adapter, `SingBoxEngineAdapter.kt`, bridges the existing MLE `EngineAdapter` contract to `MleVpnService`. It respects Android VPN consent and waits for the service's HTTPS-through-VPN verification before returning connection success. It does not add a new native engine; it formalizes the already-existing sing-box path. Other catalog entries remain metadata until their adapters are implemented and verified.
 
 ## Licensing and attribution checklist
 
