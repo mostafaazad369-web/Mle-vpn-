@@ -81,7 +81,9 @@ data class OpenVpnTunConfig(
 
         private fun parseIp(value: String): InetAddress {
             require(value.isNotBlank() && value.length <= 45) { "Invalid IP address." }
-            require(value.all { it.isDigit() || it in ".:" }) { "Only numeric IP literals are accepted." }
+            require(value.all {
+                it in '0'..'9' || it in ".:" || it in 'a'..'f' || it in 'A'..'F'
+            }) { "Only numeric IP literals are accepted." }
             require(value.count { it == ':' } > 0 || value.count { it == '.' } == 3) {
                 "Invalid IP literal."
             }
