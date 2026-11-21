@@ -37,23 +37,23 @@ object MleVpnStatus {
     }
 
     fun tunnelActive() {
-        mutableStatus.value = MleConnectionStatus(
-            MleConnectionPhase.TUNNEL_ACTIVE,
-            "تونل VPN فعال است؛ دسترسی به سرور و اینترنت هنوز جداگانه تأیید نشده است."
+        mutableStatus.value = mutableStatus.value.copy(
+            phase = MleConnectionPhase.TUNNEL_ACTIVE,
+            detail = "تونل VPN فعال است؛ دسترسی به سرور و اینترنت هنوز جداگانه تأیید نشده است."
         )
     }
 
     fun internetVerified() {
-        mutableStatus.value = MleConnectionStatus(
-            MleConnectionPhase.INTERNET_VERIFIED,
-            "عبور ترافیک و دسترسی HTTPS از داخل VPN تأیید شد."
+        mutableStatus.value = mutableStatus.value.copy(
+            phase = MleConnectionPhase.INTERNET_VERIFIED,
+            detail = "عبور ترافیک و دسترسی HTTPS از داخل VPN تأیید شد."
         )
     }
 
     fun trafficUnavailable(message: String) {
-        mutableStatus.value = MleConnectionStatus(
-            MleConnectionPhase.NO_INTERNET,
-            message.ifBlank { "تونل فعال است اما دسترسی اینترنت از داخل VPN تأیید نشد." }
+        mutableStatus.value = mutableStatus.value.copy(
+            phase = MleConnectionPhase.NO_INTERNET,
+            detail = message.ifBlank { "تونل فعال است اما دسترسی اینترنت از داخل VPN تأیید نشد." }
         )
     }
 
@@ -73,9 +73,9 @@ object MleVpnStatus {
     }
 
     fun failed(message: String) {
-        mutableStatus.value = MleConnectionStatus(
-            MleConnectionPhase.ERROR,
-            message.ifBlank { "راه‌اندازی VPN ناموفق بود" }
+        mutableStatus.value = mutableStatus.value.copy(
+            phase = MleConnectionPhase.ERROR,
+            detail = message.ifBlank { "راه‌اندازی VPN ناموفق بود" }
         )
     }
 }
