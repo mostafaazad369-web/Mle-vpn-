@@ -32,3 +32,14 @@ The Xray adapter is selectable for VLESS, VMess and Trojan variants explicitly m
 - License and attribution terms: [licenses/MLM-GPL-3.0.txt](licenses/MLM-GPL-3.0.txt)
 
 The build tool is adapted from MLM VPN's GPL-3.0 script and preserves its attribution. It isolates the Xray gomobile Java/JNI runtime namespace from sing-box and handles both SysV-hash and GNU-hash-only ELF builds. MLE VPN remains an independent project and is not affiliated with MLM VPN.
+
+
+## MLM VPN selected resources and MAE registry
+- Project: MLM VPN / mlmvpn
+- Source: https://github.com/mlmvpn/mlmvpn_android
+- License: GPL-3.0 with upstream additional attribution conditions; preserve the original upstream license, copyright and notices.
+- Selected resource snapshot: `app/src/main/assets/mlm/` (including MAE service hints, Cloudflare Worker sources, game catalog, routing data, profile templates, bridge seeds and OpenVPN dependency notices).
+- Inventory: `app/src/main/assets/mlm/RESOURCE_MANIFEST.json`.
+- MLE's MAE registry parser and split-tunnel UI are an independent integration. The registry is treated as untrusted, read-only routing hints; it does not automatically probe destinations or change routing policy.
+- Worker scripts are source only. Deployment requires an account owned by the operator, secret bindings, quota controls, security review and explicit deployment.
+- Upstream server credentials, redacted relay keys and production-only endpoints are not included.
