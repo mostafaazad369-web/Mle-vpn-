@@ -333,7 +333,7 @@ private fun MleApp() {
                                         is ProfileParseResult.Success -> com.mle.vpn.profile.ProfileBatchResult(listOf(wireGuard.profile), 0, 0)
                                         is ProfileParseResult.Failure -> throw IllegalArgumentException(wireGuard.reason)
                                     }
-                                    firstLine.equals("client", ignoreCase = true) || firstLine.startsWith("dev tun", ignoreCase = true) ->
+                                    source.lineSequence().any { it.trim().equals("client", ignoreCase = true) || it.trim().startsWith("dev tun", ignoreCase = true) } ->
                                         when (val openVpn = ProfileImporter.parseOpenVpnConfig(source)) {
                                             is ProfileParseResult.Success -> com.mle.vpn.profile.ProfileBatchResult(listOf(openVpn.profile), 0, 0)
                                             is ProfileParseResult.Failure -> throw IllegalArgumentException(openVpn.reason)
