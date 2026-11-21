@@ -61,11 +61,17 @@ object MleEngineCatalog {
         MleEngineCatalogItem("cloudflare-doctor", "Cloudflare Doctor", "cfdoctor", Integration.ADAPTER_REQUIRED, "Diagnostic suite; results must distinguish reachability from VPN connectivity."),
         MleEngineCatalogItem("config-studio", "Config Studio", "configstudio", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User-owned Worker backend; never embed private deployment credentials."),
         MleEngineCatalogItem("mlm-scout", "MLM Scout", "scout", Integration.ADAPTER_REQUIRED, "Cancellable real-route tests and transparent ranking required."),
-        MleEngineCatalogItem("game-booster", "Game Booster", "game", Integration.ADAPTER_REQUIRED, "Latency measurement and per-game routing require device validation.")
+        MleEngineCatalogItem("game-booster", "Game Booster", "game", Integration.ADAPTER_REQUIRED, "Latency measurement and per-game routing require device validation."),
+        MleEngineCatalogItem("gereh", "Gereh Messenger", "gereh", Integration.NATIVE_OR_PROVIDER_REQUIRED, "Separate audit of Rust crypto, Android bridge, Olm/Megolm dependencies and relay protocol is required before integration.")
     )
 
     private val ids = items.map { it.id }.toSet()
-    init { require(ids.size == items.size) { "Engine catalog IDs must be unique" } }
+    init {
+        require(ids.size == items.size) { "Engine catalog IDs must be unique" }
+        require(items.map { it.iconKey }.toSet().size == items.size) {
+            "Every engine must have its own unique iconKey"
+        }
+    }
 
     fun find(id: String): MleEngineCatalogItem? = items.firstOrNull { it.id == id }
 }
