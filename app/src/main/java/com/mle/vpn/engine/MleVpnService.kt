@@ -212,9 +212,10 @@ class MleVpnService : VpnService() {
         }
         var nativeDuplicate: ParcelFileDescriptor? = null
         try {
-            nativeDuplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
+            val duplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
+            nativeDuplicate = duplicate
             openVpnTun = retained
-            return nativeDuplicate.detachFd()
+            return duplicate.detachFd()
         } catch (error: Exception) {
             runCatching { nativeDuplicate?.close() }
             runCatching { retained.close() }
