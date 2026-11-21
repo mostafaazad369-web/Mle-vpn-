@@ -43,7 +43,8 @@ class EndpointProbeTest {
             "0.0.0.1", "10.0.0.1", "100.64.0.1", "169.254.1.1",
             "172.16.0.1", "192.0.2.1", "192.168.1.1", "198.18.0.1",
             "198.51.100.1", "203.0.113.1", "224.0.0.1", "255.255.255.255",
-            "::1", "fc00::1", "fe80::1", "2001:db8::1"
+            "::1", "fc00::1", "fe80::1", "2001:db8::1",
+            "2001:1::1", "2001:2::1", "2002::1", "3fff::1"
         ).forEach { value ->
             assertFalse("$value must not be probed", EndpointProbe.isPubliclyRoutable(InetAddress.getByName(value)))
         }
