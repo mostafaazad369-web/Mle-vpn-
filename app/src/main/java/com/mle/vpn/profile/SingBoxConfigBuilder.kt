@@ -64,25 +64,43 @@ object SingBoxConfigBuilder {
     }
 
     private fun buildWireGuard(profile: ImportedProfile): JSONObject {
-        val endpoint = WireGuardConfigParser.decodeStored(profile.sourceUri).toSingBoxEndpoint("wg-ep")
-        val dnsServer = JSONObject()
-            .put("type", "https")
-            .put("tag", "secure-dns")
-            .put("server", "1.1.1.1")
-            .put("server_port", 443)
-            .put("path", "/dns-query")
-            .put("tls", JSONObject().put("enabled", true).put("server_name", "cloudflare-dns.com"))
-            .put("detour", "wg-ep")
+        val wireGuard = WireGuardConfigParser.decodeStored(profile.sourceUri)
+        val endpoint = wireGuard.toSingBoxEndpoint("wg-ep")
+        val dnsServers = JSONArray().put(JSONObject().put("type", "local").put("tag", "bootstrap"))
+        val finalDnsTag = if (wireGuard.dnsServers.isNotEmpty()) {
+            wireGuard.dnsServers.forEachIndexed { index, server ->
+                dnsServers.put(
+                    JSONObject()
+                        .put("type", "udp")
+                        .put("tag", "wg-dns-$index")
+                        .put("server", server)
+                        .put("detour", "wg-ep")
+                        .put("domain_resolver", "bootstrap")
+                )
+            }
+            "wg-dns-0"
+        } else {
+            dnsServers.put(
+                JSONObject()
+                    .put("type", "https")
+                    .put("tag", "secure-dns")
+                    .put("server", "1.1.1.1")
+                    .put("server_port", 443)
+                    .put("path", "/dns-query")
+                    .put("tls", JSONObject().put("enabled", true).put("server_name", "cloudflare-dns.com"))
+                    .put("detour", "wg-ep")
+            )
+            "secure-dns"
+        }
         val dns = JSONObject()
-            .put("servers", JSONArray()
-                .put(JSONObject().put("type", "local").put("tag", "bootstrap"))
-                .put(dnsServer))
-            .put("final", "secure-dns")
+            .put("servers", dnsServers)
+            .put("final", finalDnsTag)
             .put("strategy", "prefer_ipv4")
         val route = JSONObject()
             .put("final", "wg-ep")
             .put("auto_detect_interface", true)
             .put("override_android_vpn", true)
+            .put("default_domain_resolver", "bootstrap")
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
