@@ -13,11 +13,20 @@ class MleEngineCatalogTest {
     }
 
     @Test
+    fun existingSingBoxProtocolsAreNotMarkedAsUnimplemented() {
+        val implemented = MleEngineCatalog.items
+            .filter { it.id in setOf("vless", "vmess", "trojan", "shadowsocks", "hysteria2", "tuic") }
+        assertEquals(6, implemented.size)
+        assertTrue(implemented.all { it.integration == Integration.EXISTING_SING_BOX_PATH })
+    }
+
+    @Test
     fun importantEnginesHaveDedicatedCatalogEntries() {
         val ids = MleEngineCatalog.items.map { it.id }.toSet()
         assertTrue("npv" in ids)
         assertTrue("openvpn" in ids)
         assertTrue("gereh" in ids)
         assertTrue("warp" in ids)
+        assertTrue("tuic" in ids)
     }
 }
