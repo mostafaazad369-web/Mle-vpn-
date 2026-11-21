@@ -64,7 +64,6 @@ object PublicNodeSourceCatalog {
             "فهرست مستقیم Trojan",
             "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/trojan.txt"
         ),
-        source(
     )
 
     /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
