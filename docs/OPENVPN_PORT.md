@@ -49,3 +49,42 @@ The repository now includes `scripts/fetch-openvpn-sources.ps1` to materialize t
 - OpenVPN preflight validator and its tests at commit `c79827af49392402096f1cbf5dcba135fc08e23d` passed Android CI run `44907913535` (unit tests and debug APK package) and Android build run `44907913552` (debug APK assembly and artifact upload).
 - The fetch-script and documentation commits are newer than that validator checkpoint; their CI is running separately. The fetch script itself has not been executed on a Windows/NDK host yet.
 - This validates Kotlin compilation and tests only. No OpenVPN native library was built or packaged, and no OpenVPN connection is possible yet.
+
+## JNI ABI audit (2026-11-21)
+
+The upstream bridge was compared directly with OpenVpnNative.kt and the callback methods in OpenVpnService.Session. The native entry-point contract is:
+
+| Kotlin external method | JNI operation | Return |
+|---|---|---|
+| apiVersion() | apiVersion | int |
+| evaluate(String) | evaluate | String |
+| create() | create | long |
+| run(long, String, String, String, Any) | run | String |
+| stop(long) | stop | void |
+| release(long) | release | void |
+
+The bridge resolves these callback descriptors by name at runtime. The source-level signatures currently match the descriptors below; this audit corrects the earlier suspicion that the DNS callbacks had an arity mismatch:
+
+| Callback method | JNI descriptor |
+|---|---|
+| configureTun(String, Int): Boolean | (Ljava/lang/String;I)Z |
+| addAddress(String, Int): Boolean | (Ljava/lang/String;I)Z |
+| addRoute(String, Int): Boolean | (Ljava/lang/String;I)Z |
+| addDns(String, Int): Boolean | (Ljava/lang/String;I)Z |
+| addSearchDomain(String, Int): Boolean | (Ljava/lang/String;I)Z |
+| establishTun(): Int | ()I |
+| onCoreEvent(String, Boolean): Unit | (Ljava/lang/String;Z)V |
+| onCoreTraffic(Long, Long): Unit | (JJ)V |
+
+Important semantics and porting constraints found during the audit:
+
+- socket_protect(fd) is routed through configureTun("protect", fd); the MLE adapter must call the owning service's protectTunnelSocket(fd) and must fail closed if protection fails. The fd is a socket descriptor, not a TUN descriptor.
+- The DNS callback's second integer is currently an ignored compatibility parameter in Kotlin; the bridge supplies zero. Do not mistake it for a DNS port. The bridge itself rejects pushed DNS ports other than 53.
+- establishTun() returns a duplicated descriptor via ParcelFileDescriptor.dup(...).detachFd(), while the service retains and later closes its original descriptor. MLE must preserve this ownership split and close both sides exactly once.
+- The upstream service configures a dynamic Android VpnService.Builder from server-pushed addresses, routes, DNS and search domains. MLE's existing MleVpnService.establishTun(TunConfig) is currently a sing-box-oriented fixed-config path; it is not a drop-in replacement for the OpenVPN callback builder.
+- The upstream C++ client stores JNIEnv*, callback object and callback class for the duration of run. A port must verify which OpenVPN core callbacks can execute on worker threads. If any callback crosses threads, it must attach that thread to the JVM and use a global callback reference with deterministic release; a local reference and cached JNIEnv* must not be reused across threads.
+- The upstream bridge clears Java exceptions in callbacks and converts many failures to generic codes. MLE should preserve cancellation and surface safe diagnostic codes without logging profile contents, inline certificates, credentials or private keys.
+- The upstream bridge uses the package-mangled JNI symbol prefix Java_com_mlmvpn_scanner_openvpn_OpenVpnNative_. Moving the Kotlin object requires changing every exported symbol or adopting RegisterNatives; simply copying the .cpp file under a new package will leave native methods unresolved.
+- The upstream configuration() currently enables asymmetric compression for compatibility with a specific provider. MLE must not inherit that provider-specific behavior globally. Compression remains rejected by MLE's conservative preflight unless a separately reviewed policy and security test justify an explicit exception.
+
+The ABI comparison is source-level only: it does not prove that the upstream native binary matches the checked-in source, nor that the bridge builds against the pinned OpenVPN 3 revision. The next implementation step is a small MLE-owned JNI facade and callback interface, followed by native compilation and descriptor-level instrumentation tests before wiring it into the service. The engine arbiter is only an ownership guard; it does not yet provide OpenVPN packet processing or TUN construction.
