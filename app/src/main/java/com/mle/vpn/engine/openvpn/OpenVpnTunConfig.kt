@@ -76,7 +76,7 @@ data class OpenVpnTunConfig(
             val ip = parseIp(value)
             val bits = if (ip is Inet4Address) 32 else 128
             require(prefix in 0..bits) { "Invalid IP prefix length." }
-            return IpPrefix(ip.hostAddress, prefix, ip is Inet6Address)
+            return IpPrefix(ip.hostAddress ?: error("Invalid IP address."), prefix, ip is Inet6Address)
         }
 
         private fun parseIp(value: String): InetAddress {
