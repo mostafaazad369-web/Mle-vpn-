@@ -4,6 +4,7 @@ import android.util.Log
 import com.mle.vpn.engine.MleVpnEngine
 import com.mle.vpn.engine.MleVpnEngineArbiter
 import com.mle.vpn.engine.MleVpnService
+import com.mle.vpn.engine.MleVpnStatus
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -62,7 +63,7 @@ internal class MleOpenVpnRuntime(
                             }
                         },
                         onTraffic = { bytesOut, bytesIn ->
-                            Log.v(TAG, "OpenVPN traffic: out=$bytesOut in=$bytesIn")
+                            MleVpnStatus.updateTraffic(bytesOut, bytesIn)
                         }
                     )
                     val error = MleOpenVpnNative.run(
