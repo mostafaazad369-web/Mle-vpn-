@@ -93,20 +93,32 @@ object EndpointProbe {
             }
         }
 
-        // Permit global-unicast IPv6 (2000::/3) only. This excludes ULA,
-        // link-local, loopback, IPv4-mapped and other special-purpose ranges.
+        // Permit global-unicast IPv6 (2000::/3) only.
         if (bytes.size != 16 || (bytes[0].toInt() and 0xe0) != 0x20) return false
         val first = bytes[0].toInt() and 0xff
         val second = bytes[1].toInt() and 0xff
         val third = bytes[2].toInt() and 0xff
+        val fourth = bytes[3].toInt() and 0xff
+        val fifth = bytes[4].toInt() and 0xff
+        val sixth = bytes[5].toInt() and 0xff
 
-        // Exclude IETF protocol assignments (2001::/23), the deprecated
-        // 6to4 transition block (2002::/16), and documentation (3fff::/20).
-        // These prefixes sit inside 2000::/3 but are not ordinary public
-        // unicast endpoints suitable for an imported-profile TCP probe.
-        val isIetfProtocolAssignment = first == 0x20 && second == 0x01 && (third and 0xfe) == 0
+        // IETF protocol assignments (2001::/23): the first 23 bits are
+        // 2001:0000 through 2001:01ff. The next hextet must not be ignored.
+        val isIetfProtocolAssignment =
+            first == 0x20 && second == 0x01 && third == 0x00 && fourth <= 0x01
+        // Benchmarking (2001:2::/48) and documentation (2001:db8::/32).
+        val isBenchmarking =
+            first == 0x20 && second == 0x01 && third == 0x00 &&
+                fourth == 0x02 && fifth == 0x00 && sixth == 0x00
+        val isDocumentation2001 =
+            first == 0x20 && second == 0x01 && third == 0x0d && fourth == 0xb8
+        // Deprecated 6to4 transition block (2002::/16).
         val isSixToFour = first == 0x20 && second == 0x02
-        val isDocumentation = first == 0x3f && second == 0xff && (third and 0xf0) == 0
-        return !(isIetfProtocolAssignment || isSixToFour || isDocumentation)
+        // Documentation prefix (3fff::/20).
+        val isDocumentation3fff =
+            first == 0x3f && second == 0xff && (third and 0xf0) == 0
+
+        return !(isIetfProtocolAssignment || isBenchmarking ||
+            isDocumentation2001 || isSixToFour || isDocumentation3fff)
     }
 }
