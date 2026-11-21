@@ -12,7 +12,11 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 ## Implemented
 - Persian RTL Compose interface and profile manager with explicit active-profile selection
 - Encrypted local profile storage using Android Keystore AES-GCM
-- Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
+- Initial VLESS, VMess, Trojan and supported sing-box share-link conversion
+- Public HTTPS config feed registry with primary/mirror fallback, Base64 handling, per-feed import and all-feed add-only refresh
+- Existing encrypted user profiles preserved during public-feed refresh
+- Engine inventory screen with distinct glyphs and honest catalog-only/experimental states
+- Public Telegram preview source screen
 - Per-profile TCP endpoint preflight diagnostics
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
@@ -24,14 +28,16 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
-- The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
+- Public feed refresh is user-triggered; scheduled background refresh, persistent source cache/TTL and feed health history are not implemented yet.
+- Only the existing sing-box runtime is connected to the VPN service. Other MLM engine families are catalog entries, not working connection options.
+- Public feeds may contain expired, malicious, duplicate or unsupported nodes; imported links are filtered by the current sing-box outbound builder, but a successful import does not guarantee connectivity.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
 - A successful build or CommandServer startup alone does not prove end-to-end VPN connectivity.
 
 ## Build
-Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. The repository also includes a GitHub Actions workflow that runs unit tests and uploads a debug APK artifact after a successful build.
+Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. Run `./gradlew testDebugUnitTest assembleDebug` to verify JVM tests and build a debug APK. Device-level VPN and leak tests must still be performed on real Android hardware.
 
 ## Runtime notes
 See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
