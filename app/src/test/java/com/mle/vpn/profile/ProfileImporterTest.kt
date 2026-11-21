@@ -70,7 +70,7 @@ class ProfileImporterTest {
             "PublicKey = $key",
             "Endpoint = wg.example:51820",
             "AllowedIPs = 0.0.0.0/0"
-        ).joinToString("\\n")
+        ).joinToString("\n")
         val batch = ProfileImporter.parseBatch(conf)
         assertEquals(1, batch.profiles.size)
         assertEquals(ProfileProtocol.WIREGUARD, batch.profiles.single().protocol)
