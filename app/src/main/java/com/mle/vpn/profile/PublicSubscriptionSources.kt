@@ -11,6 +11,8 @@ import java.security.MessageDigest
 
 /**
  * Public node sources mirrored from the FLUX and Amnezia source catalogs in MLM VPN.
+ * The private MLM Quick Connect pool is not mirrored: its deployed Worker URL and signing
+ * credentials are redacted from the public source repository.
  * Only protocols currently parsed and converted by MLE are exposed here.
  *
  * Public nodes are untrusted community endpoints. A successful download or TCP probe is not
@@ -63,15 +65,6 @@ object PublicNodeSourceCatalog {
             "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/trojan.txt"
         ),
         source(
-            "flux-mg-vmess", "MatinGhanbari • VMess",
-            "فهرست مستقل VMess؛ فقط پروفایل‌هایی که تبدیل محلی‌شان معتبر باشد ذخیره می‌شوند",
-            "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/vmess.txt"
-        ),
-        source(
-            "flux-mg-shadowsocks", "MatinGhanbari • Shadowsocks",
-            "فهرست مستقل Shadowsocks؛ پروفایل‌های ناسازگار با موتورهای نصب‌شده رد می‌شوند",
-            "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/ss.txt"
-        )
     )
 
     /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
