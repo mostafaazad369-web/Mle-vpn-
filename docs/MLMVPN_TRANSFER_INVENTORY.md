@@ -317,3 +317,16 @@ The build files were compared directly (versions below are those declared in the
 Upstream's Android build also includes legacy AndroidX/UI components, OkHttp, Google sign-in, ZXing, JSON, preference/fragment, desugaring and other libraries. MLE should add a dependency only when an audited port actually uses it; no wholesale dependency block was transferred.
 
 **Decision:** preserve MLE's current AGP/Kotlin/Compose/SDK baseline during the foundation port. Introduce a dependency only in the commit that adds the corresponding reviewed feature, with version pin, license notice, ABI/API check and tests. The upstream `fileTree(libs, *.aar)`, checked-in native libraries, release APK contents and private account/server configuration are excluded from migration.
+
+
+### AmneziaWG native dependency follow-up
+
+A separate audit of the public [amnezia-vpn/amneziawg-android](https://github.com/amnezia-vpn/amneziawg-android) source found:
+
+- Its repository declares Apache-2.0; preserve that notice and separately audit bundled/submodule components.
+- The `tunnel` module builds Go/CMake native targets `libwg-go.so`, `libwg.so` and `libwg-quick.so`; it is not a pure Kotlin dependency.
+- Its current build baseline is AGP 8.13.0, Kotlin 2.2.20, compileSdk 36, minSdk 24 and NDK 26.1.10909125. This does not match MLE's current AGP/Kotlin/compileSdk versions.
+- Its `GoBackend` owns a backend/TUN lifecycle and reports tunnel statistics. It cannot be dropped into MLE as an ordinary profile parser: the single-owner MLE `VpnService` and TUN descriptor lifecycle must be adapted and tested.
+- MLMVPN's declared Maven coordinate is `com.zaneschepke:amneziawg-android:2.1.13`. Its exact artifact-to-source revision/provenance has not yet been established against the official repository inspected above; do not assume they are interchangeable.
+
+**Decision:** AmneziaWG remains a native-engine candidate, not an integrated MLE runtime. Before adding it, verify the exact Maven artifact provenance and licenses, build the native source for both MLE ABIs, then adapt the backend to MLE's service ownership without introducing a second VPN service. No native binaries or server configs were copied in this audit.
