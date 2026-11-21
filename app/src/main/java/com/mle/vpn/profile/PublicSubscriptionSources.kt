@@ -69,14 +69,6 @@ object PublicNodeSourceCatalog {
 
     /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
     private val amneziaSources = listOf(
-        source("amz-morpheus-mini", "Morpheus • Mini", "بسته کوچک چندپروتکلی از منبع عمومی MLM",
-            "morpheusadam/v2ray-config", "subs/bundles/mini.txt", maxBytes = 512 * 1024, maxNodes = 100),
-        source("amz-morpheus-lite", "Morpheus • Lite", "بسته چندپروتکلی بزرگ‌تر؛ فقط موارد سازگار با موتور انتخابی ذخیره می‌شوند",
-            "morpheusadam/v2ray-config", "subs/bundles/lite.txt", maxBytes = 1024 * 1024, maxNodes = 300),
-        source("amz-fastnodes-top", "FastNodes • Top", "فهرست عمومی رتبه‌بندی‌شده؛ سالم‌بودن نهایی روی دستگاه بررسی می‌شود",
-            "rtwo2/FastNodes", "sub/top.txt", maxBytes = 1024 * 1024, maxNodes = 300),
-        source("amz-fastnodes-verified", "FastNodes • Verified", "فهرست بررسی‌شده توسط منتشرکننده؛ وضعیت لحظه‌ای تضمین نیست",
-            "rtwo2/FastNodes", "sub/verified.txt", maxBytes = 1024 * 1024, maxNodes = 300),
         source("amz-morpheus-hy2", "Morpheus • Hysteria 2", "کانفیگ‌های گردآوری‌شده Hysteria 2",
             "morpheusadam/v2ray-config", "subs/bundles/hysteria2.txt"),
         source("amz-fastnodes-hy2", "FastNodes • Hysteria 2", "فهرست Hysteria 2 با بررسی دوره‌ای منتشرکننده",
