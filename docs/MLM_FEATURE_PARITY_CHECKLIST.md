@@ -27,7 +27,7 @@ This register separates connection engines, protocol support, account/provider i
 | Hysteria 2 | [~] | sing-box share-link mapping; expand fixtures and UDP device tests |
 | TUIC | [~] | sing-box share-link mapping; expand fixtures and UDP tests |
 | Outline / Shadowsocks | [~] | Shadowsocks URI supported; Outline access-key variants remain |
-| OpenVPN | [ ] | .ovpn parser, cert/key handling, approved core and lifecycle |
+| OpenVPN | [~] | Strict TLS `.ovpn` subset now maps to sing-box 1.14 `openvpn-client` endpoint; external auth files, scripts, compression and static-key mode rejected; CI/device verification pending |
 | VPN Gate / SoftEther | [ ] | Relay discovery and protocol adapters |
 | NPV configs | [ ] | Identify formats, parser and fixtures |
 | Psiphon | [!] | Official/authorized Android SDK and service terms |
@@ -55,7 +55,7 @@ This register separates connection engines, protocol support, account/provider i
 - [~] Add isolated CI build of the pinned upstream `:tunnel:assembleDebug` AAR; verify successful build and packaged ABIs. The artifact is not linked to MLE APK yet.
 - [ ] Integrate the built tunnel runtime with a single-VpnService lifecycle and add AWG config parser/serializer.
 - [~] Basic MAE service registry display and per-app allow-list routing implemented; adaptive routing remains outstanding.
-- [ ] OpenVPN .ovpn import, inline certs and credential handling.
+- [~] Strict OpenVPN `.ovpn` import with inline CA, optional paired client certificate/key, tls-auth/tls-crypt and sing-box endpoint config; external credentials/scripts/compression/static-key mode rejected. CI and device handshake validation pending.
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
 - [ ] Xray XHTTP mapping and tests.
