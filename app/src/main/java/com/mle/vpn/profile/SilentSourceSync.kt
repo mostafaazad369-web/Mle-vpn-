@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
  */
 object SilentSourceSync {
     private const val MAX_IMPORTED_PROFILES = 120
-    private const val MIN_HEALTHY_SOURCES = 3
+    private const val MAX_PROFILES_PER_SOURCE = 25
     private const val MAX_SOURCE_ATTEMPTS_PER_REFRESH = 6
     private const val REFRESH_INTERVAL_MS = 60L * 60L * 1000L
 
@@ -29,11 +29,9 @@ object SilentSourceSync {
         val rotatedSources = sources.drop(startIndex) + sources.take(startIndex)
         var attemptedSources = 0
         var imported = 0
-        var healthySources = 0
 
         for (source in rotatedSources) {
-            if (imported >= MAX_IMPORTED_PROFILES || healthySources >= MIN_HEALTHY_SOURCES ||
-                attemptedSources >= MAX_SOURCE_ATTEMPTS_PER_REFRESH) break
+            if (imported >= MAX_IMPORTED_PROFILES || attemptedSources >= MAX_SOURCE_ATTEMPTS_PER_REFRESH) break
             attemptedSources++
             val candidates = runCatching {
                 val fetched = PublicSubscriptionFetcher.fetch(appContext, source)
@@ -46,8 +44,7 @@ object SilentSourceSync {
             }.getOrDefault(emptyList())
 
             if (candidates.isNotEmpty()) {
-                healthySources++
-                candidates.take(MAX_IMPORTED_PROFILES - imported).forEach { profile ->
+                candidates.take(minOf(MAX_PROFILES_PER_SOURCE, MAX_IMPORTED_PROFILES - imported)).forEach { profile ->
                     vault.save(profile)
                     knownUris += profile.sourceUri
                     sourceManagedIds += profile.id
