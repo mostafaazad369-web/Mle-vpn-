@@ -71,10 +71,12 @@ object WireGuardConfigParser {
         val endpoint = parseEndpoint(peerValues["endpoint"] ?: error("Endpoint الزامی است."))
         val allowedIps = csv(peerValues["allowedips"] ?: error("AllowedIPs الزامی است."))
         require(allowedIps.isNotEmpty() && allowedIps.all(::isCidr)) { "AllowedIPs معتبر نیست." }
-        val keepalive = peerValues["persistentkeepalive"]?.toIntOrNull() ?: 0
+        val keepaliveRaw = peerValues["persistentkeepalive"]
+        val keepalive = keepaliveRaw?.toIntOrNull() ?: if (keepaliveRaw == null) 0 else -1
         require(keepalive in 0..65535) { "PersistentKeepalive معتبر نیست." }
-        val mtu = interfaceValues["mtu"]?.toIntOrNull()
-        require(mtu == null || mtu in 576..9000) { "MTU خارج از محدودهٔ مجاز است." }
+        val mtuRaw = interfaceValues["mtu"]
+        val mtu = mtuRaw?.toIntOrNull()
+        require(mtuRaw == null || mtu != null && mtu in 576..9000) { "MTU خارج از محدودهٔ مجاز است." }
         require(interfaceValues["listenport"] == null ||
             (interfaceValues["listenport"]!!.toIntOrNull()?.let { it in 1..65535 } == true)) { "ListenPort معتبر نیست." }
         return WireGuardProfileData(
