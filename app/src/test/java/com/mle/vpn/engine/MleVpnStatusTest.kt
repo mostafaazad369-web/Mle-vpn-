@@ -28,6 +28,7 @@ class MleVpnStatusTest {
         assertEquals(MleConnectionPhase.STARTING, status.phase)
         assertEquals(12_345L, status.bytesOut)
         assertEquals(67_890L, status.bytesIn)
+        assertTrue(status.trafficStatsAvailable)
     }
 
     @Test
@@ -41,6 +42,7 @@ class MleVpnStatusTest {
         assertTrue(status.bytesIn >= 0L)
         assertEquals(0L, status.bytesOut)
         assertEquals(0L, status.bytesIn)
+        assertTrue(status.trafficStatsAvailable)
     }
 
     @Test
@@ -53,6 +55,7 @@ class MleVpnStatusTest {
         assertEquals(MleConnectionPhase.INTERNET_VERIFIED, status.phase)
         assertEquals(100L, status.bytesOut)
         assertEquals(200L, status.bytesIn)
+        assertTrue(status.trafficStatsAvailable)
         assertFalse(status.detail.isBlank())
     }
 }
