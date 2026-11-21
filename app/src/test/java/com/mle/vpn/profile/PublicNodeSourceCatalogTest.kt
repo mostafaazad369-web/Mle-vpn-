@@ -42,6 +42,12 @@ class PublicNodeSourceCatalogTest {
         assertTrue(revalidated.networkValidated)
         assertTrue(staleFallback.fromCache)
         assertTrue(!staleFallback.networkValidated)
+        val freshDownload = PublicSourceFetchResult(
+            text = "vless://example",
+            fromCache = false,
+            sourceUrl = "https://raw.githubusercontent.com/example/repo/main/sub.txt"
+        )
+        assertTrue(freshDownload.networkValidated)
     }
 
     @Test
