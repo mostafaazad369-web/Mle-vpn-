@@ -37,6 +37,21 @@ class SingBoxConfigBuilderTest {
         assertTrue(outbounds.length() >= 3)
     }
     @Test
+    fun leavesPackageFilterUnsetByDefaultSoAllAppsUseTheVpn() {
+        val profile = ImportedProfile(
+            id = "all-apps",
+            protocol = ProfileProtocol.VLESS,
+            displayName = "All apps",
+            host = "example.com",
+            port = 443,
+            sourceUri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&sni=example.com#test"
+        )
+        val inbound = SingBoxConfigBuilder.build(profile)
+            .getJSONArray("inbounds").getJSONObject(0)
+        assertTrue(!inbound.has("include_package"))
+    }
+
+    @Test
     fun addsOnlyValidPackagesToTheTunIncludeList() {
         val profile = ImportedProfile(
             id = "app-filter",
