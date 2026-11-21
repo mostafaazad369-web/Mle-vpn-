@@ -96,8 +96,10 @@ object ProfileImporter {
         val lines = sourceLines.flatMap { line ->
             val payload = line.removePrefix("base64:").removePrefix("BASE64:").trim()
             val unwrapped = decodeBase64Text(payload)
-            if (unwrapped != null && (unwrapped.contains("://") ||
-                    unwrapped.contains("[Interface]", ignoreCase = true) || looksLikeOpenVpn(unwrapped))) {
+            if (unwrapped != null && (unwrapped.trimStart().startsWith("[Interface]", ignoreCase = true) ||
+                    looksLikeOpenVpn(unwrapped))) {
+                listOf(unwrapped)
+            } else if (unwrapped != null && unwrapped.contains("://")) {
                 unwrapped.lineSequence().map { it.trim() }
                     .filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
             } else listOf(line)
