@@ -71,6 +71,13 @@ class WireGuardConfigParserTest {
     }
 
     @Test
+    fun explicitlyRejectsAmneziaOptionsInsteadOfDowngradingToWireGuard() {
+        assertFalse(runCatching {
+            WireGuardConfigParser.parse(config("Jc = 4\\nJmin = 40\\nJmax = 70\\nS1 = 0\\nS2 = 0"))
+        }.isSuccess)
+    }
+
+    @Test
     fun rejectsInvalidKeysAndPorts() {
         assertFalse(runCatching {
             WireGuardConfigParser.parse(config().replace("PublicKey = $key", "PublicKey = invalid"))
