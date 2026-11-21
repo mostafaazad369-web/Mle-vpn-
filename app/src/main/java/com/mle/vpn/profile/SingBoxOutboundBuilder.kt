@@ -19,7 +19,49 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.SHADOWSOCKS -> buildShadowsocks(profile.sourceUri)
         ProfileProtocol.HYSTERIA2 -> buildHysteria2(URI(profile.sourceUri))
         ProfileProtocol.TUIC -> buildTuic(URI(profile.sourceUri))
+        ProfileProtocol.WIREGUARD -> throw IllegalArgumentException("WireGuard در sing-box 1.14 باید به‌صورت endpoint ساخته شود.")
         else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
+    }
+
+
+    fun buildWireGuardEndpoint(profile: ImportedProfile): JSONObject {
+        require(profile.protocol == ProfileProtocol.WIREGUARD)
+        val sections = linkedMapOf<String, MutableMap<String, String>>()
+        var section: String? = null
+        profile.sourceUri.lineSequence().forEach { original ->
+            val line = original.substringBefore('#').substringBefore(';').trim()
+            if (line.isEmpty()) return@forEach
+            if (line.startsWith("[") && line.endsWith("]")) {
+                section = line.substring(1, line.length - 1).trim().lowercase()
+                sections.getOrPut(section!!) { linkedMapOf() }
+            } else if (section != null && '=' in line) {
+                sections[section!!][line.substringBefore('=').trim().lowercase()] = line.substringAfter('=').trim()
+            }
+        }
+        val iface = sections["interface"] ?: error("بخش [Interface] وجود ندارد.")
+        val peer = sections["peer"] ?: error("بخش [Peer] وجود ندارد.")
+        val endpoint = java.net.URI("udp://${peer["endpoint"].orEmpty()}")
+        val host = endpoint.host ?: error("WireGuard endpoint host نامعتبر است.")
+        val port = endpoint.port.takeIf { it in 1..65535 } ?: error("WireGuard endpoint port نامعتبر است.")
+        val addresses = iface["address"].orEmpty().split(',').map(String::trim).filter(String::isNotBlank)
+        val allowed = peer["allowedips"].orEmpty().split(',').map(String::trim).filter(String::isNotBlank)
+        val peerObject = JSONObject()
+            .put("address", host)
+            .put("port", port)
+            .put("public_key", peer.getValue("publickey"))
+            .put("allowed_ips", JSONArray(allowed))
+        peer["presharedkey"]?.takeIf(String::isNotBlank)?.let { peerObject.put("pre_shared_key", it) }
+        peer["persistentkeepalive"]?.toIntOrNull()?.takeIf { it > 0 }?.let { peerObject.put("persistent_keepalive_interval", it) }
+        peer["reserved"]?.takeIf(String::isNotBlank)?.let { raw ->
+            peerObject.put("reserved", JSONArray(raw.split(',').map { it.trim().toInt() }))
+        }
+        return JSONObject()
+            .put("type", "wireguard")
+            .put("tag", "proxy")
+            .put("mtu", iface["mtu"]?.toIntOrNull()?.coerceIn(1280, 9000) ?: 1408)
+            .put("address", JSONArray(addresses))
+            .put("private_key", iface.getValue("privatekey"))
+            .put("peers", JSONArray().put(peerObject))
     }
 
     private fun buildVless(uri: URI): JSONObject {
