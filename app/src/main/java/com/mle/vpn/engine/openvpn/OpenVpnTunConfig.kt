@@ -4,6 +4,7 @@ import java.net.IDN
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.UnknownHostException
 
 /**
  * Validated server-pushed TUN settings for OpenVPN.
@@ -87,7 +88,11 @@ data class OpenVpnTunConfig(
             require(value.count { it == ':' } > 0 || value.count { it == '.' } == 3) {
                 "Invalid IP literal."
             }
-            val parsed = InetAddress.getByName(value)
+            val parsed = try {
+                InetAddress.getByName(value)
+            } catch (error: UnknownHostException) {
+                throw IllegalArgumentException("Invalid IP literal.", error)
+            }
             require(parsed is Inet4Address || parsed is Inet6Address) { "Invalid IP address." }
             return parsed
         }
