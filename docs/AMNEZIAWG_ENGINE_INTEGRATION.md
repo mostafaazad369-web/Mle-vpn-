@@ -10,7 +10,7 @@ The official Android implementation is pinned as a Git submodule:
 - Submodule declaration: `.gitmodules`
 - License in upstream: Apache-2.0; preserve upstream copyright/SPDX notices and the licenses of both submodules.
 
-The submodule is source pinning only. It is not yet a Gradle module dependency, does not add an AmneziaWG engine to the runtime registry, and does not make AWG configs connectable.
+The submodule is source pinning only. CI now verifies the exact upstream revision, recursively initializes both nested submodules, checks required source/license/build files, and separately attempts to build the official `:tunnel:assembleDebug` AAR using the upstream Gradle 8.13 / AGP 8.13 / SDK 36 / NDK 26.1.10909125 toolchain. This isolated AAR build is a buildability milestone only: it is not yet a dependency of MLE, does not add an AmneziaWG engine to the runtime registry, and does not make AWG configs connectable.
 
 ## Why the native engine is not wired into MLE yet
 
@@ -26,8 +26,8 @@ The official `GoBackend` uses its own `VpnService` bridge and owns tunnel creati
 ## Next implementation steps
 
 1. Initialize the pinned submodule recursively in CI and verify both nested submodule commit pins.
-2. Upgrade Gradle/AGP/SDK/NDK/CMake as one tested change, or isolate the AWG build in a reproducible composite build.
-3. Build the official tunnel module for arm64-v8a and armeabi-v7a; build x86_64 for emulator CI. Verify ELF architecture and 16 KB page alignment.
+2. Use the isolated upstream AAR CI build to validate the official native toolchain; then decide whether to keep it isolated or coordinate an app-wide Gradle/AGP/SDK/NDK/CMake upgrade.
+3. Confirm the AAR includes arm64-v8a and armeabi-v7a; build x86_64 for emulator CI. Verify ELF architecture and 16 KB page alignment.
 4. Preserve the complete AWG config, including Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5, through parsing and native serialization. Never downgrade an AWG profile to WireGuard.
 5. Choose one ownership model:
    - MLE delegates the entire VPN session to the official AWG service and serializes stop/start with its current engine; or
@@ -40,4 +40,4 @@ The official `GoBackend` uses its own `VpnService` bridge and owns tunnel creati
 - Standard WireGuard configs continue to be handled by sing-box.
 - Cloudflare WARP user-supplied registered WireGuard configs continue to be recognized and routed through sing-box.
 - AmneziaWG obfuscation options are detected and rejected by the ordinary WireGuard importer.
-- The official AmneziaWG source is pinned, but there is no AmneziaWG runtime adapter or APK capability yet.
+- The official AmneziaWG source is pinned and CI verifies it. An isolated CI job builds the upstream tunnel AAR; that artifact is not yet linked into the MLE APK, and there is no AmneziaWG runtime adapter or selectable engine yet.
