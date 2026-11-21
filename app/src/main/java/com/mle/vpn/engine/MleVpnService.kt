@@ -42,6 +42,7 @@ class MleVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
+    @Volatile private var engineLease: MleVpnEngineArbiter.Lease? = null
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
@@ -58,6 +59,7 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
                     stopTunnelResources()
+                    releaseEngineLease()
                     MleVpnStatus.disconnected()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -69,6 +71,12 @@ class MleVpnService : VpnService() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val lease = runCatching { MleVpnEngineArbiter.acquire(MleVpnEngine.SING_BOX) }.getOrElse { error ->
+                    MleVpnStatus.failed(error.message ?: "موتور دیگری در حال استفاده از تونل VPN است")
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                engineLease = lease
                 stopping.set(false)
                 trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
@@ -108,6 +116,7 @@ class MleVpnService : VpnService() {
                             MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
                             runCatching { boxRuntime.stop() }
                             stopTunnelResources()
+                            releaseEngineLease()
                             stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
@@ -188,6 +197,7 @@ class MleVpnService : VpnService() {
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
+            releaseEngineLease()
             MleVpnStatus.disconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -213,10 +223,17 @@ class MleVpnService : VpnService() {
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
             stopTunnelResources()
+            releaseEngineLease()
             MleVpnStatus.disconnected()
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
+    }
+
+    @Synchronized
+    private fun releaseEngineLease() {
+        MleVpnEngineArbiter.release(engineLease)
+        engineLease = null
     }
 
     @Synchronized
