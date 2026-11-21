@@ -55,6 +55,9 @@ class WireGuardConfigParserTest {
         val profile = batch.profiles.single()
         assertEquals(ProfileProtocol.WARP, profile.protocol)
         assertEquals("Cloudflare WARP • vpn.example.net", profile.displayName)
+        val stored = WireGuardConfigParser.encodeForStorage(warpConfig)
+        val restored = ProfileImporter.parse(stored) as ProfileParseResult.Success
+        assertEquals(ProfileProtocol.WARP, restored.profile.protocol)
         val json = SingBoxConfigBuilder.build(profile)
         assertEquals("wireguard", json.getJSONArray("endpoints").getJSONObject(0).getString("type"))
         assertEquals("wg-ep", json.getJSONObject("route").getString("final"))
