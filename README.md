@@ -27,7 +27,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; current V2Ray transports include WebSocket, gRPC, HTTP and HTTPUpgrade. QUIC, XHTTP and unsupported security options are rejected rather than silently downgraded. Additional profiles are tried only when automatic failover is enabled, and only after end-to-end HTTPS verification.
-- Curated public node feeds inspired by MLM FLUX/Amnezia source catalogs are integrated with GitHub raw/jsDelivr mirrors, bounded downloads, ETag/Last-Modified caching, offline last-good fallback and selected-engine validation; community nodes are untrusted and may be offline.
+- Curated public node feeds inspired by MLM FLUX/Amnezia source catalogs (including Morpheus mini/lite and FastNodes top/verified bundles) are integrated with GitHub raw/jsDelivr mirrors, bounded downloads, ETag/Last-Modified caching, offline last-good fallback and selected-engine validation; community nodes are untrusted and may be offline.
 - Telegram public-preview source fetching is integrated; private channels and Telegram account login are not supported.
 - Additional engines beyond sing-box/Xray are not yet integrated.
 - Optional root-only libbox features are intentionally disabled.
