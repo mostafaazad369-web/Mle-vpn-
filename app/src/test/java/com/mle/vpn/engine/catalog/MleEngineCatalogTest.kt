@@ -21,6 +21,13 @@ class MleEngineCatalogTest {
     }
 
     @Test
+    fun openVpnIsMarkedAsIntegratedButStillRequiresAUserProfile() {
+        val openVpn = requireNotNull(MleEngineCatalog.find("openvpn"))
+        assertEquals(Integration.EXISTING_OPENVPN_PATH, openVpn.integration)
+        assertTrue(openVpn.detail.contains("real-device"))
+    }
+
+    @Test
     fun importantEnginesHaveDedicatedCatalogEntries() {
         val ids = MleEngineCatalog.items.map { it.id }.toSet()
         assertTrue("npv" in ids)
