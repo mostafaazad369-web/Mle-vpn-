@@ -1,6 +1,7 @@
 package com.mle.vpn.profile
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -51,10 +52,10 @@ class PublicNodeSourceCatalogTest {
     }
 
     @Test
-    fun includesOnlyAdditionalFeedsForProtocolsWithLocalRuntimeAdapters() {
+    fun mirrorsMlmFluxFeedsAndOmitsNonCatalogAdditions() {
         val ids = PublicNodeSourceCatalog.all.map { it.id }.toSet()
-        assertTrue("flux-mg-vmess" in ids)
-        assertTrue("flux-mg-shadowsocks" in ids)
+        assertFalse("flux-mg-vmess" in ids)
+        assertFalse("flux-mg-shadowsocks" in ids)
         assertTrue("flux-mg-vless" in ids)
         assertTrue("flux-mg-trojan" in ids)
         assertTrue("flux-mg-hy2" in ids)
