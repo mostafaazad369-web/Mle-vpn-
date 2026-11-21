@@ -62,7 +62,7 @@ foreach ($abi in $Abis) {
     foreach ($segment in $loadSegments) {
         $columns = ($segment.Trim() -split '\s+')
         $alignment = $columns[-1]
-        if ($alignment -notmatch '^0x[0-9a-fA-F]+' -or $alignment.Length -ne 6 -or
+        if (!$alignment.StartsWith('0x') -or
             [Convert]::ToInt64($alignment.Substring(2), 16) -lt 16384) {
             throw "ELF PT_LOAD segment is not 16-KiB aligned for ${abi}: $segment"
         }
