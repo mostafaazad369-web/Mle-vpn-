@@ -10,7 +10,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 - Custom vector launcher icon
 
 ## Implemented
-- Persian RTL Compose interface and profile manager with explicit active-profile selection
+- Persian RTL Compose interface, profile manager and an engine inventory screen with distinct per-engine glyphs and honest runtime states
 - Encrypted local profile storage using Android Keystore AES-GCM
 - VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP outbound conversion for supported link variants; standard WireGuard `.conf`, registered Cloudflare WARP `.conf`, and supported OpenVPN TLS `.ovpn` profiles route through sing-box 1.14 endpoints
 - Per-profile TCP endpoint preflight diagnostics
@@ -40,11 +40,11 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 
 ## Multi-engine upgrade roadmap
 
-Development is being extended on the `feature/mlm-engine-upgrade` branch without replacing the existing sing-box runtime.
+Development continues on the `feature/silent-auto-source-failover` branch without replacing the existing sing-box runtime.
 
 ### Runtime status (honest capability list)
 
-- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS, HTTP, standard WireGuard `.conf` and imported Cloudflare WARP `.conf` endpoint variants explicitly handled by its builders. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks. The silent-source branch refreshes compatible public-feed profiles in the background; source names and feed URLs are not shown in a source-browser screen.
+- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS, HTTP, standard WireGuard `.conf`, imported Cloudflare WARP `.conf`, and supported OpenVPN TLS `.ovpn` endpoint variants explicitly handled by its builders. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks. The silent-source branch refreshes compatible public-feed profiles in the background; source names and feed URLs are not shown in a source-browser screen.
 - **Partial tools:** MAE service hints and per-app split tunneling are integrated; the full adaptive per-network route learner, live service probes and domain-level policy engine remain unfinished.
 - **Not yet connectable as separate engines:** FLUX as an independent runtime, WARP/Aether, AmneziaWG, native OpenVPN runtime, Psiphon, Tor, Geph, Lantern, URnetwork, Proton, Windscribe and FENIX. AmneziaWG upstream source is pinned as a submodule, but its native libraries and Android tunnel service are not yet integrated. Each still needs its own reviewed runtime/auth flow or a verified mapping through an existing core.
 - **Companion tools not yet integrated:** Gereh messenger, Cloud panel, Config Studio runtime, Cloudflare Doctor probes, MLM Scout live ranking, Game Booster, GitHub Tunnel, Telegram Proxy, LAN sharing, signed engine store and backup/restore. Their public resource files are bundled separately and are not operational by themselves.
