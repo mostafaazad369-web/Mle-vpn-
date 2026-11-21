@@ -81,7 +81,7 @@ object ProfileImporter {
         if (decodedDocument.contains("[Interface]", ignoreCase = true)) return parseBatch(decodedDocument)
 
         val sourceLines = decodedDocument.lineSequence()
-            .map(String::trim)
+            .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .take(501)
             .toList()
