@@ -17,6 +17,7 @@ object SingBoxConfigBuilder {
         val safePackages = if (requestedPackages.isEmpty()) emptyList()
             else (requestedPackages + "com.mle.vpn").distinct().take(128)
         if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile, safePackages)
+        if (profile.protocol == ProfileProtocol.OPENVPN) return buildOpenVpn(profile, safePackages)
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
         val tunInbound = JSONObject()
@@ -67,6 +68,72 @@ object SingBoxConfigBuilder {
             .put("dns", dns)
             .put("inbounds", inbounds)
             .put("outbounds", outbounds)
+            .put("route", route)
+    }
+
+    private fun buildOpenVpn(profile: ImportedProfile, allowedPackages: List<String>): JSONObject {
+        val config = OpenVpnConfigParser.decodeStored(profile.sourceUri)
+        val endpoint = JSONObject()
+            .put("type", "openvpn-client")
+            .put("tag", "ovpn-client")
+            .put("network", config.remotes.first().network)
+            .put("servers", JSONArray().apply {
+                config.remotes.forEach { remote ->
+                    put(JSONObject().put("server", remote.host).put("server_port", remote.port).put("network", remote.network))
+                }
+            })
+            .put("redirect_gateway", true)
+            .put("system", false)
+            .put("mtu", config.mtu)
+            .put("tls", JSONObject()
+                .put("certificate", JSONArray().put(config.ca))
+                .put("remote_certificate_tls", "server"))
+        config.serverName?.let { endpoint.getJSONObject("tls").put("server_name", it) }
+        config.serverNameType?.let { endpoint.getJSONObject("tls").put("server_name_type", it) }
+        config.clientCertificate?.let { endpoint.getJSONObject("tls").put("client_certificate", JSONArray().put(it)) }
+        config.clientKey?.let { endpoint.getJSONObject("tls").put("client_key", JSONArray().put(it)) }
+        config.controlWrapType?.let { type ->
+            val wrap = JSONObject().put("type", type).put("key", JSONArray().put(config.controlWrapKey))
+            config.controlWrapDirection?.let { wrap.put("direction", it) }
+            endpoint.getJSONObject("tls").put("control_wrap", wrap)
+        }
+        config.username?.let { endpoint.put("username", it) }
+        config.password?.let { endpoint.put("password", it) }
+        if (config.dataCiphers.isNotEmpty()) endpoint.put("data_ciphers", JSONArray(config.dataCiphers))
+        config.fallbackCipher?.let { endpoint.put("data_ciphers_fallback", it) }
+        config.authDigest?.let { endpoint.put("auth", it) }
+
+        val tunInbound = JSONObject()
+            .put("type", "tun")
+            .put("tag", "tun-in")
+            .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
+            .put("mtu", config.mtu)
+            .put("auto_route", true)
+            .put("strict_route", true)
+            .put("dns_mode", "hijack")
+        if (allowedPackages.isNotEmpty()) tunInbound.put("include_package", JSONArray(allowedPackages))
+        val dns = JSONObject()
+            .put("servers", JSONArray()
+                .put(JSONObject().put("type", "local").put("tag", "bootstrap"))
+                .put(JSONObject().put("type", "openvpn").put("tag", "ovpn-dns")
+                    .put("endpoint", "ovpn-client").put("accept_default_resolvers", true)))
+            .put("final", "ovpn-dns")
+            .put("strategy", "prefer_ipv4")
+        val route = JSONObject()
+            .put("final", "ovpn-client")
+            .put("auto_detect_interface", true)
+            .put("override_android_vpn", true)
+            .put("rules", JSONArray().put(
+                JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
+            ))
+        return JSONObject()
+            .put("log", JSONObject().put("level", "info"))
+            .put("dns", dns)
+            .put("inbounds", JSONArray().put(tunInbound))
+            .put("outbounds", JSONArray()
+                .put(JSONObject().put("type", "direct").put("tag", "direct"))
+                .put(JSONObject().put("type", "block").put("tag", "block")))
+            .put("endpoints", JSONArray().put(endpoint))
             .put("route", route)
     }
 
