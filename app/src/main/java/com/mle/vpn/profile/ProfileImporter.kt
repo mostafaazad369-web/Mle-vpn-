@@ -68,18 +68,36 @@ object ProfileImporter {
                 is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
             }
         }
-        val decoded = if (raw.contains("://")) raw else {
-            runCatching {
-                String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
-            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) } ?: raw
+
+        // Some public subscription feeds are Base64-wrapped twice: the whole
+        // document decodes to metadata plus individual Base64 payload lines.
+        val decodedDocument = if (raw.contains("://")) raw else {
+            decodeBase64Text(raw)?.takeIf {
+                it.contains("://") || it.contains("[Interface]", ignoreCase = true) ||
+                    it.contains("#profile-title", ignoreCase = true) ||
+                    it.contains("base64:", ignoreCase = true)
+            } ?: raw
         }
-        if (decoded.contains("[Interface]", ignoreCase = true)) return parseBatch(decoded)
-        val lines = decoded.lineSequence()
-            .map { it.trim() }
+        if (decodedDocument.contains("[Interface]", ignoreCase = true)) return parseBatch(decodedDocument)
+
+        val sourceLines = decodedDocument.lineSequence()
+            .map(String::trim)
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .take(501)
             .toList()
+        require(sourceLines.size <= 500) { "حداکثر ۵۰۰ کانفیگ در هر بار قابل ورود است." }
+
+        val lines = sourceLines.flatMap { line ->
+            val payload = line.removePrefix("base64:").removePrefix("BASE64:").trim()
+            val unwrapped = decodeBase64Text(payload)
+            if (unwrapped != null && (unwrapped.contains("://") ||
+                    unwrapped.contains("[Interface]", ignoreCase = true))) {
+                unwrapped.lineSequence().map(String::trim)
+                    .filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
+            } else listOf(line)
+        }.take(501)
         require(lines.size <= 500) { "حداکثر ۵۰۰ کانفیگ در هر بار قابل ورود است." }
+
         val accepted = LinkedHashMap<String, ImportedProfile>()
         var rejected = 0
         var duplicates = 0
@@ -93,6 +111,11 @@ object ProfileImporter {
         }
         return ProfileBatchResult(accepted.values.toList(), rejected, duplicates)
     }
+
+    private fun decodeBase64Text(value: String): String? = runCatching {
+        String(Base64.decode(value, Base64.DEFAULT), StandardCharsets.UTF_8)
+            .takeIf { decoded -> decoded.isNotBlank() && decoded.none { it == '\u0000' } }
+    }.getOrNull()
 
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
