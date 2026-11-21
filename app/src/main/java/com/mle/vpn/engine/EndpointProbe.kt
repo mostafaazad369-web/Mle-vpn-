@@ -96,12 +96,17 @@ object EndpointProbe {
         // Permit global-unicast IPv6 (2000::/3) only. This excludes ULA,
         // link-local, loopback, IPv4-mapped and other special-purpose ranges.
         if (bytes.size != 16 || (bytes[0].toInt() and 0xe0) != 0x20) return false
-        // Documentation prefix 2001:db8::/32 is not globally routable.
-        return !(
-            (bytes[0].toInt() and 0xff) == 0x20 &&
-            (bytes[1].toInt() and 0xff) == 0x01 &&
-            (bytes[2].toInt() and 0xff) == 0x0d &&
-            (bytes[3].toInt() and 0xff) == 0xb8
-        )
+        val first = bytes[0].toInt() and 0xff
+        val second = bytes[1].toInt() and 0xff
+        val third = bytes[2].toInt() and 0xff
+
+        // Exclude IETF protocol assignments (2001::/23), the deprecated
+        // 6to4 transition block (2002::/16), and documentation (3fff::/20).
+        // These prefixes sit inside 2000::/3 but are not ordinary public
+        // unicast endpoints suitable for an imported-profile TCP probe.
+        val isIetfProtocolAssignment = first == 0x20 && second == 0x01 && (third and 0xfe) == 0
+        val isSixToFour = first == 0x20 && second == 0x02
+        val isDocumentation = first == 0x3f && second == 0xff && (third and 0xf0) == 0
+        return !(isIetfProtocolAssignment || isSixToFour || isDocumentation)
     }
 }
