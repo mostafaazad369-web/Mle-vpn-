@@ -69,26 +69,34 @@ class AwgHostService : Service() {
         runCatching {
             message.replyTo?.send(Message.obtain(null, MSG_REPLY).apply { data = reply })
         }
-        if (message.what == MSG_STOP) stopSelf()
+        // Keep this host alive after a failed stop so its backend ownership is
+        // retained and a later stop request can retry the native shutdown.
+        if (message.what == MSG_STOP && result.isSuccess) stopSelf()
     }
 
     private fun bringUp(raw: String) {
         bringDown()
+        val parsed = Config.parse(ByteArrayInputStream(raw.toByteArray(Charsets.UTF_8)))
+        val nextBackend = GoBackend(applicationContext)
+        val nextTunnel = object : Tunnel {
+            override fun getName(): String = "mle-awg"
+            override fun onStateChange(newState: Tunnel.State) = Unit
+        }
+        // Publish ownership before entering native code: if activation fails
+        // part-way through, cleanup still has the exact backend/tunnel pair.
+        backend = nextBackend
+        tunnel = nextTunnel
         try {
-            val parsed = Config.parse(ByteArrayInputStream(raw.toByteArray(Charsets.UTF_8)))
-            val nextBackend = GoBackend(applicationContext)
-            val nextTunnel = object : Tunnel {
-                override fun getName(): String = "mle-awg"
-                override fun onStateChange(newState: Tunnel.State) = Unit
-            }
-            backend = nextBackend
-            tunnel = nextTunnel
             nextBackend.setState(nextTunnel, Tunnel.State.UP, parsed)
             check(nextBackend.getState(nextTunnel) == Tunnel.State.UP) {
                 "AmneziaWG تونل را فعال نکرد."
             }
         } catch (error: Exception) {
-            bringDown()
+            try {
+                bringDown()
+            } catch (cleanupError: Exception) {
+                error.addSuppressed(cleanupError)
+            }
             Log.w(TAG, "AmneziaWG start failed: ${error.javaClass.simpleName}")
             throw IllegalStateException(
                 error.message?.take(160) ?: "راه‌اندازی AmneziaWG ناموفق بود.",
@@ -100,22 +108,25 @@ class AwgHostService : Service() {
     private fun bringDown() {
         val currentBackend = backend
         val currentTunnel = tunnel
-        backend = null
-        tunnel = null
+        check((currentBackend == null) == (currentTunnel == null)) {
+            "وضعیت مالکیت موتور AmneziaWG ناسازگار است."
+        }
         if (currentBackend != null && currentTunnel != null) {
-            runCatching {
-                currentBackend.setState(currentTunnel, Tunnel.State.DOWN, null)
-            }.onFailure {
-                Log.w(TAG, "AmneziaWG shutdown reported an error: ${it.javaClass.simpleName}")
+            // Do not clear our references until the backend confirms DOWN.
+            // GoBackend.setState(DOWN) owns the VPN-service teardown itself.
+            currentBackend.setState(currentTunnel, Tunnel.State.DOWN, null)
+            check(currentBackend.getState(currentTunnel) == Tunnel.State.DOWN) {
+                "AmneziaWG خاموش‌شدن تونل را تأیید نکرد."
             }
         }
-        runCatching {
-            stopService(Intent(this, GoBackend.VpnService::class.java))
-        }
+        backend = null
+        tunnel = null
     }
 
     override fun onDestroy() {
-        bringDown()
+        runCatching { bringDown() }.onFailure {
+            Log.e(TAG, "AmneziaWG shutdown failed while host was being destroyed", it)
+        }
         worker.quitSafely()
         super.onDestroy()
     }
