@@ -71,7 +71,7 @@ private fun MleApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedEngine by remember { mutableStateOf(context.getSharedPreferences("mle_settings", 0).getString("engine_id", "sing-box") ?: "sing-box") }
     var automaticFailover by remember {
-        mutableStateOf(context.getSharedPreferences("mle_settings", 0).getBoolean("automatic_failover", false))
+        mutableStateOf(context.getSharedPreferences("mle_settings", 0).getBoolean("automatic_failover", true))
     }
     var selectedServer by remember { mutableStateOf("بهترین موقعیت") }
     var showNotice by remember { mutableStateOf(false) }
