@@ -248,7 +248,28 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                3 -> EngineCatalogScreen(padding)
+                3 -> EngineCatalogScreen(
+                    padding = padding,
+                    onImportVpnGate = { server ->
+                        when (val parsed = ProfileImporter.parseOpenVpnConfig(server.openVpnConfig)) {
+                            is ProfileParseResult.Success -> {
+                                vault.save(parsed.profile)
+                                profiles = vault.loadAll()
+                                selectedProfileId = parsed.profile.id
+                                Toast.makeText(
+                                    context,
+                                    "پروفایل عمومی VPN Gate وارد شد؛ برای اتصال، آن را از صفحه کانفیگ‌ها انتخاب کنید.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is ProfileParseResult.Failure -> Toast.makeText(
+                                context,
+                                parsed.reason,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                )
                 4 -> SettingsScreen(padding)
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
