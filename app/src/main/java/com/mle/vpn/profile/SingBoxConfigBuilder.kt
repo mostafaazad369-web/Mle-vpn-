@@ -9,8 +9,10 @@ import org.json.JSONObject
  */
 object SingBoxConfigBuilder {
     fun build(profile: ImportedProfile): JSONObject {
-        val proxy = SingBoxOutboundBuilder.build(profile)
+        val isWireGuard = profile.protocol == ProfileProtocol.WIREGUARD
+        val proxy = if (isWireGuard) null else SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
+        val wireGuardEndpoint = if (isWireGuard) SingBoxOutboundBuilder.buildWireGuardEndpoint(profile) else null
         val inbounds = JSONArray().put(
             JSONObject()
                 .put("type", "tun")
@@ -22,7 +24,8 @@ object SingBoxConfigBuilder {
                 .put("dns_mode", "hijack")
         )
         val outbounds = JSONArray()
-            .put(proxy)
+        if (proxy != null) outbounds.put(proxy)
+        outbounds
             .put(JSONObject().put("type", "direct").put("tag", "direct"))
             .put(JSONObject().put("type", "block").put("tag", "block"))
         val dnsServer = JSONObject()
@@ -60,5 +63,6 @@ object SingBoxConfigBuilder {
             .put("inbounds", inbounds)
             .put("outbounds", outbounds)
             .put("route", route)
+            .apply { if (wireGuardEndpoint != null) put("endpoints", JSONArray().put(wireGuardEndpoint)) }
     }
 }
