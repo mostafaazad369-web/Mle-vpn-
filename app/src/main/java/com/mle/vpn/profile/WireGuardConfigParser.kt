@@ -3,7 +3,6 @@ package com.mle.vpn.profile
 import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.InetSocketAddress
 import java.net.URI
 
 data class WireGuardPeer(
@@ -86,7 +85,7 @@ object WireGuardConfigParser {
         val privateKey = iface["privatekey"].orEmpty()
         require(isKey(privateKey)) { "PrivateKey باید کلید WireGuard معتبر و Base64 باشد." }
         val dns = csv(iface["dns"])
-        require(dns.size <= 8 && dns.all { it.length <= 253 && it.none(Char::isWhitespace) }) { "DNS نامعتبر است." }
+        require(dns.size <= 8 && dns.all(::isDnsServer)) { "DNS نامعتبر است." }
         val mtu = iface["mtu"]?.toIntOrNull() ?: 1408
         require(mtu in 576..9000) { "MTU باید بین 576 و 9000 باشد." }
         val peers = peerSections.map { (_, values) ->
@@ -122,7 +121,10 @@ object WireGuardConfigParser {
 
     private fun parseEndpoint(value: String): Pair<String, Int> {
         val uri = URI("udp://$value")
-        val host = uri.host ?: error("Endpoint host معتبر نیست.")
+        val host = uri.host?.removePrefix("[")?.removeSuffix("]") ?: error("Endpoint host معتبر نیست.")
+        require(uri.rawUserInfo == null && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null) {
+            "Endpoint فقط باید شامل host و port باشد."
+        }
         val port = uri.port
         require(port in 1..65535) { "Endpoint port معتبر نیست." }
         return host to port
@@ -136,11 +138,34 @@ object WireGuardConfigParser {
         decoded.size == 32 && Base64.encodeToString(decoded, Base64.NO_WRAP) == value
     }.getOrDefault(false)
 
+    private fun isDnsServer(value: String): Boolean {
+        if (value.length !in 1..253 || value.any(Char::isWhitespace)) return false
+        if (value.contains(':') || value.matches(Regex("[0-9.]+"))) {
+            return runCatching {
+                val address = java.net.InetAddress.getByName(value).address
+                address.size == 4 || address.size == 16
+            }.getOrDefault(false)
+        }
+        return value.split('.').all { label ->
+            label.isNotEmpty() && label.length <= 63 &&
+                label.first().isLetterOrDigit() && label.last().isLetterOrDigit() &&
+                label.all { it.isLetterOrDigit() || it == '-' }
+        }
+    }
+
     private fun isCidr(value: String): Boolean {
         val parts = value.split('/')
         if (parts.size != 2) return false
         val prefix = parts[1].toIntOrNull() ?: return false
-        val max = if (parts[0].contains(':')) 128 else 32
-        return prefix in 0..max && parts[0].matches(Regex("[0-9a-fA-F:.]+"))
+        val address = parts[0]
+        return if (address.contains(':')) {
+            prefix in 0..128 && runCatching {
+                java.net.InetAddress.getByName(address).address.size == 16
+            }.getOrDefault(false)
+        } else {
+            val octets = address.split('.')
+            prefix in 0..32 && octets.size == 4 &&
+                octets.all { it.toIntOrNull()?.let { number -> number in 0..255 } == true }
+        }
     }
 }
