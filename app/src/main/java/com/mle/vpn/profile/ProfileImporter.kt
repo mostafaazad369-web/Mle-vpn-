@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 enum class ProfileProtocol {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA, HYSTERIA2,
-    TUIC, ANYTLS, WIREGUARD, WARP, OPENVPN, SOCKS, HTTP, UNKNOWN
+    TUIC, ANYTLS, WIREGUARD, WARP, OPENVPN, AMNEZIAWG, SOCKS, HTTP, UNKNOWN
 }
 
 data class ImportedProfile(
@@ -62,6 +62,12 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
+        if (AmneziaWgConfigParser.isAmneziaConfig(raw)) {
+            return when (val parsed = parse(raw)) {
+                is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
+                is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
+            }
+        }
         if (looksLikeOpenVpn(raw)) {
             return when (val parsed = parse(raw)) {
                 is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
@@ -130,6 +136,21 @@ object ProfileImporter {
         if (raw.isEmpty() || raw.length > 64_000) {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
         }
+        if (raw.startsWith("awg-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = AmneziaWgConfigParser.decodeStored(raw)
+                val parsed = AmneziaWgConfigParser.parse(config)
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.AMNEZIAWG,
+                    displayName = "AmneziaWG • " + parsed.host,
+                    host = parsed.host,
+                    port = parsed.port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "پروفایل AmneziaWG معتبر نیست.") }
+        }
+        if (AmneziaWgConfigParser.isAmneziaConfig(raw)) return parseAmneziaWg(raw)
         if (looksLikeOpenVpn(raw)) {
             return parseOpenVpn(raw)
         }
@@ -217,6 +238,18 @@ object ProfileImporter {
             sourceUri = WireGuardConfigParser.encodeForStorage(config.toConf())
         ))
     }.getOrElse { ProfileParseResult.Failure(it.message ?: "لینک WireGuard معتبر نیست یا شامل گزینه‌های پشتیبانی‌نشده است.") }
+
+    private fun parseAmneziaWg(raw: String): ProfileParseResult = runCatching {
+        val config = AmneziaWgConfigParser.parse(raw)
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.AMNEZIAWG,
+            displayName = "AmneziaWG • " + config.host,
+            host = config.host,
+            port = config.port,
+            sourceUri = AmneziaWgConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "فایل AmneziaWG معتبر نیست.") }
 
     private fun parseOpenVpn(raw: String): ProfileParseResult = runCatching {
         val config = OpenVpnConfigParser.parse(raw)
