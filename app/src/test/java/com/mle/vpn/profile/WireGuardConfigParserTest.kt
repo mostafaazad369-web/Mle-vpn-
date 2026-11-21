@@ -45,6 +45,22 @@ class WireGuardConfigParserTest {
     }
 
     @Test
+    fun identifiesCloudflareWarpPeerAndBuildsSingBoxEndpoint() {
+        val warpConfig = config().replace(
+            "PublicKey = $key",
+            "PublicKey = " + ProfileImporter.WARP_PEER_PUBLIC_KEY
+        )
+        val batch = ProfileImporter.parseBatch(warpConfig)
+        assertEquals(1, batch.profiles.size)
+        val profile = batch.profiles.single()
+        assertEquals(ProfileProtocol.WARP, profile.protocol)
+        assertEquals("Cloudflare WARP • vpn.example.net", profile.displayName)
+        val json = SingBoxConfigBuilder.build(profile)
+        assertEquals("wireguard", json.getJSONArray("endpoints").getJSONObject(0).getString("type"))
+        assertEquals("wg-ep", json.getJSONObject("route").getString("final"))
+    }
+
+    @Test
     fun rejectsMissingPeerAndUnsafeUnknownOptions() {
         assertFalse(runCatching {
             WireGuardConfigParser.parse("[Interface]\nPrivateKey = $key\nAddress = 10.0.0.2/32")
