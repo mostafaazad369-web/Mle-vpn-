@@ -26,6 +26,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import com.mle.vpn.profile.ImportedProfile
 import com.mle.vpn.profile.ProfileImporter
+import com.mle.vpn.profile.ProfileProtocol
 import com.mle.vpn.profile.ProfileFailoverPlanner
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
@@ -128,16 +129,18 @@ private fun MleApp() {
             showImport = true
             return
         }
+        // WARP is a WireGuard data plane and is currently available through sing-box only.
+        val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
         val orderedProfiles = if (automaticFailover) {
             val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
-            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$selectedEngine:${it.id}" })
-            val ranked = rankedIds.mapNotNull { key -> bounded.firstOrNull { "$selectedEngine:${it.id}" == key } }
+            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$connectionEngineId:${it.id}" })
+            val ranked = rankedIds.mapNotNull { key -> bounded.firstOrNull { "$connectionEngineId:${it.id}" == key } }
             listOfNotNull(bounded.firstOrNull { it.id == profile.id }) +
                 ranked.filterNot { it.id == profile.id }
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
             runCatching {
-                val json = if (selectedEngine == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate)
+                val json = if (connectionEngineId == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate)
                 candidate to json.toString()
             }.getOrNull()
         }
@@ -150,14 +153,14 @@ private fun MleApp() {
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
             action = MleVpnService.ACTION_START
             putExtra(MleVpnService.EXTRA_CONFIG, configCandidates.first())
-            putExtra(MleVpnService.EXTRA_ENGINE_ID, selectedEngine)
+            putExtra(MleVpnService.EXTRA_ENGINE_ID, connectionEngineId)
             putStringArrayListExtra(MleVpnService.EXTRA_CONFIG_CANDIDATES, ArrayList(configCandidates))
             putStringArrayListExtra(MleVpnService.EXTRA_PROFILE_IDS, ArrayList(candidateProfileIds))
         }
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
                 vpnPermissionGranted = true
-                vpnPermissionMessage = "درخواست راه‌اندازی موتور ${if (selectedEngine == "xray") "Xray" else "sing-box"} ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
+                vpnPermissionMessage = "درخواست راه‌اندازی موتور ${if (connectionEngineId == "xray") "Xray" else "sing-box"} ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
                 showNotice = true
             }
             .onFailure { error ->
@@ -385,7 +388,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک، متن Base64 یا فایل WireGuard را وارد کن. WireGuard با فایل استاندارد .conf و موتور sing-box پشتیبانی می‌شود؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP با پسوند .conf را وارد کن. پروفایل‌های WARP شناسایی و با موتور sing-box اجرا می‌شوند؛ ثبت‌نام حساب WARP خودکار انجام نمی‌شود.", color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard")) },
@@ -394,7 +397,7 @@ private fun MleApp() {
                         ) {
                             Icon(Icons.Default.FolderOpen, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("انتخاب فایل WireGuard (.conf)")
+                            Text("انتخاب فایل WireGuard / WARP (.conf)")
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
