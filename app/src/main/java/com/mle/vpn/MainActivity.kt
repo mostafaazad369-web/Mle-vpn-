@@ -322,7 +322,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. فعلاً فقط VLESS، VMess و Trojan با تنظیمات پشتیبانی‌شده ذخیره می‌شوند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، چند لینک، متن Base64 یا متن کامل فایل WireGuard (.conf) را وارد کن. فایل‌های دارای پارامترهای مبهم‌سازی AmneziaWG تا زمان اتصال موتور اختصاصی رد می‌شوند.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
@@ -576,7 +576,7 @@ private fun EngineCatalogScreen(padding: PaddingValues) {
         engines.forEach { engine ->
             val ready = engine.state == com.mle.vpn.engine.IntegrationState.IMPLEMENTED_UNVERIFIED || engine.state == com.mle.vpn.engine.IntegrationState.DEVICE_VERIFIED
             val glyph = when (engine.id) {
-                "sing_box" -> "◈"; "warp" -> "☁"; "aether" -> "◎"; "amnezia" -> "⌁"
+                "sing_box" -> "◈"; "wireguard" -> "⇄"; "warp" -> "☁"; "aether" -> "◎"; "amnezia" -> "⌁"
                 "openvpn" -> "⇄"; "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"
                 "geph" -> "✣"; "lantern" -> "✧"; "urnetwork" -> "⌘"; "proton" -> "△"
                 "windscribe" -> "≋"; "fenix" -> "◌"; "vpngate" -> "▤"; "npv" -> "▦"
