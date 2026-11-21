@@ -210,11 +210,13 @@ class MleVpnService : VpnService() {
         val retained = checkNotNull(builder.establish()) {
             "Android did not grant an OpenVPN TUN interface."
         }
+        var nativeDuplicate: ParcelFileDescriptor? = null
         try {
-            val nativeDuplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
+            nativeDuplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
             openVpnTun = retained
             return nativeDuplicate.detachFd()
         } catch (error: Exception) {
+            runCatching { nativeDuplicate?.close() }
             runCatching { retained.close() }
             throw error
         }
