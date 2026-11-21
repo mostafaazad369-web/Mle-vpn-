@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.mle.vpn.MainActivity
 import com.mle.vpn.R
 import com.mle.vpn.engine.openvpn.OpenVpnTunConfig
+import com.mle.vpn.engine.openvpn.MleOpenVpnRuntime
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ class MleVpnService : VpnService() {
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
     @Volatile private var engineLease: MleVpnEngineArbiter.Lease? = null
+    @Volatile private var openVpnRuntime: MleOpenVpnRuntime? = null
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
@@ -61,6 +63,11 @@ class MleVpnService : VpnService() {
                 trafficProbeJob?.cancel()
                 serviceScope.launch {
                     if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                    val openVpn = openVpnRuntime
+                    if (openVpn != null) {
+                        openVpn.stop()
+                        return@launch
+                    }
                     stopTunnelResources()
                     releaseEngineLease()
                     MleVpnStatus.disconnected()
@@ -68,6 +75,7 @@ class MleVpnService : VpnService() {
                     stopSelf()
                 }
             }
+            ACTION_START_OPENVPN -> startOpenVpn(intent, startId)
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
                 if (config.isNullOrBlank()) {
@@ -128,6 +136,71 @@ class MleVpnService : VpnService() {
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Starts OpenVPN 3 through the shared Android VpnService and engine arbiter.
+     * Credentials are consumed from the start Intent and are never persisted here.
+     */
+    private fun startOpenVpn(intent: Intent, startId: Int) {
+        val profile = intent.getStringExtra(EXTRA_OPENVPN_PROFILE)
+        val username = intent.getStringExtra(EXTRA_OPENVPN_USERNAME).orEmpty()
+        val password = intent.getStringExtra(EXTRA_OPENVPN_PASSWORD).orEmpty()
+        if (profile.isNullOrBlank()) {
+            MleVpnStatus.failed("پروفایل OpenVPN خالی است")
+            stopSelf(startId)
+            return
+        }
+        if (!com.mle.vpn.engine.openvpn.MleOpenVpnNative.available()) {
+            MleVpnStatus.failed("کتابخانه OpenVPN برای این معماری در APK موجود نیست")
+            stopSelf(startId)
+            return
+        }
+        val lease = runCatching { MleVpnEngineArbiter.acquire(MleVpnEngine.OPENVPN) }.getOrElse { error ->
+            MleVpnStatus.failed(error.message ?: "موتور دیگری مالک تونل VPN است")
+            stopSelf(startId)
+            return
+        }
+        engineLease = lease
+        stopping.set(false)
+        trafficProbeJob?.cancel()
+        configureUnderlyingNetwork()
+        MleVpnStatus.starting()
+        startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی OpenVPN 3"))
+        val runtime = MleOpenVpnRuntime(
+            service = this,
+            onConnected = {
+                if (!stopping.get()) {
+                    MleVpnStatus.tunnelActive()
+                    getSystemService(NotificationManager::class.java).notify(
+                        NOTIFICATION_ID, buildNotification("تونل OpenVPN متصل شد")
+                    )
+                }
+            },
+            onFailure = { message ->
+                android.util.Log.e("MLE-VPN", message)
+                MleVpnStatus.failed(message)
+                stopping.set(true)
+            },
+            onFinished = {
+                openVpnRuntime = null
+                stopTunnelResources()
+                releaseEngineLease()
+                if (stopping.get()) MleVpnStatus.disconnected()
+                else MleVpnStatus.failed("اتصال OpenVPN پایان یافت")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        )
+        openVpnRuntime = runtime
+        if (!runtime.start(profile, username, password)) {
+            openVpnRuntime = null
+            stopTunnelResources()
+            releaseEngineLease()
+            MleVpnStatus.failed("موتور OpenVPN نتوانست اجرا شود")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+        }
     }
 
     /**
@@ -236,6 +309,11 @@ class MleVpnService : VpnService() {
         trafficProbeJob?.cancel()
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            val openVpn = openVpnRuntime
+            if (openVpn != null) {
+                openVpn.stop()
+                return@launch
+            }
             stopTunnelResources()
             releaseEngineLease()
             MleVpnStatus.disconnected()
@@ -264,6 +342,8 @@ class MleVpnService : VpnService() {
         trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            openVpnRuntime?.stopAndAwait()
+            openVpnRuntime = null
             stopTunnelResources()
             releaseEngineLease()
             MleVpnStatus.disconnected()
@@ -351,6 +431,10 @@ class MleVpnService : VpnService() {
     companion object {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
+        const val ACTION_START_OPENVPN = "com.mle.vpn.action.START_OPENVPN"
+        const val EXTRA_OPENVPN_PROFILE = "com.mle.vpn.extra.OPENVPN_PROFILE"
+        const val EXTRA_OPENVPN_USERNAME = "com.mle.vpn.extra.OPENVPN_USERNAME"
+        const val EXTRA_OPENVPN_PASSWORD = "com.mle.vpn.extra.OPENVPN_PASSWORD"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
