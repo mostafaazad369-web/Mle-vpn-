@@ -153,7 +153,8 @@ object WireGuardConfigParser {
                 require(split > 0) { "پارامتر لینک WireGuard معتبر نیست." }
                 val key = decodeUri(pair.substring(0, split)).lowercase()
                 val value = decodeUri(pair.substring(split + 1))
-                require(query.putIfAbsent(key, value) == null) { "پارامتر تکراری در لینک WireGuard: $key" }
+                require(!query.containsKey(key)) { "پارامتر تکراری در لینک WireGuard: $key" }
+                query[key] = value
             }
         }
         val allowedKeys = setOf(
