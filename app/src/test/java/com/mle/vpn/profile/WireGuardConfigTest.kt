@@ -81,4 +81,10 @@ class WireGuardConfigTest {
         assertEquals("wireguard-endpoint", root.getJSONObject("dns").getJSONArray("servers")
             .getJSONObject(1).getString("detour"))
     }
+
+    @Test
+    fun rejectsMultiplePeerSectionsInsteadOfMergingThem() {
+        val multiplePeers = config + "\n\n[Peer]\nPublicKey = $key\nEndpoint = other.example.com:51820\nAllowedIPs = 10.0.0.0/8"
+        assertTrue(runCatching { WireGuardConfigParser.parse(multiplePeers) }.isFailure)
+    }
 }
