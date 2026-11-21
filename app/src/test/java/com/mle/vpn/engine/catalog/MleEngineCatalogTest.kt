@@ -28,5 +28,7 @@ class MleEngineCatalogTest {
         assertTrue("gereh" in ids)
         assertTrue("warp" in ids)
         assertTrue("tuic" in ids)
+        assertTrue("cloudflare-doctor" in ids)
+        assertEquals(Integration.DIAGNOSTIC_ONLY, MleEngineCatalog.find("cloudflare-doctor")?.integration)
     }
 }
