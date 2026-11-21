@@ -78,3 +78,15 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is G
 
 ## Attribution
 The route-selection and adaptive-failover design was informed by the public FLUX/MAE architecture documents in [MLM VPN](https://github.com/mlmvpn/mlmvpn_android). The AAR namespace-isolation script is adapted from MLM's GPL-3.0 build tooling with attribution preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). MLE VPN remains an independent implementation and does not bundle MLM VPN native binaries.
+
+## MLM VPN resource snapshot
+
+A selected, security-reviewed snapshot of public MLM VPN assets is bundled under `app/src/main/assets/mlm/`. See [the machine-readable resource manifest](app/src/main/assets/mlm/RESOURCE_MANIFEST.json), [the feature parity plan](docs/MLM_FEATURE_PARITY.md), and [the original MLM GPL-3.0 license](licenses/MLM-VPN-GPL-3.0.txt).
+
+Included resources cover MAE service metadata, Cloudflare Doctor plan, Game Catalog, Iran routing profile data, Smart Iran CIDRs, exit-proxy count metadata, Cloudflare Worker source modules, DNS/egress/subscription/VPNGate/WARP Worker source, Tor bridge bootstrap snapshot, sanction-domain routing data, and OpenVPN dependency license notices.
+
+**Important runtime boundary:** bundled JSON/text files are data or reference material, not proof that a server or service is online. Worker scripts are source-only and require an operator-owned Cloudflare account, secrets, deployment, abuse controls and security review. Catalog entries must not be shown as connectable until a runtime adapter is implemented and tested. The Tor bridge seed is a dated snapshot and must be refreshed before use.
+
+Sensitive upstream assets are intentionally excluded: `amnezia_seed.json` contains private WireGuard keys; additional Worker source includes authentication-handling code pending review; OpenVPN sample profiles/CA material and NPV/Outline seed configs are withheld pending credential and provenance review. Country proxy endpoint dumps and large GeoIP binaries are also not bundled as live or trusted endpoints. See the manifest for the full exclusion list.
+
+MLE VPN is an independent project and is not affiliated with MLM VPN. Original attribution and GPL-3.0 terms are preserved; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
