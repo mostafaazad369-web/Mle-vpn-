@@ -88,3 +88,7 @@ Important semantics and porting constraints found during the audit:
 - The upstream configuration() currently enables asymmetric compression for compatibility with a specific provider. MLE must not inherit that provider-specific behavior globally. Compression remains rejected by MLE's conservative preflight unless a separately reviewed policy and security test justify an explicit exception.
 
 The ABI comparison is source-level only: it does not prove that the upstream native binary matches the checked-in source, nor that the bridge builds against the pinned OpenVPN 3 revision. The next implementation step is a small MLE-owned JNI facade and callback interface, followed by native compilation and descriptor-level instrumentation tests before wiring it into the service. The engine arbiter is only an ownership guard; it does not yet provide OpenVPN packet processing or TUN construction.
+
+## MLE JNI contract scaffold
+
+The branch now contains `MleOpenVpnNative.kt`, an MLE-package JNI facade with the audited native entry-point signatures, optional library loading (`mleopenvpn`) and a kept callback base class. `MleOpenVpnNativeContractTest` uses JVM reflection to pin the entry-point and callback method descriptors. This is an ABI scaffold only: no `mleopenvpn` shared library, CMake target, OpenVPN source archive, runtime service adapter or connection path has been added. `available()` therefore remains false on builds without the native library, and the catalog must not present this as a working engine.
