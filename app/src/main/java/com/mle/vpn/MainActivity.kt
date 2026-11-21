@@ -137,7 +137,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "موتورها" to Icons.Default.Extension, "منابع" to Icons.Default.CloudDownload)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -209,6 +209,7 @@ private fun MleApp() {
                     padding = padding
                 )
                 3 -> SettingsScreen(padding)
+                4 -> EngineCatalogScreen(padding)
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
                     publicSources = publicSources,
@@ -533,11 +534,44 @@ private fun TelegramSourcesScreen(
 }
 
 @Composable
+private fun EngineCatalogScreen(padding: PaddingValues) {
+    val engines = com.mle.vpn.engine.EngineCatalog.all
+    Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)) {
+        Text("موتورهای اتصال", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("فهرست قابلیت‌های خانواده MLM؛ وضعیت هر موتور شفاف نمایش داده می‌شود.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+        engines.forEach { engine ->
+            val ready = engine.state != com.mle.vpn.engine.IntegrationState.CATALOG_ONLY
+            val glyph = when (engine.id) {
+                "sing_box" -> "◈"; "warp" -> "☁"; "aether" -> "◎"; "amnezia" -> "⌁"
+                "openvpn" -> "⇄"; "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"
+                "geph" -> "✣"; "lantern" -> "✧"; "urnetwork" -> "⌘"; "proton" -> "△"
+                "windscribe" -> "≋"; "fenix" -> "◌"; "vpngate" -> "▤"; "npv" -> "▦"
+                "flux" -> "ϟ"; "mae" -> "⌬"; "gst_edg" -> "⟡"; "github_tunnel" -> "⌂"
+                "telegram_proxy" -> "➤"; else -> "◇"
+            }
+            Row(Modifier.fillMaxWidth().padding(bottom = 9.dp).background(Panel, RoundedCornerShape(15.dp)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).background(if (ready) Mint.copy(alpha = .14f) else Violet.copy(alpha = .14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text(glyph, color = if (ready) Mint else Violet, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(engine.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(engine.protocols.joinToString(" • "), color = Muted, fontSize = 10.sp)
+                    Text(if (ready) "اتصال از مسیر sing-box؛ نیازمند تست روی دستگاه" else engine.requirement, color = if (ready) Mint else Muted, fontSize = 10.sp)
+                }
+                Text(if (ready) "آزمایشی" else "در صف", color = if (ready) Mint else Violet, fontSize = 10.sp)
+            }
+        }
+        Text("ذکر منبع: MLM VPN — https://github.com/mlmvpn", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp, bottom = 18.dp))
+    }
+}
+
+@Composable
 private fun SettingsScreen(padding: PaddingValues) {
     Column(Modifier.fillMaxSize().padding(padding).padding(22.dp)) {
         Text("تنظیمات", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(20.dp))
-        listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0").forEach { item ->
+        listOf("ظاهر برنامه" to "تم تیره اختصاصی MLE", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0 • با سپاس از mlmvpn").forEach { item ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(item.first, color = Color.White, fontWeight = FontWeight.SemiBold)
