@@ -64,3 +64,48 @@ jobs:
           set -euo pipefail
           grep -nE "GO_VERSION|NDK_GO_ARCH_MAP|CGO_ENABLED" vendor/amneziawg-android/tunnel/tools/libwg-go/Makefile
           grep -nE "externalNativeBuild|cmake|targets\(" vendor/amneziawg-android/tunnel/build.gradle.kts
+
+  build-native-tunnel:
+    name: Build official AmneziaWG tunnel AAR (isolated)
+    runs-on: ubuntu-24.04
+    needs: verify-pinned-upstream
+    timeout-minutes: 45
+    steps:
+      - name: Checkout MLE and initialize pinned submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android native toolchain
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+          yes | sdkmanager --licenses
+
+      - name: Build upstream tunnel library in isolation
+        env:
+          ANDROID_PACKAGE_NAME: org.mle.vpn.awg
+        run: |
+          chmod +x vendor/amneziawg-android/gradlew
+          vendor/amneziawg-android/gradlew \
+            -p vendor/amneziawg-android \
+            --no-daemon --stacktrace \
+            -PamneziawgPackageName=org.mle.vpn.awg \
+            :tunnel:assembleDebug
+
+      - name: Upload isolated AmneziaWG tunnel AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: amneziawg-tunnel-debug-aar
+          path: vendor/amneziawg-android/tunnel/build/outputs/aar/*.aar
+          if-no-files-found: error
+          retention-days: 7
