@@ -101,6 +101,11 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     runCatching { boxRuntime.start(config) }
                         .onSuccess {
+                            // A stop/revoke may race with the suspending startup.
+                            // Do not publish a connected state or restart probes once
+                            // teardown has begun; the queued stop owns final cleanup.
+                            if (destroyed.get() || stopping.get()) return@onSuccess
+
                             // The VPN TUN is now registered; publish the physical
                             // network as its underlay before probing app traffic.
                             configureUnderlyingNetwork()
@@ -109,12 +114,16 @@ class MleVpnService : VpnService() {
                         }
                         .onFailure { error ->
                             android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
-                            MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
+                            if (!destroyed.get()) {
+                                MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
+                            }
                             runCatching { boxRuntime.stop() }
                             stopTunnelResources()
                             releaseEngineLease()
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            stopSelf()
+                            if (!destroyed.get()) {
+                                stopForeground(STOP_FOREGROUND_REMOVE)
+                                stopSelf()
+                            }
                         }
                 }
             }
