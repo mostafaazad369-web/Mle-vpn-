@@ -67,4 +67,18 @@ class WireGuardConfigTest {
         assertTrue(runCatching { WireGuardConfigParser.parse(badKey) }.isFailure)
         assertTrue(runCatching { WireGuardConfigParser.parse(badPort) }.isFailure)
     }
+
+    @Test
+    fun buildsTunnelConfigWithEndpointAsFinalRoute() {
+        val imported = ProfileImporter.parseWireGuardConfig(config)
+        assertTrue(imported is ProfileParseResult.Success)
+        val profile = (imported as ProfileParseResult.Success).profile
+        val root = SingBoxConfigBuilder.build(profile)
+        assertEquals("wireguard-endpoint", root.getJSONObject("route").getString("final"))
+        assertEquals("wireguard", root.getJSONArray("endpoints").getJSONObject(0).getString("type"))
+        assertEquals(2, root.getJSONArray("outbounds").length())
+        assertFalse(root.getJSONArray("outbounds").toString().contains("\"type\":\"wireguard\""))
+        assertEquals("wireguard-endpoint", root.getJSONObject("dns").getJSONArray("servers")
+            .getJSONObject(1).getString("detour"))
+    }
 }
