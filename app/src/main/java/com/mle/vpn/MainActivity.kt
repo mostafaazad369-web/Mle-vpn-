@@ -30,6 +30,9 @@ import com.mle.vpn.profile.ProfileFailoverPlanner
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
+import com.mle.vpn.profile.PublicNodeSource
+import com.mle.vpn.profile.PublicNodeSourceCatalog
+import com.mle.vpn.profile.PublicSubscriptionFetcher
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
@@ -244,8 +247,35 @@ private fun MleApp() {
                 )
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
+                    publicSources = PublicNodeSourceCatalog.all,
                     fetchingSource = fetchingSource,
                     status = sourceStatus,
+                    onFetchPublic = { source ->
+                        if (fetchingSource == null) {
+                            fetchingSource = source.id
+                            sourceStatus = null
+                            scope.launch {
+                                runCatching {
+                                    val fetched = PublicSubscriptionFetcher.fetch(context, source)
+                                    val batch = ProfileImporter.parseBatch(fetched.text)
+                                    val existing = profiles.map { it.sourceUri }.toSet()
+                                    val supported = batch.profiles.filter { profile ->
+                                        profile.sourceUri !in existing && runCatching {
+                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
+                                            else SingBoxOutboundBuilder.build(profile)
+                                        }.isSuccess
+                                    }
+                                    supported.forEach(vault::save)
+                                    profiles = vault.loadAll()
+                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
+                                    "${source.title}: ${supported.size} کانفیگ جدید ذخیره شد؛ ${rejected} مورد نامعتبر، ناسازگار یا تکراری بود. ${if (fetched.fromCache) "از نسخه ذخیره‌شده استفاده شد." else "منبع تازه دریافت شد."}"
+                                }.onSuccess { sourceStatus = it }
+                                    .onFailure { sourceStatus = "${source.title}: ${it.message ?: "دریافت منبع ناموفق بود."}" }
+                                fetchingSource = null
+                            }
+                        }
+                    },
                     onFetch = { channel ->
                         if (fetchingSource == null) {
                             fetchingSource = channel
@@ -479,8 +509,10 @@ private fun ServerScreen(selected: String, onSelect: (String) -> Unit, padding: 
 @Composable
 private fun TelegramSourcesScreen(
     sources: List<String>,
+    publicSources: List<PublicNodeSource>,
     fetchingSource: String?,
     status: String?,
+    onFetchPublic: (PublicNodeSource) -> Unit,
     onFetch: (String) -> Unit,
     padding: PaddingValues
 ) {
@@ -497,6 +529,36 @@ private fun TelegramSourcesScreen(
                 .background(Panel, RoundedCornerShape(12.dp)).padding(12.dp))
             Spacer(Modifier.height(12.dp))
         }
+        Text("منابع عمومی کانفیگ (مخازن MLM/FLUX و Amnezia)", color = Mint, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 18.dp, bottom = 10.dp))
+        Text("این منابع عمومی و متغیرند؛ فقط کانفیگ‌هایی که مبدل موتور انتخابی می‌پذیرد ذخیره می‌شوند. سلامت نهایی با آزمایش HTTPS از داخل تونل مشخص می‌شود.", color = Muted, fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 12.dp))
+        publicSources.forEach { source ->
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    .background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(source.title, color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    Text(source.description, color = Muted, fontSize = 10.sp)
+                }
+                OutlinedButton(
+                    onClick = { onFetchPublic(source) },
+                    enabled = fetchingSource == null,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint)
+                ) {
+                    if (fetchingSource == source.id) {
+                        CircularProgressIndicator(Modifier.size(14.dp), color = Mint, strokeWidth = 2.dp)
+                    } else {
+                        Text("دریافت", fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+        Text("منابع تلگرام", color = Mint, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 18.dp, bottom = 10.dp))
         sources.forEach { channel ->
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 8.dp)
