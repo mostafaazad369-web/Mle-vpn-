@@ -25,6 +25,26 @@ class PublicNodeSourceCatalogTest {
     }
 
     @Test
+    fun distinguishesOnlineNotModifiedValidationFromOfflineStaleCache() {
+        val revalidated = PublicSourceFetchResult(
+            text = "vless://example",
+            fromCache = true,
+            sourceUrl = "https://raw.githubusercontent.com/example/repo/main/sub.txt",
+            networkValidated = true
+        )
+        val staleFallback = PublicSourceFetchResult(
+            text = "vless://example",
+            fromCache = true,
+            sourceUrl = "https://raw.githubusercontent.com/example/repo/main/sub.txt",
+            networkValidated = false
+        )
+        assertTrue(revalidated.fromCache)
+        assertTrue(revalidated.networkValidated)
+        assertTrue(staleFallback.fromCache)
+        assertTrue(!staleFallback.networkValidated)
+    }
+
+    @Test
     fun sourceLookupIsStable() {
         val source = PublicNodeSourceCatalog.all.first()
         assertEquals(source, PublicNodeSourceCatalog.find(source.id))
