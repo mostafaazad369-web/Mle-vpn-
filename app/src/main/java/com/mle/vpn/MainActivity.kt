@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import com.mle.vpn.profile.ImportedProfile
+import com.mle.vpn.profile.AmneziaWgConfigParser
 import com.mle.vpn.profile.ProfileImporter
 import com.mle.vpn.profile.ProfileProtocol
 import com.mle.vpn.profile.ProfileFailoverPlanner
@@ -131,8 +132,14 @@ private fun MleApp() {
             return
         }
         // WARP is a WireGuard data plane and is currently available through sing-box only.
-        val connectionEngineId = if (profile.protocol in setOf(ProfileProtocol.WARP, ProfileProtocol.WIREGUARD, ProfileProtocol.OPENVPN)) "sing-box" else selectedEngine
-        val orderedProfiles = if (automaticFailover) {
+        val connectionEngineId = when {
+            profile.protocol == ProfileProtocol.AMNEZIAWG -> "amneziawg"
+            profile.protocol in setOf(ProfileProtocol.WARP, ProfileProtocol.WIREGUARD, ProfileProtocol.OPENVPN) -> "sing-box"
+            else -> selectedEngine
+        }
+        val orderedProfiles = if (connectionEngineId == "amneziawg") {
+            listOf(profile)
+        } else if (automaticFailover) {
             val sourceManagedIds = context.getSharedPreferences("mle_silent_sources_v1", 0)
                 .getStringSet("profile_ids", emptySet()).orEmpty()
             val prioritizedProfiles = listOf(profile) +
@@ -153,8 +160,12 @@ private fun MleApp() {
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
             runCatching {
-                val json = if (connectionEngineId == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate, selectedPackages.toList())
-                candidate to json.toString()
+                val config = when {
+                    connectionEngineId == "amneziawg" -> AmneziaWgConfigParser.decodeStored(candidate.sourceUri)
+                    connectionEngineId == "xray" -> XrayConfigBuilder.build(candidate).toString()
+                    else -> SingBoxConfigBuilder.build(candidate, selectedPackages.toList()).toString()
+                }
+                candidate to config
             }.getOrNull()
         }
         if (validCandidates.isEmpty()) {
@@ -173,7 +184,8 @@ private fun MleApp() {
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
                 vpnPermissionGranted = true
-                vpnPermissionMessage = "درخواست راه‌اندازی موتور ${if (connectionEngineId == "xray") "Xray" else "sing-box"} ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
+                val engineLabel = when (connectionEngineId) { "xray" -> "Xray"; "amneziawg" -> "AmneziaWG"; else -> "sing-box" }
+                vpnPermissionMessage = "درخواست راه‌اندازی موتور $engineLabel ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
                 showNotice = true
             }
             .onFailure { error ->
@@ -325,7 +337,7 @@ private fun MleApp() {
                 text = { Text("پیکربندی JSON برای بازبینی و خروجی ساخته می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
                 confirmButton = {
                     TextButton(onClick = {
-                        val json = SingBoxConfigBuilder.build(profile).toString(2)
+                        val json = if (profile.protocol == ProfileProtocol.AMNEZIAWG) AmneziaWgConfigParser.decodeStored(profile.sourceUri) else SingBoxConfigBuilder.build(profile).toString(2)
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
                         clipboard.setPrimaryClip(ClipData.newPlainText("MLE sing-box config", json))
                         Toast.makeText(context, "پیکربندی در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
@@ -344,7 +356,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP (.conf) و OpenVPN (.ovpn) را وارد کن. پروفایل‌های این سه نوع با endpoint موتور sing-box اجرا می‌شوند؛ ثبت‌نام WARP خودکار انجام نمی‌شود.", color = Color.White)
+                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / WARP / AmneziaWG (.conf) و OpenVPN (.ovpn) را وارد کن. AmneziaWG با runtime رسمی خودش اجرا می‌شود؛ WireGuard، WARP و OpenVPN از endpoint موتور sing-box استفاده می‌کنند.", color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard", "application/x-openvpn-profile")) },
@@ -353,7 +365,7 @@ private fun MleApp() {
                         ) {
                             Icon(Icons.Default.FolderOpen, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("انتخاب فایل WireGuard / WARP (.conf) یا OpenVPN (.ovpn)")
+                            Text("انتخاب فایل WireGuard / WARP / AmneziaWG (.conf) یا OpenVPN (.ovpn)")
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
@@ -381,8 +393,11 @@ private fun MleApp() {
                                 val parsed = ProfileImporter.parseBatch(source)
                                 val convertible = parsed.profiles.filter { profile ->
                                     runCatching {
-                                        if (selectedEngine == "xray" && profile.protocol !in setOf(ProfileProtocol.WIREGUARD, ProfileProtocol.WARP, ProfileProtocol.OPENVPN)) XrayConfigBuilder.build(profile)
-                                        else SingBoxConfigBuilder.build(profile, selectedPackages.toList())
+                                        when {
+                                            profile.protocol == ProfileProtocol.AMNEZIAWG -> AmneziaWgConfigParser.decodeStored(profile.sourceUri)
+                                            selectedEngine == "xray" && profile.protocol !in setOf(ProfileProtocol.WIREGUARD, ProfileProtocol.WARP, ProfileProtocol.OPENVPN) -> XrayConfigBuilder.build(profile)
+                                            else -> SingBoxConfigBuilder.build(profile, selectedPackages.toList())
+                                        }
                                     }.isSuccess
                                 }
                                 parsed.copy(
