@@ -22,7 +22,7 @@ This register separates connection engines, protocol support, account/provider i
 | WARP-in-WARP | [ ] | Nested route orchestration, MTU and loop validation |
 | Aether / MASQUE | [ ] | Permitted MASQUE/WireGuard runtime and ABI review |
 | AmneziaWG | [ ] | Native runtime, config import, ABI/license review |
-| WireGuard | [~] | sing-box core supports it; dedicated .conf import and device validation |
+| WireGuard | [~] | Standard .conf import and sing-box endpoint config implemented; physical-device routing, DNS and leak validation remain |
 | Hysteria 2 | [~] | sing-box share-link mapping; expand fixtures and UDP device tests |
 | TUIC | [~] | sing-box share-link mapping; expand fixtures and UDP tests |
 | Outline / Shadowsocks | [~] | Shadowsocks URI supported; Outline access-key variants remain |
@@ -47,7 +47,7 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Batch import, encrypted local profile vault and subscription fetch.
 - [x] Public Telegram source catalog and explicit public-preview fetch.
 - [~] MLM FLUX/Amnezia-inspired VLESS, Trojan, Hysteria2 and multi-protocol Morpheus/FastNodes public feed catalog; GitHub raw/jsDelivr mirrors, bounded download, ETag cache and last-good fallback are integrated. Verify CI and real feed availability before marking fully validated.
-- [ ] WireGuard .conf importer and private-key protection tests.
+- [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests; AmneziaWG-specific obfuscation fields remain unsupported.
 - [ ] OpenVPN .ovpn import, inline certs and credential handling.
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
