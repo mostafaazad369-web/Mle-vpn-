@@ -50,7 +50,7 @@ object EndpointProbe {
             EndpointProbeResult(
                 reachable = true,
                 latencyMs = SystemClock.elapsedRealtime() - startedAt,
-                message = "درگاه TCP روی IP عمومی پاسخ داد"
+                message = "درگاه TCP روی IP عمومی در مسیر شبکه فعلی برنامه پاسخ داد"
             )
         } catch (_: UnknownHostException) {
             EndpointProbeResult(false, null, "نام میزبان پیدا نشد")
