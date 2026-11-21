@@ -17,6 +17,7 @@ data class OpenVpnProfileSummary(
     val hasClientCertificate: Boolean,
     val hasPrivateKey: Boolean,
     val hasInlineCredentials: Boolean,
+    val requiresCredentials: Boolean,
     val usesPeerFingerprint: Boolean
 )
 
@@ -55,6 +56,7 @@ object OpenVpnProfilePreflight {
         var hasCert = false
         var hasKey = false
         var inlineCredentials = false
+        var requiresCredentials = false
         var block: String? = null
         val blockLines = mutableListOf<String>()
 
@@ -151,8 +153,11 @@ object OpenVpnProfilePreflight {
                     }
                     peerFingerprint = true
                 }
-                "auth-user-pass" -> require(args.size == 1) {
-                    "External OpenVPN credential files are not accepted; use app-managed credentials."
+                "auth-user-pass" -> {
+                    require(args.size == 1) {
+                        "External OpenVPN credential files are not accepted; use app-managed credentials."
+                    }
+                    requiresCredentials = true
                 }
                 "tls-auth", "tls-crypt", "ca", "cert", "key", "extra-certs" -> {
                     // File-path forms are intentionally rejected until companion-file import exists.
@@ -175,6 +180,7 @@ object OpenVpnProfilePreflight {
             hasClientCertificate = hasCert,
             hasPrivateKey = hasKey,
             hasInlineCredentials = inlineCredentials,
+            requiresCredentials = requiresCredentials && !inlineCredentials,
             usesPeerFingerprint = peerFingerprint
         )
     }
