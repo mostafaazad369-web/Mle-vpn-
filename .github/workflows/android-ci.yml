@@ -1,8 +1,9 @@
 name: Android CI
 
 on:
+  # Feature branches are validated by their PR workflow below; avoid duplicate runs.
   push:
-    branches: [ main, "feature/**" ]
+    branches: [ main ]
   # PR #4 targets another feature branch while the integration work is staged.
   # Include feature/** so the same build and unit-test gates run for that PR.
   pull_request:
