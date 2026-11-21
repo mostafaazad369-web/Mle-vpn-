@@ -98,4 +98,4 @@ This register separates connection engines, protocol support, account/provider i
 
 ## CI baseline
 
-GitHub Actions run 44769690782 completed both the debug APK build and JVM/Android unit-test jobs for the feature branch. CI success is not a physical-device connectivity or leak-test result.
+Historical GitHub Actions run 44769690782 completed the debug APK build and JVM/Android unit-test jobs for an earlier feature-branch revision. The current silent-source/failover head (`ef29552637a0f0af2104172309796565d7205563`) has no associated PR workflow run or commit status yet; do not treat the historical run as validation of this revision. CI success is not a physical-device connectivity or leak-test result.
