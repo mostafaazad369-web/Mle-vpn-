@@ -46,6 +46,7 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Hysteria2, TUIC, AnyTLS, SOCKS and HTTP conversion for sing-box.
 - [x] Batch import, encrypted local profile vault and subscription fetch.
 - [x] Public Telegram source catalog and explicit public-preview fetch.
+- [~] MLM FLUX/Amnezia-inspired VLESS, Trojan and Hysteria2 public feed catalog; GitHub raw/jsDelivr mirrors, bounded download, ETag cache and last-good fallback are integrated. Verify CI and real feed availability before marking fully validated.
 - [ ] WireGuard .conf importer and private-key protection tests.
 - [ ] OpenVPN .ovpn import, inline certs and credential handling.
 - [ ] Outline access-key variants.
