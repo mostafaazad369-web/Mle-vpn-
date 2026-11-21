@@ -13,19 +13,28 @@ import kotlinx.coroutines.withContext
 object SilentSourceSync {
     private const val MAX_IMPORTED_PROFILES = 120
     private const val MIN_HEALTHY_SOURCES = 3
+    private const val MAX_SOURCE_ATTEMPTS_PER_REFRESH = 6
+    private const val REFRESH_INTERVAL_MS = 60L * 60L * 1000L
 
     suspend fun refresh(context: Context): Int = withContext(Dispatchers.IO) {
         val appContext = context.applicationContext
         val vault = ProfileVault(appContext)
         val knownUris = vault.loadAll().mapTo(mutableSetOf()) { it.sourceUri }
-        val sourceManagedIds = appContext
-            .getSharedPreferences("mle_silent_sources_v1", Context.MODE_PRIVATE)
-            .getStringSet("profile_ids", emptySet()).orEmpty().toMutableSet()
+        val prefs = appContext.getSharedPreferences("mle_silent_sources_v1", Context.MODE_PRIVATE)
+        val lastRefresh = prefs.getLong("last_refresh_ms", 0L)
+        if (System.currentTimeMillis() - lastRefresh < REFRESH_INTERVAL_MS) return@withContext 0
+        val sourceManagedIds = prefs.getStringSet("profile_ids", emptySet()).orEmpty().toMutableSet()
+        val sources = PublicNodeSourceCatalog.all
+        val startIndex = prefs.getInt("next_source_index", 0).mod(sources.size.coerceAtLeast(1))
+        val rotatedSources = sources.drop(startIndex) + sources.take(startIndex)
+        var attemptedSources = 0
         var imported = 0
         var healthySources = 0
 
-        for (source in PublicNodeSourceCatalog.all) {
-            if (imported >= MAX_IMPORTED_PROFILES || healthySources >= MIN_HEALTHY_SOURCES) break
+        for (source in rotatedSources) {
+            if (imported >= MAX_IMPORTED_PROFILES || healthySources >= MIN_HEALTHY_SOURCES ||
+                attemptedSources >= MAX_SOURCE_ATTEMPTS_PER_REFRESH) break
+            attemptedSources++
             val candidates = runCatching {
                 val fetched = PublicSubscriptionFetcher.fetch(appContext, source)
                 ProfileImporter.parseBatch(fetched.text).profiles.filter { profile ->
@@ -47,9 +56,9 @@ object SilentSourceSync {
             }
         }
 
-        appContext.getSharedPreferences("mle_silent_sources_v1", Context.MODE_PRIVATE)
-            .edit()
+        prefs.edit()
             .putStringSet("profile_ids", sourceManagedIds)
+            .putInt("next_source_index", (startIndex + attemptedSources).mod(sources.size.coerceAtLeast(1)))
             .putLong("last_refresh_ms", System.currentTimeMillis())
             .apply()
         imported
