@@ -33,6 +33,17 @@ class ProfileFailoverPlannerTest {
     }
 
     @Test
+    fun supportsTwentyFiveCandidatesWhenRequested() {
+        val profiles = (1..30).map { profile("node-$it") }
+        val ordered = ProfileFailoverPlanner.order(
+            profiles,
+            selectedProfileId = "node-7",
+            maxAttempts = 25
+        )
+        assertEquals(25, ordered.size)
+        assertEquals("node-7", ordered.first().id)
+    }
+    @Test
     fun duplicateProfileIdsAreRemoved() {
         val ordered = ProfileFailoverPlanner.order(
             listOf(profile("a"), profile("a"), profile("b")),

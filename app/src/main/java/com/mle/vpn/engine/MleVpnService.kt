@@ -89,7 +89,8 @@ class MleVpnService : VpnService() {
                     val singBox = MleBoxRuntime(this, MlePlatformInterface(this))
                     engineManager = MleEngineManager(listOf(
                         SingBoxEngineAdapter(singBox),
-                        XrayEngineAdapter(XrayRuntime(this))
+                        XrayEngineAdapter(XrayRuntime(this)),
+                        AmneziaWgEngineAdapter(this)
                     ))
                 }
                 serviceScope.launch {
@@ -406,7 +407,7 @@ class MleVpnService : VpnService() {
         const val EXTRA_ENGINE_ID = "com.mle.vpn.extra.ENGINE_ID"
         const val EXTRA_CONFIG_CANDIDATES = "com.mle.vpn.extra.CONFIG_CANDIDATES"
         const val EXTRA_PROFILE_IDS = "com.mle.vpn.extra.PROFILE_IDS"
-        private const val MAX_FAILOVER_CANDIDATES = 3
+        private const val MAX_FAILOVER_CANDIDATES = 25
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
     }

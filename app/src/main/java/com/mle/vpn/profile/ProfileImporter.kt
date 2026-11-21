@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 enum class ProfileProtocol {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA, HYSTERIA2,
-    TUIC, ANYTLS, WIREGUARD, WARP, SOCKS, HTTP, UNKNOWN
+    TUIC, ANYTLS, WIREGUARD, WARP, OPENVPN, AMNEZIAWG, SOCKS, HTTP, UNKNOWN
 }
 
 data class ImportedProfile(
@@ -62,24 +62,56 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
+        if (AmneziaWgConfigParser.isAmneziaConfig(raw)) {
+            return when (val parsed = parse(raw)) {
+                is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
+                is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
+            }
+        }
+        if (looksLikeOpenVpn(raw)) {
+            return when (val parsed = parse(raw)) {
+                is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
+                is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
+            }
+        }
         if (raw.contains("[Interface]", ignoreCase = true)) {
             return when (val parsed = parse(raw)) {
                 is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
                 is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
             }
         }
-        val decoded = if (raw.contains("://")) raw else {
-            runCatching {
-                String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
-            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) } ?: raw
+
+        // Some public subscription feeds are Base64-wrapped twice: the whole
+        // document decodes to metadata plus individual Base64 payload lines.
+        val decodedDocument = if (raw.contains("://")) raw else {
+            decodeBase64Text(raw)?.takeIf {
+                it.contains("://") || it.contains("[Interface]", ignoreCase = true) ||
+                    looksLikeOpenVpn(it) || it.contains("#profile-title", ignoreCase = true) ||
+                    it.contains("base64:", ignoreCase = true)
+            } ?: raw
         }
-        if (decoded.contains("[Interface]", ignoreCase = true)) return parseBatch(decoded)
-        val lines = decoded.lineSequence()
+        if (decodedDocument.contains("[Interface]", ignoreCase = true) || looksLikeOpenVpn(decodedDocument)) return parseBatch(decodedDocument)
+
+        val sourceLines = decodedDocument.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .take(501)
             .toList()
+        require(sourceLines.size <= 500) { "حداکثر ۵۰۰ کانفیگ در هر بار قابل ورود است." }
+
+        val lines = sourceLines.flatMap { line ->
+            val payload = line.removePrefix("base64:").removePrefix("BASE64:").trim()
+            val unwrapped = decodeBase64Text(payload)
+            if (unwrapped != null && (unwrapped.trimStart().startsWith("[Interface]", ignoreCase = true) ||
+                    looksLikeOpenVpn(unwrapped))) {
+                listOf(unwrapped)
+            } else if (unwrapped != null && unwrapped.contains("://")) {
+                unwrapped.lineSequence().map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
+            } else listOf(line)
+        }.take(501)
         require(lines.size <= 500) { "حداکثر ۵۰۰ کانفیگ در هر بار قابل ورود است." }
+
         val accepted = LinkedHashMap<String, ImportedProfile>()
         var rejected = 0
         var duplicates = 0
@@ -94,13 +126,53 @@ object ProfileImporter {
         return ProfileBatchResult(accepted.values.toList(), rejected, duplicates)
     }
 
+    private fun decodeBase64Text(value: String): String? = runCatching {
+        String(Base64.decode(value, Base64.DEFAULT), StandardCharsets.UTF_8)
+            .takeIf { decoded -> decoded.isNotBlank() && decoded.none { it == '\u0000' } }
+    }.getOrNull()
+
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
         if (raw.isEmpty() || raw.length > 64_000) {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
         }
+        if (raw.startsWith("awg-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = AmneziaWgConfigParser.decodeStored(raw)
+                val parsed = AmneziaWgConfigParser.parse(config)
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.AMNEZIAWG,
+                    displayName = "AmneziaWG • " + parsed.host,
+                    host = parsed.host,
+                    port = parsed.port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "پروفایل AmneziaWG معتبر نیست.") }
+        }
+        if (AmneziaWgConfigParser.isAmneziaConfig(raw)) return parseAmneziaWg(raw)
+        if (looksLikeOpenVpn(raw)) {
+            return parseOpenVpn(raw)
+        }
+        if (raw.startsWith("wireguard://", ignoreCase = true) || raw.startsWith("wg://", ignoreCase = true)) {
+            return parseWireGuardUri(raw)
+        }
         if (raw.contains("[Interface]", ignoreCase = true)) {
             return parseWireGuard(raw)
+        }
+        if (raw.startsWith("openvpn-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = OpenVpnConfigParser.decodeStored(raw)
+                val remote = config.remotes.first()
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.OPENVPN,
+                    displayName = "OpenVPN • ${remote.host}",
+                    host = remote.host,
+                    port = remote.port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "OpenVPN profile invalid.") }
         }
         if (raw.startsWith("wireguard-conf://", ignoreCase = true)) {
             return runCatching {
@@ -144,6 +216,53 @@ object ProfileImporter {
         }
     }
 
+
+
+    private fun looksLikeOpenVpn(value: String): Boolean =
+        value.contains("<ca>", ignoreCase = true) ||
+            (Regex("(?m)^\\s*client\\s*$", RegexOption.IGNORE_CASE).containsMatchIn(value) &&
+                Regex("(?m)^\\s*remote\\s+", RegexOption.IGNORE_CASE).containsMatchIn(value))
+
+
+    private fun parseWireGuardUri(raw: String): ProfileParseResult = runCatching {
+        val (config, name) = WireGuardConfigParser.parseUri(raw)
+        val peer = config.peers.first()
+        val warp = peer.publicKey == WARP_PEER_PUBLIC_KEY
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = if (warp) ProfileProtocol.WARP else ProfileProtocol.WIREGUARD,
+            displayName = name.takeIf(String::isNotBlank)?.take(80)
+                ?: if (warp) "Cloudflare WARP • ${peer.host}" else "WireGuard • ${peer.host}",
+            host = peer.host,
+            port = peer.port,
+            sourceUri = WireGuardConfigParser.encodeForStorage(config.toConf())
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "لینک WireGuard معتبر نیست یا شامل گزینه‌های پشتیبانی‌نشده است.") }
+
+    private fun parseAmneziaWg(raw: String): ProfileParseResult = runCatching {
+        val config = AmneziaWgConfigParser.parse(raw)
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.AMNEZIAWG,
+            displayName = "AmneziaWG • " + config.host,
+            host = config.host,
+            port = config.port,
+            sourceUri = AmneziaWgConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "فایل AmneziaWG معتبر نیست.") }
+
+    private fun parseOpenVpn(raw: String): ProfileParseResult = runCatching {
+        val config = OpenVpnConfigParser.parse(raw)
+        val remote = config.remotes.first()
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.OPENVPN,
+            displayName = "OpenVPN • ${remote.host}",
+            host = remote.host,
+            port = remote.port,
+            sourceUri = OpenVpnConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "فایل OpenVPN معتبر نیست یا گزینه‌های آن پشتیبانی نمی‌شوند.") }
 
     private fun parseWireGuard(raw: String): ProfileParseResult = runCatching {
         val config = WireGuardConfigParser.parse(raw)

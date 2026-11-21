@@ -23,5 +23,5 @@ object ProfileFailoverPlanner {
     }
 
     const val DEFAULT_MAX_ATTEMPTS = 3
-    private const val MAX_ALLOWED_ATTEMPTS = 10
+    private const val MAX_ALLOWED_ATTEMPTS = 25
 }

@@ -1,5 +1,6 @@
 package com.mle.vpn.profile
 
+import com.mle.vpn.engine.XrayConfigBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,25 @@ class ProfileImporterTest {
     }
 
     @Test
+    fun unwrapsNestedBase64SubscriptionFeedsWithMetadataHeaders() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&sni=edge.example"
+        val inner = android.util.Base64.encodeToString(
+            uri.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        val document = "#profile-title: base64:Public feed\n#subscription-userinfo: upload=10; download=20\n$inner"
+        val outer = android.util.Base64.encodeToString(
+            document.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+
+        val batch = ProfileImporter.parseBatch(outer)
+        assertEquals(1, batch.profiles.size)
+        assertEquals(ProfileProtocol.VLESS, batch.profiles.single().protocol)
+        assertEquals(0, batch.rejectedCount)
+    }
+
+    @Test
     fun importsHysteria2FeedsUsedByPublicSourceCatalog() {
         val parsed = ProfileImporter.parse(
             "hysteria2://secret@example.com:443?sni=edge.example"
@@ -57,6 +77,25 @@ class ProfileImporterTest {
         assertEquals("example.com", outbound.getString("server"))
         assertEquals(443, outbound.getInt("server_port"))
         assertEquals("edge.example", outbound.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun vmessAndShadowsocksFeedsProduceConfigsForBothInstalledEngines() {
+        val vmessJson = """{"v":"2","ps":"feed-test","add":"example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"ws","type":"none","host":"cdn.example","path":"/gateway","tls":"tls","sni":"edge.example"}"""
+        val vmessUri = "vmess://" + android.util.Base64.encodeToString(
+            vmessJson.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        val vmess = (ProfileImporter.parse(vmessUri) as ProfileParseResult.Success).profile
+        assertEquals("vmess", SingBoxOutboundBuilder.build(vmess).getString("type"))
+        assertEquals("vmess", XrayConfigBuilder.build(vmess)
+            .getJSONArray("outbounds").getJSONObject(0).getString("protocol"))
+
+        val shadowsocksUri = "ss://YWVzLTI1Ni1nY206cGFzcw@example.com:8388#feed-test"
+        val shadowsocks = (ProfileImporter.parse(shadowsocksUri) as ProfileParseResult.Success).profile
+        assertEquals("shadowsocks", SingBoxOutboundBuilder.build(shadowsocks).getString("type"))
+        assertEquals("shadowsocks", XrayConfigBuilder.build(shadowsocks)
+            .getJSONArray("outbounds").getJSONObject(0).getString("protocol"))
     }
 
     @Test

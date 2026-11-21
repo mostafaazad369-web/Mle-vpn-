@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import com.mle.vpn.profile.ImportedProfile
+import com.mle.vpn.profile.AmneziaWgConfigParser
 import com.mle.vpn.profile.ProfileImporter
 import com.mle.vpn.profile.ProfileProtocol
 import com.mle.vpn.profile.ProfileFailoverPlanner
@@ -96,7 +97,7 @@ private fun MleApp() {
                                 val count = stream.read(buffer)
                                 if (count < 0) break
                                 require(output.size() + count <= 64 * 1024) {
-                                    "فایل WireGuard نباید بیشتر از ۶۴ کیلوبایت باشد."
+                                    "فایل VPN نباید بیشتر از ۶۴ کیلوبایت باشد."
                                 }
                                 output.write(buffer, 0, count)
                             }
@@ -108,7 +109,7 @@ private fun MleApp() {
                     importError = null
                     showImport = true
                 }.onFailure { error ->
-                    importError = error.message ?: "خواندن فایل WireGuard ناموفق بود."
+                    importError = error.message ?: "خواندن فایل VPN ناموفق بود."
                     showImport = true
                 }
             }
@@ -131,18 +132,40 @@ private fun MleApp() {
             return
         }
         // WARP is a WireGuard data plane and is currently available through sing-box only.
-        val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
-        val orderedProfiles = if (automaticFailover) {
-            val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
-            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$connectionEngineId:${it.id}" })
-            val ranked = rankedIds.mapNotNull { key -> bounded.firstOrNull { "$connectionEngineId:${it.id}" == key } }
-            listOfNotNull(bounded.firstOrNull { it.id == profile.id }) +
-                ranked.filterNot { it.id == profile.id }
+        val connectionEngineId = when {
+            profile.protocol == ProfileProtocol.AMNEZIAWG -> "amneziawg"
+            profile.protocol in setOf(ProfileProtocol.WARP, ProfileProtocol.WIREGUARD, ProfileProtocol.OPENVPN) -> "sing-box"
+            else -> selectedEngine
+        }
+        val orderedProfiles = if (connectionEngineId == "amneziawg") {
+            listOf(profile)
+        } else if (automaticFailover) {
+            val sourceManagedIds = context.getSharedPreferences("mle_silent_sources_v1", 0)
+                .getStringSet("profile_ids", emptySet()).orEmpty()
+            val prioritizedProfiles = listOf(profile) +
+                profiles.filter { it.id != profile.id && it.id in sourceManagedIds } +
+                profiles.filter { it.id != profile.id && it.id !in sourceManagedIds }
+            val bounded = ProfileFailoverPlanner.order(
+                prioritizedProfiles,
+                profile.id,
+                maxAttempts = 25
+            )
+            val rankedIds = MleRouteHealthStore(context).rank(
+                bounded.filterNot { it.id == profile.id }.map { "$connectionEngineId:${it.id}" }
+            )
+            val ranked = rankedIds.mapNotNull { key ->
+                bounded.firstOrNull { "$connectionEngineId:${it.id}" == key }
+            }
+            listOfNotNull(bounded.firstOrNull { it.id == profile.id }) + ranked
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
             runCatching {
-                val json = if (connectionEngineId == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate, selectedPackages.toList())
-                candidate to json.toString()
+                val config = when {
+                    connectionEngineId == "amneziawg" -> AmneziaWgConfigParser.decodeStored(candidate.sourceUri)
+                    connectionEngineId == "xray" -> XrayConfigBuilder.build(candidate).toString()
+                    else -> SingBoxConfigBuilder.build(candidate, selectedPackages.toList()).toString()
+                }
+                candidate to config
             }.getOrNull()
         }
         if (validCandidates.isEmpty()) {
@@ -161,7 +184,8 @@ private fun MleApp() {
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onSuccess {
                 vpnPermissionGranted = true
-                vpnPermissionMessage = "درخواست راه‌اندازی موتور ${if (connectionEngineId == "xray") "Xray" else "sing-box"} ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
+                val engineLabel = when (connectionEngineId) { "xray" -> "Xray"; "amneziawg" -> "AmneziaWG"; else -> "sing-box" }
+                vpnPermissionMessage = "درخواست راه‌اندازی موتور $engineLabel ارسال شد. وضعیت اتصال پس از شروع سرویس مشخص می‌شود."
                 showNotice = true
             }
             .onFailure { error ->
@@ -196,7 +220,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload, "MAE" to Icons.Default.Apps)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "موتورها" to Icons.Default.Extension, "MAE" to Icons.Default.Apps)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -293,74 +317,7 @@ private fun MleApp() {
                             .putBoolean("automatic_failover", it).apply()
                     }
                 )
-                4 -> TelegramSourcesScreen(
-                    sources = telegramSources,
-                    publicSources = PublicNodeSourceCatalog.all,
-                    fetchingSource = fetchingSource,
-                    status = sourceStatus,
-                    onFetchPublic = { source ->
-                        if (fetchingSource == null) {
-                            fetchingSource = source.id
-                            sourceStatus = null
-                            scope.launch {
-                                runCatching {
-                                    val fetched = PublicSubscriptionFetcher.fetch(context, source)
-                                    val batch = ProfileImporter.parseBatch(fetched.text)
-                                    val existing = profiles.map { it.sourceUri }.toSet()
-                                    val supported = batch.profiles.filter { profile ->
-                                        profile.sourceUri !in existing && runCatching {
-                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                            else SingBoxOutboundBuilder.build(profile)
-                                        }.isSuccess
-                                    }
-                                    supported.forEach(vault::save)
-                                    profiles = vault.loadAll()
-                                    if (selectedProfileId == null) {
-                                        val firstProfile = profiles.firstOrNull()
-                                        selectedProfileId = firstProfile?.id
-                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
-                                    }
-                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
-                                    "${source.title}: ${supported.size} کانفیگ جدید ذخیره شد؛ ${rejected} مورد نامعتبر، ناسازگار یا تکراری بود. ${if (fetched.fromCache) "از نسخه ذخیره‌شده استفاده شد." else "منبع تازه دریافت شد."}"
-                                }.onSuccess { sourceStatus = it }
-                                    .onFailure { sourceStatus = "${source.title}: ${it.message ?: "دریافت منبع ناموفق بود."}" }
-                                fetchingSource = null
-                            }
-                        }
-                    },
-                    onFetch = { channel ->
-                        if (fetchingSource == null) {
-                            fetchingSource = channel
-                            sourceStatus = null
-                            scope.launch {
-                                runCatching {
-                                    val links = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
-                                    val batch = ProfileImporter.parseBatch(links)
-                                    val existing = profiles.map { it.sourceUri }.toSet()
-                                    val supported = batch.profiles.filter { profile ->
-                                        profile.sourceUri !in existing &&
-                                            runCatching {
-                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                            else SingBoxOutboundBuilder.build(profile)
-                                        }.isSuccess
-                                    }
-                                    supported.forEach(vault::save)
-                                    profiles = vault.loadAll()
-                                    if (selectedProfileId == null) {
-                                        val firstProfile = profiles.firstOrNull()
-                                        selectedProfileId = firstProfile?.id
-                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
-                                    }
-                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
-                                    "$channel: ${supported.size} کانفیگ جدید ذخیره شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود."
-                                }.onSuccess { sourceStatus = it }
-                                    .onFailure { sourceStatus = "$channel: ${it.message ?: "دریافت منبع ناموفق بود."}" }
-                                fetchingSource = null
-                            }
-                        }
-                    },
-                    padding = padding
-                )
+                4 -> EngineCatalogScreen(padding)
                 else -> MlmToolsScreen(
                     selectedPackages = selectedPackages,
                     onSelectedPackagesChange = { packages ->
@@ -376,16 +333,16 @@ private fun MleApp() {
             AlertDialog(
                 onDismissRequest = { exportProfile = null },
                 containerColor = Panel,
-                title = { Text("پیکربندی sing-box", color = Mint, fontWeight = FontWeight.Bold) },
-                text = { Text("پیکربندی JSON برای بازبینی و خروجی ساخته می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
+                title = { Text("خروجی کانفیگ VPN", color = Mint, fontWeight = FontWeight.Bold) },
+                text = { Text("متن کانفیگ برای بازبینی و خروجی آماده می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
                 confirmButton = {
                     TextButton(onClick = {
-                        val json = SingBoxConfigBuilder.build(profile).toString(2)
+                        val json = if (profile.protocol == ProfileProtocol.AMNEZIAWG) AmneziaWgConfigParser.decodeStored(profile.sourceUri) else SingBoxConfigBuilder.build(profile).toString(2)
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        clipboard.setPrimaryClip(ClipData.newPlainText("MLE sing-box config", json))
+                        clipboard.setPrimaryClip(ClipData.newPlainText("MLE VPN config", json))
                         Toast.makeText(context, "پیکربندی در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
                         exportProfile = null
-                    }) { Text("کپی JSON", color = Mint) }
+                    }) { Text("کپی کانفیگ", color = Mint) }
                 },
                 dismissButton = {
                     TextButton(onClick = { exportProfile = null }) { Text("بستن", color = Muted) }
@@ -399,16 +356,16 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP با پسوند .conf را وارد کن. پروفایل‌های WARP شناسایی و با موتور sing-box اجرا می‌شوند؛ ثبت‌نام حساب WARP خودکار انجام نمی‌شود.", color = Color.White)
+                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / WARP / AmneziaWG (.conf) و OpenVPN (.ovpn) را وارد کن. AmneziaWG با runtime رسمی خودش اجرا می‌شود؛ WireGuard، WARP و OpenVPN از endpoint موتور sing-box استفاده می‌کنند.", color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard")) },
+                            onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard", "application/x-openvpn-profile")) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint)
                         ) {
                             Icon(Icons.Default.FolderOpen, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("انتخاب فایل WireGuard / WARP (.conf)")
+                            Text("انتخاب فایل WireGuard / WARP / AmneziaWG (.conf) یا OpenVPN (.ovpn)")
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
@@ -436,8 +393,11 @@ private fun MleApp() {
                                 val parsed = ProfileImporter.parseBatch(source)
                                 val convertible = parsed.profiles.filter { profile ->
                                     runCatching {
-                                        if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                        else SingBoxOutboundBuilder.build(profile)
+                                        when {
+                                            profile.protocol == ProfileProtocol.AMNEZIAWG -> AmneziaWgConfigParser.decodeStored(profile.sourceUri)
+                                            selectedEngine == "xray" && profile.protocol !in setOf(ProfileProtocol.WIREGUARD, ProfileProtocol.WARP, ProfileProtocol.OPENVPN) -> XrayConfigBuilder.build(profile)
+                                            else -> SingBoxConfigBuilder.build(profile, selectedPackages.toList())
+                                        }
                                     }.isSuccess
                                 }
                                 parsed.copy(
@@ -598,7 +558,7 @@ private fun ServerScreen(
                 Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(22.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("هنوز سرور واقعی اضافه نشده است. از بخش منابع، فهرست‌های عمومی را دریافت کن یا کانفیگ خودت را وارد کن.", color = Muted)
+                Text("هنوز سرور ذخیره‌شده‌ای وجود ندارد. دریافت خودکار مسیرهای جایگزین در پس‌زمینه انجام می‌شود؛ همچنین می‌توانی کانفیگ خودت را وارد کنی.", color = Muted)
             }
         } else {
             profiles.forEach { profile ->
@@ -703,6 +663,54 @@ private fun TelegramSourcesScreen(
     }
 }
 
+
+@Composable
+private fun EngineCatalogScreen(padding: PaddingValues) {
+    val engines = com.mle.vpn.engine.EngineCatalog.all
+    Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)) {
+        Text("موتورها و پروتکل‌ها", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("وضعیت‌ها صادقانه تفکیک شده‌اند؛ نمایش نام یک موتور به معنی اتصال فعال آن نیست.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+        engines.forEach { engine ->
+            val glyph = when (engine.id) {
+                "sing_box" -> "◈"; "xray" -> "✦"; "wireguard" -> "⇄"; "warp" -> "☁"
+                "openvpn" -> "⇋"; "amnezia" -> "⌁"; "aether" -> "◎"; "slipnet" -> "⌘"
+                "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"; "geph" -> "✣"
+                "lantern" -> "✧"; "proton" -> "△"; "windscribe" -> "≋"; "fenix" -> "◌"
+                "urnetwork" -> "⌬"; "vpngate" -> "▤"; "npv" -> "▦"; "sni_ech" -> "⌖"
+                else -> "◆"
+            }
+            val status = when (engine.id) {
+                "sing_box", "xray" -> "موتور قابل انتخاب در برنامه • تست دستگاه باقی است"
+                "wireguard", "warp", "openvpn" -> "پروفایل از مسیر sing-box • تست دستگاه باقی است"
+                "amnezia" -> "منبع رسمی pin شده • runtime هنوز متصل نیست"
+                else -> "فقط فهرست قابلیت • هنوز قابل اتصال نیست"
+            }
+            val accent = when (engine.state) {
+                com.mle.vpn.engine.IntegrationState.DEVICE_VERIFIED -> Color(0xFF62E6A7)
+                com.mle.vpn.engine.IntegrationState.ADAPTER_IN_PROGRESS -> Mint
+                com.mle.vpn.engine.IntegrationState.CATALOG_ONLY -> Violet
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 9.dp)
+                    .background(Panel, RoundedCornerShape(15.dp)).padding(13.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(42.dp).background(accent.copy(alpha = .14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text(glyph, color = accent, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(engine.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(engine.protocols.joinToString(" • "), color = Muted, fontSize = 10.sp)
+                    Text(status, color = accent, fontSize = 10.sp)
+                    Text(engine.requirement, color = Muted, fontSize = 10.sp)
+                }
+            }
+        }
+        Text("MLE VPN • با حفظ انتساب و مجوزهای منابع متن‌باز", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
+    }
+}
+
 @Composable
 private fun SettingsScreen(
     padding: PaddingValues,
@@ -732,8 +740,9 @@ private fun SettingsScreen(
             )
         }
         Text(
-            if (selectedEngine == "xray") "Xray: VLESS، VMess، Trojan و Shadowsocks با گونه‌های تبدیل پشتیبانی‌شده."
-            else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.",
+            (if (selectedEngine == "xray") "Xray: VLESS، VMess، Trojan و Shadowsocks با گونه‌های تبدیل پشتیبانی‌شده."
+            else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.") +
+                " پروفایل‌های WireGuard، WARP و OpenVPN همیشه از endpoint موتور sing-box استفاده می‌کنند.",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp)
         )
         Row(
@@ -742,7 +751,7 @@ private fun SettingsScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("اتصال خودکار به کانفیگ جایگزین", color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text("در صورت برقرار نشدن اینترنت، حداکثر ۳ پروفایل بررسی می‌شود.", color = Muted, fontSize = 12.sp)
+                Text("در صورت برقرار نشدن اینترنت، حداکثر ۲۵ مسیر جایگزین به‌صورت خودکار بررسی می‌شود.", color = Muted, fontSize = 12.sp)
             }
             Switch(checked = automaticFailover, onCheckedChange = onAutomaticFailoverChange)
         }

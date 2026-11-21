@@ -1,6 +1,5 @@
 package com.mle.vpn.profile
 
-import android.content.Context
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -11,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 class MlmServiceRegistryTest {
     @Test
     fun loadsBundledMaeHintsWithoutEnablingAutomaticSteering() {
-        val context = org.robolectric.RuntimeEnvironment.getApplication<Context>()
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
         val services = MlmServiceRegistry.load(context.assets)
         assertTrue(services.isNotEmpty())
         assertTrue(services.any { it.id == "youtube" && "com.google.android.youtube" in it.packages })

@@ -11,6 +11,8 @@ import java.security.MessageDigest
 
 /**
  * Public node sources mirrored from the FLUX and Amnezia source catalogs in MLM VPN.
+ * The private MLM Quick Connect pool is not mirrored: its deployed Worker URL and signing
+ * credentials are redacted from the public source repository.
  * Only protocols currently parsed and converted by MLE are exposed here.
  *
  * Public nodes are untrusted community endpoints. A successful download or TCP probe is not
@@ -61,19 +63,25 @@ object PublicNodeSourceCatalog {
             "flux-mg-trojan", "MatinGhanbari • Trojan",
             "فهرست مستقیم Trojan",
             "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/trojan.txt"
-        )
+        ),
     )
 
-    /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
+    /** Public Quick Connect feeds copied from MLM's own QuickConnectRepository. */
+    private val quickConnectSources = listOf(
+        source("quickconnect-global", "MLM Quick Connect • Global", "منبع عمومی Global که در Quick Connect خود MLM استفاده می‌شود",
+            "iampedii/whitedns-sub", "base64.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-verified", "MLM Quick Connect • Verified", "فهرست Verified از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "verified/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-fast", "MLM Quick Connect • Fast", "فهرست Fast از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "fast/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-secure", "MLM Quick Connect • Secure", "فهرست Secure از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "secure/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-all", "MLM Quick Connect • All", "فهرست گسترده All از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "all/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500)
+    )
+
+    /** Public MLM Amnezia collectors. AWG-obfuscated links fail closed; standard WireGuard/WARP profiles are imported through sing-box. */
     private val amneziaSources = listOf(
-        source("amz-morpheus-mini", "Morpheus • Mini", "بسته کوچک چندپروتکلی از منبع عمومی MLM",
-            "morpheusadam/v2ray-config", "subs/bundles/mini.txt", maxBytes = 512 * 1024, maxNodes = 100),
-        source("amz-morpheus-lite", "Morpheus • Lite", "بسته چندپروتکلی بزرگ‌تر؛ فقط موارد سازگار با موتور انتخابی ذخیره می‌شوند",
-            "morpheusadam/v2ray-config", "subs/bundles/lite.txt", maxBytes = 1024 * 1024, maxNodes = 300),
-        source("amz-fastnodes-top", "FastNodes • Top", "فهرست عمومی رتبه‌بندی‌شده؛ سالم‌بودن نهایی روی دستگاه بررسی می‌شود",
-            "rtwo2/FastNodes", "sub/top.txt", maxBytes = 1024 * 1024, maxNodes = 300),
-        source("amz-fastnodes-verified", "FastNodes • Verified", "فهرست بررسی‌شده توسط منتشرکننده؛ وضعیت لحظه‌ای تضمین نیست",
-            "rtwo2/FastNodes", "sub/verified.txt", maxBytes = 1024 * 1024, maxNodes = 300),
         source("amz-morpheus-hy2", "Morpheus • Hysteria 2", "کانفیگ‌های گردآوری‌شده Hysteria 2",
             "morpheusadam/v2ray-config", "subs/bundles/hysteria2.txt"),
         source("amz-fastnodes-hy2", "FastNodes • Hysteria 2", "فهرست Hysteria 2 با بررسی دوره‌ای منتشرکننده",
@@ -93,17 +101,33 @@ object PublicNodeSourceCatalog {
         source("amz-vpnclash-hy2", "VpnClashFaCollector • Hysteria 2", "فهرست گردآوری‌شده و بررسی‌شده",
             "10ium/VpnClashFaCollector", "sub/all/hysteria2.txt"),
         source("amz-submod-hy2", "sub-mod • Hysteria 2", "فهرست تجمیعی عمومی",
-            "10Dream/sub-mod", "sub/split/protocols/hy2.txt")
+            "10Dream/sub-mod", "sub/split/protocols/hy2.txt"),
+        source("amz-morpheus-wg", "Morpheus • WireGuard", "لینک‌های عمومی WireGuard؛ لینک‌های دارای پارامتر AWG رد می‌شوند",
+            "morpheusadam/v2ray-config", "subs/bundles/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-vcc-wg", "VpnConfigCollector • WireGuard", "فهرست عمومی WireGuard",
+            "Argh73/VpnConfigCollector", "Splitted-By-Protocol/WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-argh94-wg", "Argh94 • WireGuard", "فهرست عمومی WireGuard",
+            "Argh94/Proxy-List", "WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-argh94-auto-wg", "Argh94 Auto • WireGuard", "فهرست عمومی WireGuard",
+            "Argh94/V2RayAutoConfig", "configs/WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-vcf-wg", "VpnClashFaCollector • WireGuard", "فهرست عمومی WireGuard",
+            "10ium/VpnClashFaCollector", "sub/all/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-submod-wg", "sub-mod • WireGuard", "فهرست تجمیعی WireGuard",
+            "10Dream/sub-mod", "sub/split/protocols/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-warp-links", "Delta-Kronecker • WARP", "لینک‌های عمومی WARP؛ فقط پروفایل ثبت‌شده و قابل تبدیل پذیرفته می‌شود",
+            "Delta-Kronecker/WARP-Config", "ALL.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500)
     )
 
-    val all: List<PublicNodeSource> = (fluxSources + amneziaSources).distinctBy { it.id }
+    val all: List<PublicNodeSource> = (fluxSources + quickConnectSources + amneziaSources).distinctBy { it.id }
     fun find(id: String): PublicNodeSource? = all.firstOrNull { it.id == id }
 }
 
 data class PublicSourceFetchResult(
     val text: String,
     val fromCache: Boolean,
-    val sourceUrl: String
+    val sourceUrl: String,
+    /** True when this response was confirmed by a successful HTTP request, including 304. */
+    val networkValidated: Boolean = !fromCache
 )
 
 object PublicSubscriptionFetcher {
@@ -149,7 +173,7 @@ object PublicSubscriptionFetcher {
                         val status = connection.responseCode
                         if (status == HttpURLConnection.HTTP_NOT_MODIFIED && bodyFile.exists()) {
                             return@withContext PublicSourceFetchResult(
-                                bounded(bodyFile.readText(), source), true, candidateUrl
+                                bounded(bodyFile.readText(), source), true, candidateUrl, networkValidated = true
                             )
                         }
                         require(status in 200..299) { "دریافت منبع ناموفق بود (HTTP $status)." }
@@ -195,7 +219,7 @@ object PublicSubscriptionFetcher {
 
             if (bodyFile.exists()) {
                 return@withContext PublicSourceFetchResult(
-                    bounded(bodyFile.readText(), source), true, meta.optString("url", source.primaryUrl)
+                    bounded(bodyFile.readText(), source), true, meta.optString("url", source.primaryUrl), networkValidated = false
                 )
             }
             throw (lastError ?: IllegalStateException("دریافت منبع عمومی ناموفق بود."))

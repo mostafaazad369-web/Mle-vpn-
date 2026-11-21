@@ -59,8 +59,17 @@ class MleEngineManager(adapters: List<MleEngineAdapter>) {
             activeEngine = null
             previous.stop()
         }
-        next.start(config)
-        activeEngine = next
+        try {
+            next.start(config)
+            activeEngine = next
+        } catch (error: Exception) {
+            // A runtime can fail after allocating native resources or creating a TUN.
+            // Clean it up here because it is not yet the activeEngine and a caller's
+            // subsequent manager.stop() would otherwise be a no-op.
+            runCatching { next.stop() }
+            activeEngine = null
+            throw error
+        }
     }
 
     suspend fun stop() = lock.withLock {
