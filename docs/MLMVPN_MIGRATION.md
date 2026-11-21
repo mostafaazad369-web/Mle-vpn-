@@ -170,3 +170,17 @@ MLE now includes a small, independent Cloudflare trace diagnostic at `engine/clo
 - Parser unit tests cover expected fields, optional fields and malformed/error responses.
 
 This is a useful diagnostic foundation, not a port of MLM's full Cloudflare Doctor suite. The broader scanner, account-owned Cloudflare integrations and WARP data plane still require separate migration and review.
+
+## Aether / WARP / MASQUE runtime audit (2026-11-21)
+
+A deeper review of upstream `AETHER.md`, the Android Kotlin wrappers and the binary installer script establishes the actual integration boundary:
+
+- The public MLMVPN repository contains Android orchestration code under `app/src/main/java/com/mlmvpn/core/aether/` (including `AetherEngine.kt`, `AetherOptions.kt`, `AetherStage.kt` and `AetherScanService.kt`) and tunnel/carrier code under `core/tunnel/`.
+- The Aether Rust executable source is **not** in that public repository. Upstream `AETHER.md` explicitly places `core/aether/aether/src/main.rs` and `aether-src/build-android.sh` in a separate private companion project. The public Android project therefore does not provide the complete source needed to reproduce its Aether executable.
+- The public installer script `scripts/install-aether-binary.ps1` fetches prebuilt `aether-android-arm64.tar.gz` and `aether-android-armv7.tar.gz` archives from the external `CluvexStudio/Aether` v1.4.0 release, then installs them as `jniLibs/<abi>/libaether.so`. This is a binary distribution path, not a source build or proof that the required corresponding source is available.
+- On Android 10+ the upstream design relies on the package installer unpacking `libaether.so` into `nativeLibraryDir`, then starts it as a process. The process exposes a local SOCKS endpoint (default `127.0.0.1:20810`). The three advertised modes are MASQUE, classic WARP/WireGuard and WARP-in-WARP; MASQUE uses QUIC/HTTP3 with an HTTP/2 fallback.
+- The Kotlin wrappers depend on additional upstream types/services, account identity registration and tunnel plumbing. Copying only `AetherEngine.kt` or adding a catalog tile would not provide a functioning Aether tunnel.
+
+**MLE decision / next gate:** do not import the prebuilt executable or advertise WARP/MASQUE as implemented until the exact v1.4.0 binary provenance, license, corresponding source availability and redistribution terms are verified. Prefer obtaining the private companion source under an authorized license, pinning its revision and Rust dependencies, then building both ARM ABIs reproducibly in CI. In parallel, map the upstream SOCKS/TUN bridge onto MLE's existing single-owner VPN service and engine arbiter; do not start a second Android `VpnService` or leave a second TUN owner active. Only after source/build provenance and lifecycle design are reviewed should the Kotlin stage/options UI be adapted.
+
+**Verification still required:** ABI and ELF inspection for both binaries, process startup/stop/restart, SOCKS readiness and data-plane checks, Android VPN consent, IPv4/IPv6/DNS routing, reconnect and network-change behavior, traffic counters, stop/revoke, and TUN/file-descriptor cleanup on physical devices. No Aether/WARP/MASQUE runtime is integrated into MLE at this point.
