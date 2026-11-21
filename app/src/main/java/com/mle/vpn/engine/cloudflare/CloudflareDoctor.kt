@@ -69,10 +69,10 @@ object CloudflareDoctor {
             "Cloudflare trace response did not contain expected fields"
         }
         return CloudflareTraceResult(
-            ip = fields["ip"]?.takeIf(String::isNotBlank),
-            colo = fields["colo"]?.takeIf(String::isNotBlank),
-            warp = fields["warp"]?.takeIf(String::isNotBlank),
-            gateway = fields["gateway"]?.takeIf(String::isNotBlank),
+            ip = fields["ip"]?.takeIf { it.isNotBlank() },
+            colo = fields["colo"]?.takeIf { it.isNotBlank() },
+            warp = fields["warp"]?.takeIf { it.isNotBlank() },
+            gateway = fields["gateway"]?.takeIf { it.isNotBlank() },
             httpStatus = httpStatus
         )
     }
