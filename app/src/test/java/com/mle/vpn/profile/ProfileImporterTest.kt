@@ -62,7 +62,15 @@ class ProfileImporterTest {
     @Test
     fun importsWireGuardConfAsSingleProfile() {
         val key = android.util.Base64.encodeToString(ByteArray(32) { 1 }, android.util.Base64.NO_WRAP)
-        val conf = "[Interface]\\nPrivateKey = $key\\nAddress = 10.0.0.2/32\\n[Peer]\\nPublicKey = $key\\nEndpoint = wg.example:51820\\nAllowedIPs = 0.0.0.0/0"
+        val conf = listOf(
+            "[Interface]",
+            "PrivateKey = $key",
+            "Address = 10.0.0.2/32",
+            "[Peer]",
+            "PublicKey = $key",
+            "Endpoint = wg.example:51820",
+            "AllowedIPs = 0.0.0.0/0"
+        ).joinToString("\\n")
         val batch = ProfileImporter.parseBatch(conf)
         assertEquals(1, batch.profiles.size)
         assertEquals(ProfileProtocol.WIREGUARD, batch.profiles.single().protocol)
