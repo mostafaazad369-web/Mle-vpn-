@@ -142,9 +142,11 @@ MLE now contains a strict first-pass importer for single-peer wg-quick `.conf` p
 - `WireGuardConfigParser` validates Interface/Peer sections, 32-byte Base64 keys, endpoint host/port, CIDR addresses/AllowedIPs, keepalive and MTU.
 - `PostUp`/`PostDown`, unknown directives, duplicate keys, malformed numeric fields and unsupported multi-peer profiles fail closed. This intentionally avoids silently discarding hooks or peer behavior.
 - `ProfileImporter.parseWireGuardConfig` creates a sensitive `ImportedProfile`; its source text includes the private key and must only be stored in the encrypted profile vault.
-- `WireGuardEndpointBuilder` emits the modern sing-box `endpoints[].type=wireguard` schema (sing-box 1.11+), rather than the deprecated WireGuard outbound removed in sing-box 1.13.
+- `WireGuardEndpointBuilder` emits the modern sing-box `endpoints[].type=wireguard` schema (sing-box 1.11+), rather than the deprecated WireGuard outbound removed in sing-box 1.13. `SingBoxConfigBuilder` now assembles this endpoint into a complete config and selects its tag as the final route and secure-DNS detour.
 - Robolectric tests cover parsing, endpoint conversion, invalid keys/ports and fail-closed hook handling.
 
-**Not yet a usable VPN connection:** this parser/builder slice is not yet wired into the profile-import UI, encrypted-vault UX, sing-box runtime lifecycle or end-to-end Android VPN service. DNS, multiple peers, and wg-quick hook semantics are deliberately unsupported in this first slice. Do not mark WireGuard as connectable until config assembly, runtime validation against the exact bundled sing-box build, and real-device tunnel/kill-switch tests pass.
+**Not yet a verified end-user VPN connection:** the parser and config assembly are implemented, but the importer is not yet wired into the profile-import UI/encrypted-vault UX, and no real-device WireGuard tunnel/kill-switch test has passed. DNS directives, multiple peers, and wg-quick hook semantics are deliberately unsupported in this first slice. Do not mark WireGuard as connectable until the exact bundled libbox runtime accepts the config and real-device tunnel/kill-switch tests pass.
 
 Schema references used for this implementation: sing-box WireGuard endpoint and endpoint migration documentation (endpoint introduced in 1.11; legacy outbound deprecated in 1.11 and removed in 1.13).
+
+The MLE app dependency currently pins `com.github.singbox-android:libbox:1.14.4`; the WireGuard endpoint schema used here is documented as available since sing-box 1.11.0. The old WireGuard outbound is deprecated since 1.11 and removed in 1.13, so the implementation intentionally uses `endpoints` rather than an outbound object.
