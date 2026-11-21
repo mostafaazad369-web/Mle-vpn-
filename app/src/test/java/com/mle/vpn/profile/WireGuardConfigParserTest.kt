@@ -76,7 +76,7 @@ class WireGuardConfigParserTest {
     @Test
     fun explicitlyRejectsAmneziaOptionsInsteadOfDowngradingToWireGuard() {
         assertFalse(runCatching {
-            WireGuardConfigParser.parse(config().replace("MTU = 1380", "MTU = 1380\\nJc = 4\\nJmin = 40\\nJmax = 70\\nS1 = 0\\nS2 = 0"))
+            WireGuardConfigParser.parse(config().replace("MTU = 1380", "MTU = 1380\nJc = 4\nJmin = 40\nJmax = 70\nS1 = 0\nS2 = 0"))
         }.isSuccess)
     }
 
