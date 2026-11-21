@@ -265,7 +265,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. فعلاً فقط VLESS، VMess و Trojan با تنظیمات پشتیبانی‌شده ذخیره می‌شوند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، چند لینک، متن Base64 یا یک فایل WireGuard با قالب wg-quick را وارد کن. فقط قالب‌هایی که تبدیل امن آن‌ها پشتیبانی می‌شود ذخیره خواهند شد.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
@@ -289,9 +289,18 @@ private fun MleApp() {
                         scope.launch {
                             runCatching {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
-                                val parsed = ProfileImporter.parseBatch(source)
+                                val parsed = if (source.trimStart().startsWith("[Interface]", ignoreCase = true)) {
+                                    when (val wireGuard = ProfileImporter.parseWireGuardConfig(source)) {
+                                        is ProfileParseResult.Success ->
+                                            com.mle.vpn.profile.ProfileBatchResult(listOf(wireGuard.profile), 0, 0)
+                                        is ProfileParseResult.Failure ->
+                                            com.mle.vpn.profile.ProfileBatchResult(emptyList(), 1, 0)
+                                    }
+                                } else {
+                                    ProfileImporter.parseBatch(source)
+                                }
                                 val convertible = parsed.profiles.filter { profile ->
-                                    runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                 }
                                 parsed.copy(
                                     profiles = convertible,
