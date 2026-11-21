@@ -253,12 +253,9 @@ class MleVpnService : VpnService() {
     }
 
     /**
-     * Establishes an OpenVPN TUN from server-pushed settings. The service retains
-     * the original descriptor; native code receives a detached duplicate and owns
-     * that duplicate until the core has stopped.
-     *
-     * This is a service primitive only. No OpenVPN start action is wired until the
-     * native core, arbiter lease and callback lifecycle are implemented together.
+     * Establishes an OpenVPN TUN from server-pushed settings after the OpenVPN
+     * runtime owns the arbiter lease. The service retains the original descriptor;
+     * native code receives a detached duplicate and owns it until the core stops.
      */
     @Synchronized
     internal fun establishOpenVpnTun(config: OpenVpnTunConfig): Int {
