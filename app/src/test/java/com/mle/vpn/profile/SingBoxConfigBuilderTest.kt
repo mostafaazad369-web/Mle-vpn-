@@ -36,4 +36,24 @@ class SingBoxConfigBuilderTest {
         assertEquals("bootstrap", outbounds.getJSONObject(0).getString("domain_resolver"))
         assertTrue(outbounds.length() >= 3)
     }
+    @Test
+    fun addsOnlyValidPackagesToTheTunIncludeList() {
+        val profile = ImportedProfile(
+            id = "app-filter",
+            protocol = ProfileProtocol.VLESS,
+            displayName = "App filter",
+            host = "example.com",
+            port = 443,
+            sourceUri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&sni=example.com#test"
+        )
+        val config = SingBoxConfigBuilder.build(
+            profile,
+            listOf("com.example.browser", "invalid package", "com.example.chat")
+        )
+        val include = config.getJSONArray("inbounds").getJSONObject(0).getJSONArray("include_package")
+        assertEquals(2, include.length())
+        assertEquals("com.example.browser", include.getString(0))
+        assertEquals("com.example.chat", include.getString(1))
+    }
+
 }
