@@ -40,7 +40,7 @@ class MleVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private lateinit var boxRuntime: MleBoxRuntime
+    private lateinit var engineManager: MleEngineManager
     private var trafficProbeJob: Job? = null
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
@@ -56,7 +56,7 @@ class MleVpnService : VpnService() {
                 stopping.set(true)
                 trafficProbeJob?.cancel()
                 serviceScope.launch {
-                    if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                    if (::engineManager.isInitialized) runCatching { engineManager.stop() }
                     stopTunnelResources()
                     MleVpnStatus.disconnected()
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -65,52 +65,104 @@ class MleVpnService : VpnService() {
             }
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
+                val engineId = intent.getStringExtra(EXTRA_ENGINE_ID) ?: "sing-box"
                 if (config.isNullOrBlank()) {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val rawConfigs = intent.getStringArrayListExtra(EXTRA_CONFIG_CANDIDATES).orEmpty()
+                val rawProfileIds = intent.getStringArrayListExtra(EXTRA_PROFILE_IDS).orEmpty()
+                val candidatePairs = rawConfigs.mapIndexedNotNull { index, candidate ->
+                    candidate.takeIf { it.isNotBlank() }?.let {
+                        it to (rawProfileIds.getOrNull(index) ?: "unknown-$index")
+                    }
+                }.distinctBy { it.first }.take(MAX_FAILOVER_CANDIDATES)
+                val candidates = candidatePairs.map { it.first }.ifEmpty { listOf(config) }
+                val profileIds = candidatePairs.map { it.second }.ifEmpty { listOf("unknown-0") }
+                val healthStore = MleRouteHealthStore(this)
                 stopping.set(false)
                 trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
                 MleVpnStatus.starting()
-                startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
-                if (!::boxRuntime.isInitialized) {
-                    boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
+                startForeground(NOTIFICATION_ID, buildNotification("در حال بررسی مسیرهای اتصال"))
+                if (!::engineManager.isInitialized) {
+                    val singBox = MleBoxRuntime(this, MlePlatformInterface(this))
+                    engineManager = MleEngineManager(listOf(
+                        SingBoxEngineAdapter(singBox),
+                        XrayEngineAdapter(XrayRuntime(this))
+                    ))
                 }
                 serviceScope.launch {
-                    runCatching { boxRuntime.start(config) }
-                        .onSuccess {
-                            // The VPN TUN is now registered; publish the physical
-                            // network as its underlay before probing app traffic.
+                    var connected = false
+                    var lastFailure = "هیچ مسیر قابل استفاده‌ای پیدا نشد."
+                    for ((index, candidateConfig) in candidates.withIndex()) {
+                        if (stopping.get()) break
+                        val profileId = profileIds.getOrNull(index) ?: "unknown-$index"
+                        val attemptStartedAt = android.os.SystemClock.elapsedRealtime()
+                        try {
+                            MleVpnStatus.starting()
+                            getSystemService(NotificationManager::class.java).notify(
+                                NOTIFICATION_ID,
+                                buildNotification("آزمایش مسیر ${index + 1} از ${candidates.size}")
+                            )
+                            engineManager.start(engineId, candidateConfig)
                             configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
-                            trafficProbeJob?.cancel()
-                            trafficProbeJob = serviceScope.launch {
-                                while (isActive && !stopping.get()) {
-                                    val failure = verifyInternetThroughVpn()
-                                    if (failure == null) {
-                                        MleVpnStatus.internetVerified()
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
-                                        )
-                                    } else {
-                                        MleVpnStatus.trafficUnavailable(failure)
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
-                                        )
-                                    }
-                                    delay(15_000)
-                                }
+                            // Give Android and the packet engine a moment to install
+                            // routes before testing a real HTTPS request through TUN.
+                            delay(2_000)
+                            val failure = verifyInternetThroughVpn()
+                            if (failure == null) {
+                                connected = true
+                                healthStore.recordSuccess("$engineId:$profileId", android.os.SystemClock.elapsedRealtime() - attemptStartedAt)
+                                MleVpnStatus.internetVerified()
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID,
+                                    buildNotification("اینترنت از مسیر ${index + 1} تأیید شد")
+                                )
+                                break
                             }
+                            lastFailure = failure
+                            healthStore.recordFailure("$engineId:$profileId")
+                            android.util.Log.w("MLE-VPN", "Candidate ${index + 1} failed end-to-end verification")
+                            runCatching { engineManager.stop() }
+                            stopTunnelResources(markStopping = false)
+                        } catch (error: Exception) {
+                            lastFailure = error.message ?: "راه‌اندازی مسیر ${index + 1} ناموفق بود."
+                            healthStore.recordFailure("$engineId:$profileId")
+                            android.util.Log.w("MLE-VPN", "Candidate ${index + 1} startup failed", error)
+                            runCatching { engineManager.stop() }
+                            stopTunnelResources(markStopping = false)
                         }
-                        .onFailure { error ->
-                            android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
-                            MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
-                            runCatching { boxRuntime.stop() }
-                            stopTunnelResources()
+                    }
+                    if (!connected) {
+                        if (!stopping.get()) {
+                            MleVpnStatus.trafficUnavailable(
+                                "هیچ‌یک از ${candidates.size} مسیر آزمایشی اینترنت نداد. آخرین خطا: $lastFailure"
+                            )
                             stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
+                        return@launch
+                    }
+                    trafficProbeJob?.cancel()
+                    trafficProbeJob = serviceScope.launch {
+                        while (isActive && !stopping.get()) {
+                            val failure = verifyInternetThroughVpn()
+                            if (failure == null) {
+                                MleVpnStatus.internetVerified()
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
+                                )
+                            } else {
+                                MleVpnStatus.trafficUnavailable(failure)
+                                getSystemService(NotificationManager::class.java).notify(
+                                    NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
+                                )
+                            }
+                            delay(15_000)
+                        }
+                    }
                 }
             }
             else -> stopSelf(startId)
@@ -123,7 +175,7 @@ class MleVpnService : VpnService() {
      * process default. This gives sing-box a real upstream network to protect
      * and prevents the VPN from selecting its own TUN as the proxy route.
      */
-    private fun configureUnderlyingNetwork() {
+    internal fun configureUnderlyingNetwork(): String? {
         val manager = getSystemService(ConnectivityManager::class.java)
         val candidate = manager.activeNetwork?.takeIf { network ->
             manager.getNetworkCapabilities(network)
@@ -140,6 +192,48 @@ class MleVpnService : VpnService() {
             "MLE-VPN",
             "Underlying network configured: network=$candidate applied=$applied"
         )
+        return selectedUnderlyingNetwork?.let { manager.getLinkProperties(it)?.interfaceName }
+    }
+
+    /** Resolve proxy hostnames on the captured physical network before the VPN TUN is installed. */
+    internal fun resolveUnderlyingHost(host: String): String {
+        require(host.isNotBlank()) { "Proxy server hostname is empty." }
+        val network = checkNotNull(selectedUnderlyingNetwork) {
+            "Physical network is not available for proxy DNS bootstrap."
+        }
+        val resolved = network.getAllByName(host).firstOrNull()
+            ?: error("آدرس سرور از طریق شبکه اصلی قابل resolve نیست.")
+        return resolved.hostAddress?.substringBefore("%")
+            ?: error("نشانی IP سرور قابل استفاده نیست.")
+    }
+
+    /** Establishes the Android TUN used by Xray's native tun inbound. */
+    internal fun establishXrayTun(): ParcelFileDescriptor {
+        check(!stopping.get()) { "VPN service is stopping." }
+        check(tun == null) { "A TUN interface is already active." }
+        check(VpnService.prepare(this) == null) { "VPN permission has not been granted." }
+        val builder = Builder()
+            .setSession("MLE VPN • Xray")
+            .setMtu(1500)
+            .addAddress("10.73.0.1", 30)
+            .addRoute("0.0.0.0", 0)
+            .addDnsServer("1.1.1.1")
+            .addDnsServer("1.0.0.1")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
+        val selectedPackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
+            .getStringSet("split_tunnel_packages", emptySet()).orEmpty()
+            .filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }
+            .distinct().take(127)
+        // Empty selection means normal full-device VPN routing. Only apply Android's
+        // include-list when the user explicitly selected at least one application.
+        if (selectedPackages.isNotEmpty()) {
+            (selectedPackages + packageName).distinct().forEach { builder.addAllowedApplication(it) }
+        }
+        builder.addAddress("fd73:6d6c:6500::1", 126)
+            .addRoute("::", 0)
+        return checkNotNull(builder.establish()) {
+            "Android did not grant an Xray TUN interface."
+        }
     }
 
     /**
@@ -186,7 +280,7 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         trafficProbeJob?.cancel()
         serviceScope.launch {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            if (::engineManager.isInitialized) runCatching { engineManager.stop() }
             stopTunnelResources()
             MleVpnStatus.disconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -211,17 +305,21 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            if (::engineManager.isInitialized) runCatching { engineManager.stop() }
             stopTunnelResources()
-            MleVpnStatus.disconnected()
+            if (MleVpnStatus.status.value.phase !in setOf(
+                    MleConnectionPhase.NO_INTERNET, MleConnectionPhase.ERROR
+                )) {
+                MleVpnStatus.disconnected()
+            }
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
     }
 
     @Synchronized
-    private fun stopTunnelResources() {
-        stopping.set(true)
+    private fun stopTunnelResources(markStopping: Boolean = true) {
+        if (markStopping) stopping.set(true)
         runCatching { tun?.close() }
         tun = null
     }
@@ -234,12 +332,12 @@ class MleVpnService : VpnService() {
      */
     private fun verifyInternetThroughVpn(): String? {
         val endpoints = listOf(
-            "https://cp.cloudflare.com/generate_204",
-            "https://connectivitycheck.gstatic.com/generate_204",
-            "https://www.cloudflare.com/cdn-cgi/trace"
+            "https://cp.cloudflare.com/generate_204" to 204,
+            "https://connectivitycheck.gstatic.com/generate_204" to 204,
+            "https://www.cloudflare.com/cdn-cgi/trace" to 200
         )
         val failures = mutableListOf<String>()
-        for (endpoint in endpoints) {
+        for ((endpoint, expectedCode) in endpoints) {
             var connection: HttpURLConnection? = null
             try {
                 connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
@@ -248,17 +346,30 @@ class MleVpnService : VpnService() {
                     readTimeout = 6_000
                     instanceFollowRedirects = false
                     useCaches = false
+                    setRequestProperty("Cache-Control", "no-cache")
                 }
                 val code = connection.responseCode
-                if (code in 200..399) return null
-                failures += "${URL(endpoint).host}: HTTP $code"
+                if (code != expectedCode) {
+                    failures += "${URL(endpoint).host}: HTTP $code (expected $expectedCode)"
+                    continue
+                }
+                if (endpoint.endsWith("/cdn-cgi/trace")) {
+                    val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText().take(16_384) }
+                    // Reject captive-portal HTML or arbitrary HTTP 200 responses.
+                    if (!body.lineSequence().any { it.startsWith("ip=") } ||
+                        !body.lineSequence().any { it.startsWith("http=") }) {
+                        failures += "${URL(endpoint).host}: unexpected trace response"
+                        continue
+                    }
+                }
+                return null
             } catch (error: Exception) {
                 failures += "${URL(endpoint).host}: ${error.javaClass.simpleName}"
             } finally {
                 connection?.disconnect()
             }
         }
-        return "تونل فعال است اما آزمون HTTPS از داخل VPN ناموفق بود: ${failures.joinToString("؛ ")}"
+        return "تونل فعال است اما آزمون واقعی HTTPS از داخل VPN ناموفق بود: ${failures.joinToString("؛ ")}"
     }
 
     private fun createNotificationChannel() {
@@ -291,6 +402,10 @@ class MleVpnService : VpnService() {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
+        const val EXTRA_ENGINE_ID = "com.mle.vpn.extra.ENGINE_ID"
+        const val EXTRA_CONFIG_CANDIDATES = "com.mle.vpn.extra.CONFIG_CANDIDATES"
+        const val EXTRA_PROFILE_IDS = "com.mle.vpn.extra.PROFILE_IDS"
+        private const val MAX_FAILOVER_CANDIDATES = 3
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
     }

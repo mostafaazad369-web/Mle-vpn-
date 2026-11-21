@@ -43,4 +43,101 @@ class ProfileImporterTest {
         assertEquals(1, batch.duplicateCount)
         assertEquals(1, batch.rejectedCount)
     }
+
+    @Test
+    fun importsHysteria2FeedsUsedByPublicSourceCatalog() {
+        val parsed = ProfileImporter.parse(
+            "hysteria2://secret@example.com:443?sni=edge.example"
+        )
+        assertTrue(parsed is ProfileParseResult.Success)
+        val profile = (parsed as ProfileParseResult.Success).profile
+        assertEquals(ProfileProtocol.HYSTERIA2, profile.protocol)
+        val outbound = SingBoxOutboundBuilder.build(profile)
+        assertEquals("hysteria2", outbound.getString("type"))
+        assertEquals("example.com", outbound.getString("server"))
+        assertEquals(443, outbound.getInt("server_port"))
+        assertEquals("edge.example", outbound.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun importsWireGuardConfAsSingleProfile() {
+        val key = android.util.Base64.encodeToString(ByteArray(32) { 1 }, android.util.Base64.NO_WRAP)
+        val conf = listOf(
+            "[Interface]",
+            "PrivateKey = $key",
+            "Address = 10.0.0.2/32",
+            "[Peer]",
+            "PublicKey = $key",
+            "Endpoint = wg.example:51820",
+            "AllowedIPs = 0.0.0.0/0"
+        ).joinToString("\n")
+        val batch = ProfileImporter.parseBatch(conf)
+        assertEquals(1, batch.profiles.size)
+        assertEquals(ProfileProtocol.WIREGUARD, batch.profiles.single().protocol)
+    }
+
+    @Test
+    fun importsAnyTlsSocksAndHttpProfiles() {
+        val cases = listOf(
+            "anytls://secret@example.com:443?sni=front.example" to ProfileProtocol.ANYTLS,
+            "socks://user:pass@example.com:1080" to ProfileProtocol.SOCKS,
+            "http://user:pass@example.com:8080" to ProfileProtocol.HTTP
+        )
+        cases.forEach { (uri, expectedProtocol) ->
+            val parsed = ProfileImporter.parse(uri)
+            assertTrue("Expected successful parse for $expectedProtocol", parsed is ProfileParseResult.Success)
+            val profile = (parsed as ProfileParseResult.Success).profile
+            assertEquals(expectedProtocol, profile.protocol)
+            assertEquals(expectedProtocol.name.lowercase(), SingBoxOutboundBuilder.build(profile).getString("type"))
+        }
+    }
+
+    @Test
+    fun importsInlineOpenVpnTlsProfileAndBuildsSingBoxEndpoint() {
+        val conf = listOf(
+            "client",
+            "dev tun",
+            "proto udp",
+            "remote vpn.example.com 1194",
+            "resolv-retry infinite",
+            "nobind",
+            "persist-key",
+            "persist-tun",
+            "remote-cert-tls server",
+            "auth-user-pass",
+            "<auth-user-pass>",
+            "demo-user",
+            "demo-password",
+            "</auth-user-pass>",
+            "<ca>",
+            "-----BEGIN CERTIFICATE-----",
+            "ZmFrZQ==",
+            "-----END CERTIFICATE-----",
+            "</ca>",
+            "redirect-gateway def1",
+            "verb 3"
+        ).joinToString("\n")
+        val batch = ProfileImporter.parseBatch(conf)
+        assertEquals(1, batch.profiles.size)
+        val profile = batch.profiles.single()
+        assertEquals(ProfileProtocol.OPENVPN, profile.protocol)
+        val config = SingBoxConfigBuilder.build(profile)
+        val endpoint = config.getJSONArray("endpoints").getJSONObject(0)
+        assertEquals("openvpn-client", endpoint.getString("type"))
+        assertEquals("vpn.example.com", endpoint.getJSONArray("servers").getJSONObject(0).getString("server"))
+        assertEquals("demo-user", endpoint.getString("username"))
+        assertEquals("ovpn-client", config.getJSONObject("route").getString("final"))
+        assertEquals("openvpn", config.getJSONObject("dns").getJSONArray("servers").getJSONObject(1).getString("type"))
+    }
+
+    @Test
+    fun rejectsOpenVpnProfilesThatReferenceExternalCredentialFiles() {
+        val conf = listOf(
+            "client", "dev tun", "proto udp", "remote vpn.example.com 1194",
+            "ca ca.crt", "auth-user-pass credentials.txt"
+        ).joinToString("\n")
+        val parsed = ProfileImporter.parse(conf)
+        assertTrue(parsed is ProfileParseResult.Failure)
+    }
+
 }

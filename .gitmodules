@@ -1,0 +1,3 @@
+[submodule "vendor/amneziawg-android"]
+	path = vendor/amneziawg-android
+	url = https://github.com/amnezia-vpn/amneziawg-android

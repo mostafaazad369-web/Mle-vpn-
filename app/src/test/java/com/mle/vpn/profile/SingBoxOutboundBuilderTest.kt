@@ -54,3 +54,126 @@ class SingBoxOutboundBuilderTest {
         assertFalse(json.getJSONObject("tls").optBoolean("insecure", false))
     }
 }
+
+
+@RunWith(RobolectricTestRunner::class)
+class MleAdaptiveRoutePlannerTest {
+    private fun profile(protocol: ProfileProtocol, uri: String) = ImportedProfile(
+        id = "test-id",
+        protocol = protocol,
+        displayName = "Test node",
+        host = "example.com",
+        port = 443,
+        sourceUri = uri
+    )
+
+    private fun candidate(
+        id: String,
+        verified: Boolean = true,
+        udp: Boolean = true,
+        failures: Int = 0,
+        latency: Long? = 100
+    ) = com.mle.vpn.engine.MleRouteCandidate(
+        id = id,
+        engineId = "sing-box",
+        latencyMs = latency,
+        successRate = 0.9,
+        throughputKbps = 4000,
+        consecutiveFailures = failures,
+        supportsUdp = udp,
+        endToEndVerified = verified
+    )
+
+    @Test
+    fun unverifiedRoutesAreExcludedByDefault() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("unknown", verified = false), candidate("good"))
+        )
+        assertEquals(listOf("good"), ranked.map { it.candidate.id })
+    }
+
+    @Test
+    fun hardUdpRequirementFiltersTcpOnlyRoutes() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("tcp", udp = false), candidate("udp")),
+            com.mle.vpn.engine.MleRouteRequirements(requireUdp = true)
+        )
+        assertEquals(listOf("udp"), ranked.map { it.candidate.id })
+    }
+
+    @Test
+    fun threeConsecutiveFailuresRemoveRoute() {
+        val ranked = com.mle.vpn.engine.MleAdaptiveRoutePlanner.rank(
+            listOf(candidate("dead", failures = 3))
+        )
+        assertTrue(ranked.isEmpty())
+    }
+
+    @Test
+    fun catalogDoesNotAdvertisePlannedEnginesAsAvailable() {
+        assertEquals(
+            listOf("sing-box"),
+            com.mle.vpn.engine.MleEngineCatalog.available().map { it.id }
+        )
+        assertTrue(com.mle.vpn.engine.MleEngineCatalog.planned().any { it.id == "xray" })
+    }
+
+    @Test
+    fun buildsAnyTlsWithRequiredTls() {
+        val uri = "anytls://secret@example.com:443?security=tls&sni=front.example&fp=chrome"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.ANYTLS, uri))
+        assertEquals("anytls", json.getString("type"))
+        assertEquals("secret", json.getString("password"))
+        assertTrue(json.getJSONObject("tls").getBoolean("enabled"))
+        assertEquals("front.example", json.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun buildsAuthenticatedSocks5() {
+        val uri = "socks://user:pass@example.com:1080?version=5&network=tcp"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.SOCKS, uri))
+        assertEquals("socks", json.getString("type"))
+        assertEquals("user", json.getString("username"))
+        assertEquals("pass", json.getString("password"))
+        assertEquals("5", json.getString("version"))
+        assertEquals("tcp", json.getString("network"))
+    }
+
+    @Test
+    fun buildsHttpConnectWithTlsWhenExplicitlyRequested() {
+        val uri = "http://user:pass@example.com:8443?security=tls&sni=proxy.example"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.HTTP, uri))
+        assertEquals("http", json.getString("type"))
+        assertEquals("user", json.getString("username"))
+        assertTrue(json.getJSONObject("tls").getBoolean("enabled"))
+        assertEquals("proxy.example", json.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun rejectsMalformedSocksCredentials() {
+        val uri = "socks://only-user@example.com:1080"
+        assertFalse(runCatching {
+            SingBoxOutboundBuilder.build(profile(ProfileProtocol.SOCKS, uri))
+        }.isSuccess)
+    }
+
+
+    @Test
+    fun buildsVlessHttpUpgradeTransport() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&type=httpupgrade&host=cdn.example.com&path=%2Fedge"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.VLESS, uri))
+        assertEquals("httpupgrade", json.getJSONObject("transport").getString("type"))
+        assertEquals("cdn.example.com", json.getJSONObject("transport").getString("host"))
+        assertEquals("/edge", json.getJSONObject("transport").getString("path"))
+    }
+
+    @Test
+    fun buildsVlessHttp2StyleTransport() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&type=http&host=cdn.example.com&path=%2Fapi"
+        val json = SingBoxOutboundBuilder.build(profile(ProfileProtocol.VLESS, uri))
+        assertEquals("http", json.getJSONObject("transport").getString("type"))
+        assertEquals("cdn.example.com", json.getJSONObject("transport").getJSONArray("host").getString(0))
+        assertEquals("/api", json.getJSONObject("transport").getString("path"))
+    }
+
+}

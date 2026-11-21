@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 enum class ProfileProtocol {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA, HYSTERIA2,
-    TUIC, ANYTLS, WIREGUARD, SOCKS, HTTP, UNKNOWN
+    TUIC, ANYTLS, WIREGUARD, WARP, OPENVPN, SOCKS, HTTP, UNKNOWN
 }
 
 data class ImportedProfile(
@@ -38,6 +38,8 @@ sealed interface ProfileParseResult {
  * or that every optional transport parameter is supported by the installed core.
  */
 object ProfileImporter {
+    /** Cloudflare WARP WireGuard peer public key, used only to identify imported configs. */
+    const val WARP_PEER_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
     private val schemes = mapOf(
         "vless" to ProfileProtocol.VLESS,
         "vmess" to ProfileProtocol.VMESS,
@@ -60,11 +62,18 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
+        if (raw.contains("[Interface]", ignoreCase = true) || isOpenVpnText(raw)) {
+            return when (val parsed = parse(raw)) {
+                is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
+                is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
+            }
+        }
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
                 String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
-            }.getOrNull()?.takeIf { it.contains("://") } ?: raw
+            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) || isOpenVpnText(it) } ?: raw
         }
+        if (decoded.contains("[Interface]", ignoreCase = true) || isOpenVpnText(decoded)) return parseBatch(decoded)
         val lines = decoded.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
@@ -87,8 +96,39 @@ object ProfileImporter {
 
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
-        if (raw.isEmpty() || raw.length > 64_000) {
+        if (raw.isEmpty() || raw.length > 128_000) {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
+        }
+        if (raw.contains("[Interface]", ignoreCase = true)) {
+            return parseWireGuard(raw)
+        }
+        if (raw.startsWith("openvpn-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = OpenVpnConfigParser.decodeStored(raw)
+                val remote = config.remotes.first()
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.OPENVPN,
+                    displayName = "OpenVPN • ${remote.host}",
+                    host = remote.host,
+                    port = remote.port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "OpenVPN profile invalid.") }
+        }
+        if (isOpenVpnText(raw)) return parseOpenVpn(raw)
+        if (raw.startsWith("wireguard-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = WireGuardConfigParser.decodeStored(raw)
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = if (config.peers.first().publicKey == WARP_PEER_PUBLIC_KEY) ProfileProtocol.WARP else ProfileProtocol.WIREGUARD,
+                    displayName = if (config.peers.first().publicKey == WARP_PEER_PUBLIC_KEY) "Cloudflare WARP • ${config.peers.first().host}" else "WireGuard • ${config.peers.first().host}",
+                    host = config.peers.first().host,
+                    port = config.peers.first().port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "WireGuard profile invalid.") }
         }
         if (raw.startsWith("vmess://", ignoreCase = true)) return parseVmess(raw)
         if (raw.startsWith("ss://", ignoreCase = true)) return parseShadowsocks(raw)
@@ -118,6 +158,40 @@ object ProfileImporter {
             ProfileParseResult.Failure("ساختار لینک کانفیگ قابل خواندن نیست.")
         }
     }
+
+
+    private fun isOpenVpnText(value: String): Boolean {
+        val lines = value.lineSequence().map { it.trim().lowercase() }.toList()
+        return lines.any { it == "client" } &&
+            lines.any { it.startsWith("remote ") } &&
+            (lines.any { it == "<ca>" } || lines.any { it.startsWith("ca ") })
+    }
+
+    private fun parseOpenVpn(raw: String): ProfileParseResult = runCatching {
+        val config = OpenVpnConfigParser.parse(raw)
+        val remote = config.remotes.first()
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.OPENVPN,
+            displayName = "OpenVPN • ${remote.host}",
+            host = remote.host,
+            port = remote.port,
+            sourceUri = OpenVpnConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "OpenVPN profile invalid.") }
+
+    private fun parseWireGuard(raw: String): ProfileParseResult = runCatching {
+        val config = WireGuardConfigParser.parse(raw)
+        val peer = config.peers.first()
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = if (peer.publicKey == WARP_PEER_PUBLIC_KEY) ProfileProtocol.WARP else ProfileProtocol.WIREGUARD,
+            displayName = if (peer.publicKey == WARP_PEER_PUBLIC_KEY) "Cloudflare WARP • ${peer.host}" else "WireGuard • ${peer.host}",
+            host = peer.host,
+            port = peer.port,
+            sourceUri = WireGuardConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "فایل WireGuard معتبر نیست.") }
 
     private fun parseShadowsocks(raw: String): ProfileParseResult = try {
         val parsed = ShadowsocksLinkParser.parse(raw)

@@ -111,9 +111,14 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 }
             }
             val include = options.includePackage
-            while (include.hasNext()) runCatching { builder.addAllowedApplication(include.next()) }
+            val includePackages = linkedSetOf<String>()
+            while (include.hasNext()) includePackages += include.next()
+            // When split tunneling is enabled, keep MLE's own traffic in the VPN
+            // so end-to-end verification and route health checks remain meaningful.
+            if (includePackages.isNotEmpty()) includePackages += service.packageName
+            includePackages.forEach(builder::addAllowedApplication)
             val exclude = options.excludePackage
-            while (exclude.hasNext()) runCatching { builder.addDisallowedApplication(exclude.next()) }
+            while (exclude.hasNext()) builder.addDisallowedApplication(exclude.next())
         }
 
         Log.i(TAG, "Opening TUN: mtu=${options.mtu}, autoRoute=${options.autoRoute}, ipv4Addresses=$ipv4AddressCount, ipv6Addresses=$ipv6AddressCount, dns=$dnsCount, routes=$routeCount")

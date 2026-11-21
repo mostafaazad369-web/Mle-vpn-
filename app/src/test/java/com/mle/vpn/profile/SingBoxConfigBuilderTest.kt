@@ -22,6 +22,7 @@ class SingBoxConfigBuilderTest {
         )
         val config = SingBoxConfigBuilder.build(profile)
         assertEquals("tun", config.getJSONArray("inbounds").getJSONObject(0).getString("type"))
+        assertTrue("empty split-tunnel selection must route all apps", !config.getJSONArray("inbounds").getJSONObject(0).has("include_package"))
         assertEquals("hijack", config.getJSONArray("inbounds").getJSONObject(0).getString("dns_mode"))
         val dnsServers = config.getJSONObject("dns").getJSONArray("servers")
         assertEquals("local", dnsServers.getJSONObject(0).getString("type"))
@@ -36,4 +37,25 @@ class SingBoxConfigBuilderTest {
         assertEquals("bootstrap", outbounds.getJSONObject(0).getString("domain_resolver"))
         assertTrue(outbounds.length() >= 3)
     }
+    @Test
+    fun addsOnlyValidPackagesToTheTunIncludeList() {
+        val profile = ImportedProfile(
+            id = "app-filter",
+            protocol = ProfileProtocol.VLESS,
+            displayName = "App filter",
+            host = "example.com",
+            port = 443,
+            sourceUri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&sni=example.com#test"
+        )
+        val config = SingBoxConfigBuilder.build(
+            profile,
+            listOf("com.example.browser", "invalid package", "com.example.chat")
+        )
+        val include = config.getJSONArray("inbounds").getJSONObject(0).getJSONArray("include_package")
+        assertEquals(3, include.length())
+        assertEquals("com.example.browser", include.getString(0))
+        assertEquals("com.example.chat", include.getString(1))
+        assertEquals("com.mle.vpn", include.getString(2))
+    }
+
 }
