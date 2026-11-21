@@ -103,6 +103,13 @@ object OpenVpnConfigParser {
         require(remotes.isNotEmpty() && remotes.size <= 8) { "OpenVPN profile must contain 1 to 8 remote servers." }
         val network = remotes.first().network
         require(remotes.all { it.network == network }) { "Mixed TCP and UDP remotes are not supported in one profile." }
+        require(listOf("ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2").none { name ->
+            directives[name]?.any { it.isNotEmpty() } == true
+        }) { "External certificate/key file paths are not supported; embed the material inline." }
+        val tlsMinimum = directives["tls-version-min"]?.firstOrNull()?.firstOrNull()
+        require(tlsMinimum == null || tlsMinimum in setOf("1.2", "1.3")) {
+            "TLS versions below 1.2 are rejected."
+        }
         val ca = blocks["ca"] ?: error("Inline <ca> certificate is required.")
         require(ca.contains("BEGIN CERTIFICATE") && ca.contains("END CERTIFICATE")) { "Invalid inline CA certificate." }
         val cert = blocks["cert"] ?: directives["cert"]?.firstOrNull()?.firstOrNull()?.let { error("External cert paths are not supported: $it") }
