@@ -323,12 +323,12 @@ class MleVpnService : VpnService() {
      */
     private fun verifyInternetThroughVpn(): String? {
         val endpoints = listOf(
-            "https://cp.cloudflare.com/generate_204",
-            "https://connectivitycheck.gstatic.com/generate_204",
-            "https://www.cloudflare.com/cdn-cgi/trace"
+            "https://cp.cloudflare.com/generate_204" to 204,
+            "https://connectivitycheck.gstatic.com/generate_204" to 204,
+            "https://www.cloudflare.com/cdn-cgi/trace" to 200
         )
         val failures = mutableListOf<String>()
-        for (endpoint in endpoints) {
+        for ((endpoint, expectedCode) in endpoints) {
             var connection: HttpURLConnection? = null
             try {
                 connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
@@ -337,17 +337,30 @@ class MleVpnService : VpnService() {
                     readTimeout = 6_000
                     instanceFollowRedirects = false
                     useCaches = false
+                    setRequestProperty("Cache-Control", "no-cache")
                 }
                 val code = connection.responseCode
-                if (code in 200..399) return null
-                failures += "${URL(endpoint).host}: HTTP $code"
+                if (code != expectedCode) {
+                    failures += "${URL(endpoint).host}: HTTP $code (expected $expectedCode)"
+                    continue
+                }
+                if (endpoint.endsWith("/cdn-cgi/trace")) {
+                    val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText().take(16_384) }
+                    // Reject captive-portal HTML or arbitrary HTTP 200 responses.
+                    if (!body.lineSequence().any { it.startsWith("ip=") } ||
+                        !body.lineSequence().any { it.startsWith("http=") }) {
+                        failures += "${URL(endpoint).host}: unexpected trace response"
+                        continue
+                    }
+                }
+                return null
             } catch (error: Exception) {
                 failures += "${URL(endpoint).host}: ${error.javaClass.simpleName}"
             } finally {
                 connection?.disconnect()
             }
         }
-        return "تونل فعال است اما آزمون HTTPS از داخل VPN ناموفق بود: ${failures.joinToString("؛ ")}"
+        return "تونل فعال است اما آزمون واقعی HTTPS از داخل VPN ناموفق بود: ${failures.joinToString("؛ ")}"
     }
 
     private fun createNotificationChannel() {
