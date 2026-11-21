@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "upstream": "https://github.com/mlmvpn/mlmvpn_android",
+  "upstreamRevision": "main (snapshot reviewed 2026-11-21)",
+  "license": "GPL-3.0; preserve upstream notices and source availability",
+  "attribution": "MLM VPN / mlmvpn",
+  "assets": [
+    {
+      "id": "mae_services",
+      "path": "mae/services.json",
+      "kind": "data",
+      "status": "bundled_not_wired",
+      "description": "MAE service and app/domain routing hints; requires MAE runtime"
+    },
+    {
+      "id": "cf_doctor_plan",
+      "path": "cf_doctor_plan.json",
+      "kind": "data",
+      "status": "bundled_not_wired",
+      "description": "Cloudflare Doctor probe plan; use only with rate limits and explicit user action"
+    },
+    {
+      "id": "game_catalog",
+      "path": "game_catalog.json",
+      "kind": "data",
+      "status": "bundled_not_wired",
+      "description": "Game regions and diagnostic host metadata; entries require live verification"
+    },
+    {
+      "id": "iran_profiles",
+      "path": "iran_profiles.json",
+      "kind": "profiles",
+      "status": "bundled_not_wired",
+      "description": "Routing profile templates; require compatible Xray core and validation"
+    },
+    {
+      "id": "iran_ipv4_cidrs",
+      "path": "smart_iran/ir_cidr.txt",
+      "kind": "network_data",
+      "status": "bundled_not_wired",
+      "description": "IPv4 CIDR dataset; provenance and freshness must be checked before routing"
+    },
+    {
+      "id": "exit_proxy_index",
+      "path": "exit_proxies/index.json",
+      "kind": "metadata",
+      "status": "bundled_not_wired",
+      "description": "Country proxy count metadata only; not an actual proxy list"
+    },
+    {
+      "id": "edge_gateway_worker",
+      "path": "edge_gateway/worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "User-deployed Cloudflare VLESS WebSocket relay"
+    },
+    {
+      "id": "edge_gateway_modules",
+      "path": "edge_gateway/",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "Worker modules; requires deployment, UUID secret binding and security review"
+    },
+    {
+      "id": "openvpn_sources",
+      "path": "openvpn-licenses/sources.json",
+      "kind": "provenance",
+      "status": "reference_only",
+      "description": "OpenVPN native dependency source and checksum manifest"
+    },
+    {
+      "id": "dns_worker",
+      "path": "dns_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "DNS relay Worker; deployment and abuse controls required"
+    },
+    {
+      "id": "gemini_exit_worker",
+      "path": "gemini_exit_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "Gemini exit Worker source; requires operator-owned credentials and deployment"
+    },
+    {
+      "id": "gst_relay_worker",
+      "path": "gst_relay_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "Relay Worker source; requires deployment and security review"
+    },
+    {
+      "id": "mae_egress_worker",
+      "path": "mae_egress_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "MAE egress Worker source; no MAE runtime wired"
+    },
+    {
+      "id": "subscription_studio_worker",
+      "path": "studio_sub/worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "Subscription Studio Worker source; requires operator-owned backend"
+    },
+    {
+      "id": "subscription_worker",
+      "path": "sub_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "Subscription Worker source; requires deployment"
+    },
+    {
+      "id": "vpngate_relay_worker",
+      "path": "vpngate_relay_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "VPNGate relay Worker source; requires deployment and provider review"
+    },
+    {
+      "id": "warp_id_worker",
+      "path": "warp_id_worker.js",
+      "kind": "cloud_worker",
+      "status": "source_only",
+      "description": "WARP identity Worker source; not a replacement for official account registration"
+    },
+    {
+      "id": "smart_iran_cidrs",
+      "path": "smart_iran/ir_cidr.txt",
+      "kind": "network_data",
+      "status": "bundled_not_wired",
+      "description": "Iran IPv4 CIDR dataset; verify freshness and source before route policy"
+    },
+    {
+      "id": "tor_bridges_seed",
+      "path": "tor_bridges_seed.txt",
+      "kind": "bootstrap_data",
+      "status": "bundled_stale_seed",
+      "description": "Public Tor bridge seed snapshot dated 2026-10-03; refresh and validate before use"
+    },
+    {
+      "id": "sanction_domains",
+      "path": "sanction_domains.json",
+      "kind": "routing_data",
+      "status": "bundled_not_wired",
+      "description": "Domain routing rules; review each destination and policy before activation"
+    },
+    {
+      "id": "openvpn_license_texts",
+      "path": "openvpn-licenses/",
+      "kind": "license",
+      "status": "notice_only",
+      "description": "Upstream bundled OpenVPN dependency license texts"
+    }
+  ],
+  "not_imported": [
+    "Upstream private or redacted server endpoints, API tokens, account credentials and relay secrets",
+    "Prebuilt native binaries (.so, .aar, .dat) not present in the public source tree",
+    "Gereh messenger and Telegram-derived chat UI: separate Rust/Android application subsystem",
+    "The full 15,000+ path upstream repository and all 309+ engine implementation Kotlin files",
+    "amnezia_seed.json: intentionally excluded because it contains WireGuard PrivateKey values",
+    "mlmvpn_pool_worker.js, tgproxy_worker.js, gt/agent/* and gt/broker_worker.js: not imported pending security review of credential/authentication code",
+    "OpenVPN sample profiles and CA material: not imported pending source/provider terms and credential review",
+    "Country exit proxy JSON and geoip/geoip6 binaries: not imported as potentially stale/unverified operational routing data; do not treat them as safe/live endpoints",
+    "Full per-country IP datasets under ip/: not yet imported; verify upstream provenance/freshness and add through a controlled update process",
+    "npv/seed.txt and outline/shadowmere_seed.json: excluded pending review of embedded access keys and credentials"
+  ],
+  "important": "Bundled resources do not imply a working service. Each engine needs native/runtime dependencies, lifecycle integration, permissions, user configuration and device tests. Never show catalog-only entries as connectable. Sensitive upstream seed file amnezia_seed.json was deliberately not copied because it contains private WireGuard keys. Some upstream Workers also contain authentication-handling code and are withheld until security review. Imported bridge and domain datasets are not activated by the app."
+}
