@@ -673,7 +673,7 @@ private fun EngineCatalogScreen(padding: PaddingValues) {
         engines.forEach { engine ->
             val glyph = when (engine.id) {
                 "sing_box" -> "◈"; "xray" -> "✦"; "wireguard" -> "⇄"; "warp" -> "☁"
-                "openvpn" -> "⇋"; "amnezia" -> "⌁"; "aether" -> "◎"; "slipnet" -> "⌘"
+                "openvpn" -> "⇋"; "amneziawg" -> "⌁"; "aether" -> "◎"; "slipnet" -> "⌘"
                 "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"; "geph" -> "✣"
                 "lantern" -> "✧"; "proton" -> "△"; "windscribe" -> "≋"; "fenix" -> "◌"
                 "urnetwork" -> "⌬"; "vpngate" -> "▤"; "npv" -> "▦"; "sni_ech" -> "⌖"
@@ -682,7 +682,7 @@ private fun EngineCatalogScreen(padding: PaddingValues) {
             val status = when (engine.id) {
                 "sing_box", "xray" -> "موتور قابل انتخاب در برنامه • تست دستگاه باقی است"
                 "wireguard", "warp", "openvpn" -> "پروفایل از مسیر sing-box • تست دستگاه باقی است"
-                "amnezia" -> "منبع رسمی pin شده • runtime هنوز متصل نیست"
+                "amneziawg" -> "runtime رسمی یکپارچه شده • آزمون اتصال روی دستگاه باقی است"
                 else -> "فقط فهرست قابلیت • هنوز قابل اتصال نیست"
             }
             val accent = when (engine.state) {
