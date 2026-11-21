@@ -201,6 +201,7 @@ class MleVpnService : VpnService() {
         check(tun == null && openVpnTun == null) { "A VPN TUN interface is already active." }
         val builder = Builder()
             .setSession("MLE VPN · OpenVPN")
+            .setBlocking(false)
             .setMtu(config.mtu)
         config.addresses.forEach { builder.addAddress(it.address, it.prefixLength) }
         config.routes.forEach { builder.addRoute(it.address, it.prefixLength) }
