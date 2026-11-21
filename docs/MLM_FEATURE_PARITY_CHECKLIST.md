@@ -16,7 +16,7 @@ This register separates connection engines, protocol support, account/provider i
 |---|---|---|
 | sing-box / libbox | [x] | Expand verified profiles; DNS/IPv6 leak and device tests |
 | Xray / libv2ray | [x] | VLESS, VMess, Trojan, Shadowsocks mapped; XHTTP and device validation |
-| FLUX adaptive route planner | [~] | Health-ranked fallback across up to ten saved routes and real HTTPS exit verification are implemented; parallel candidate racing, country/IP preferences, standby routes and per-network learning remain |
+| FLUX adaptive route planner | [~] | Health-ranked fallback across up to twenty-five saved routes and real HTTPS exit verification are implemented; parallel candidate racing, country/IP preferences, standby routes and per-network learning remain |
 | MAE per-app adaptive routing | [~] | Upstream service registry is parsed and shown; app-level include allow-list is implemented for sing-box and Xray. Live network-specific probes, adaptive classifier, domain-level policy compiler and balancer remain |
 
 | Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
