@@ -333,16 +333,16 @@ private fun MleApp() {
             AlertDialog(
                 onDismissRequest = { exportProfile = null },
                 containerColor = Panel,
-                title = { Text("پیکربندی sing-box", color = Mint, fontWeight = FontWeight.Bold) },
-                text = { Text("پیکربندی JSON برای بازبینی و خروجی ساخته می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
+                title = { Text("خروجی کانفیگ VPN", color = Mint, fontWeight = FontWeight.Bold) },
+                text = { Text("متن کانفیگ برای بازبینی و خروجی آماده می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
                 confirmButton = {
                     TextButton(onClick = {
                         val json = if (profile.protocol == ProfileProtocol.AMNEZIAWG) AmneziaWgConfigParser.decodeStored(profile.sourceUri) else SingBoxConfigBuilder.build(profile).toString(2)
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        clipboard.setPrimaryClip(ClipData.newPlainText("MLE sing-box config", json))
+                        clipboard.setPrimaryClip(ClipData.newPlainText("MLE VPN config", json))
                         Toast.makeText(context, "پیکربندی در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
                         exportProfile = null
-                    }) { Text("کپی JSON", color = Mint) }
+                    }) { Text("کپی کانفیگ", color = Mint) }
                 },
                 dismissButton = {
                     TextButton(onClick = { exportProfile = null }) { Text("بستن", color = Muted) }
