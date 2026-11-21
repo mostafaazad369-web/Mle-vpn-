@@ -9,7 +9,7 @@ import org.json.JSONObject
  */
 object SingBoxConfigBuilder {
     fun build(profile: ImportedProfile): JSONObject {
-        if (profile.protocol == ProfileProtocol.WIREGUARD) return buildWireGuard(profile)
+        if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile)
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
         val inbounds = JSONArray().put(
