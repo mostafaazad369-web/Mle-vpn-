@@ -1,6 +1,5 @@
 package com.mle.vpn.profile
 
-import android.content.Context
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
