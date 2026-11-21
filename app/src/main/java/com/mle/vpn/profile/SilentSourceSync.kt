@@ -15,6 +15,7 @@ object SilentSourceSync {
     private const val MAX_PROFILES_PER_SOURCE = 5
     private const val MAX_SOURCE_ATTEMPTS_PER_REFRESH = 6
     private const val REFRESH_INTERVAL_MS = 60L * 60L * 1000L
+    private const val RETRY_AFTER_FAILURE_MS = 5L * 60L * 1000L
 
     suspend fun refresh(context: Context): Int = withContext(Dispatchers.IO) {
         val appContext = context.applicationContext
@@ -28,6 +29,7 @@ object SilentSourceSync {
         val startIndex = prefs.getInt("next_source_index", 0).mod(sources.size.coerceAtLeast(1))
         val rotatedSources = sources.drop(startIndex) + sources.take(startIndex)
         var attemptedSources = 0
+        var successfulFetches = 0
         var imported = 0
 
         for (source in rotatedSources) {
@@ -35,6 +37,7 @@ object SilentSourceSync {
             attemptedSources++
             val candidates = runCatching {
                 val fetched = PublicSubscriptionFetcher.fetch(appContext, source)
+                successfulFetches++
                 ProfileImporter.parseBatch(fetched.text).profiles.filter { profile ->
                     profile.sourceUri !in knownUris && (
                         runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess ||
@@ -56,7 +59,12 @@ object SilentSourceSync {
         prefs.edit()
             .putStringSet("profile_ids", sourceManagedIds)
             .putInt("next_source_index", (startIndex + attemptedSources).mod(sources.size.coerceAtLeast(1)))
-            .putLong("last_refresh_ms", System.currentTimeMillis())
+            // Do not suppress retries for a full hour when every source is unreachable.
+            .putLong(
+                "last_refresh_ms",
+                if (successfulFetches > 0) System.currentTimeMillis()
+                else System.currentTimeMillis() - REFRESH_INTERVAL_MS + RETRY_AFTER_FAILURE_MS
+            )
             .apply()
         imported
     }
