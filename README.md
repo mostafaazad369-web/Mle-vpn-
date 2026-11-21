@@ -14,6 +14,9 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - Encrypted local profile storage using Android Keystore AES-GCM
 - VLESS, VMess, Trojan, Shadowsocks (legacy + SIP002), Hysteria2 and TUIC share-link conversion to sing-box JSON (unsupported variants/plugins fail closed)
 - Per-profile TCP endpoint preflight diagnostics
+- Cloudflare Doctor trace check (public IP, colo and WARP flag); diagnostic only, not a VPN engine
+- OpenVPN 3 JNI/service integration and `.ovpn` import on the foundation branch; native ABI APK packaging is CI-verified
+- WireGuard `.conf` parsing, encrypted storage and sing-box endpoint configuration assembly
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
 - Native `Libbox.checkConfig` validation before startup
@@ -27,7 +30,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 - OpenVPN 3 native/JNI integration, `.ovpn` preflight/import and shared VPN-service lifecycle are present on `integration/mlmvpn-foundation`; both `arm64-v8a` and `armeabi-v7a` libraries are CI-built and packaged. Real-device connection, DNS/IPv6 leak and teardown tests are still pending.
 - WireGuard `.conf` parsing and sing-box configuration assembly exist, but end-to-end device verification is pending.
 - NPV standard share links use the shared supported-profile importer. Native `.npvt` / `.npvs` files are not decrypted or executed by MLE; they require the separate NPV Tunnel app/integration.
-- WARP, MASQUE, provider engines, Cloudflare tools, Gereh and the remaining MLM-specific systems are still migration work, not connectable MLE backends.
+- Full WARP/Aether and MASQUE tunnel runtime, AmneziaWG, provider engines, Cloudflare account panels/Worker tools, the complete Cloudflare Doctor scanner, Gereh and remaining MLM-specific systems are still migration work, not connectable MLE backends. The current Cloudflare Doctor is only a trace-based diagnostic.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
