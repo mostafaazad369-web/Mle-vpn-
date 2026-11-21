@@ -8,20 +8,21 @@ import org.json.JSONObject
  * This does not start libbox or establish an Android VPN tunnel.
  */
 object SingBoxConfigBuilder {
-    fun build(profile: ImportedProfile): JSONObject {
-        if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile)
+    fun build(profile: ImportedProfile, allowedPackages: List<String> = emptyList()): JSONObject {
+        val safePackages = (allowedPackages + "com.mle.vpn").distinct().filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }.take(128)
+        if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile, safePackages)
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
-        val inbounds = JSONArray().put(
-            JSONObject()
-                .put("type", "tun")
-                .put("tag", "tun-in")
-                .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
-                .put("mtu", 1400)
-                .put("auto_route", true)
-                .put("strict_route", true)
-                .put("dns_mode", "hijack")
-        )
+        val tunInbound = JSONObject()
+            .put("type", "tun")
+            .put("tag", "tun-in")
+            .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
+            .put("mtu", 1400)
+            .put("auto_route", true)
+            .put("strict_route", true)
+            .put("dns_mode", "hijack")
+        if (safePackages.isNotEmpty()) tunInbound.put("include_package", JSONArray(safePackages))
+        val inbounds = JSONArray().put(tunInbound)
         val outbounds = JSONArray()
             .put(proxy)
             .put(JSONObject().put("type", "direct").put("tag", "direct"))
@@ -63,7 +64,7 @@ object SingBoxConfigBuilder {
             .put("route", route)
     }
 
-    private fun buildWireGuard(profile: ImportedProfile): JSONObject {
+    private fun buildWireGuard(profile: ImportedProfile, allowedPackages: List<String>): JSONObject {
         val wireGuard = WireGuardConfigParser.decodeStored(profile.sourceUri)
         val endpoint = wireGuard.toSingBoxEndpoint("wg-ep")
         val dnsServers = JSONArray().put(JSONObject().put("type", "local").put("tag", "bootstrap"))
@@ -104,19 +105,19 @@ object SingBoxConfigBuilder {
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
+        val tunInbound = JSONObject()
+            .put("type", "tun")
+            .put("tag", "tun-in")
+            .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
+            .put("mtu", WireGuardConfigParser.decodeStored(profile.sourceUri).mtu)
+            .put("auto_route", true)
+            .put("strict_route", true)
+            .put("dns_mode", "hijack")
+        if (allowedPackages.isNotEmpty()) tunInbound.put("include_package", JSONArray(allowedPackages))
         return JSONObject()
             .put("log", JSONObject().put("level", "info"))
             .put("dns", dns)
-            .put("inbounds", JSONArray().put(
-                JSONObject()
-                    .put("type", "tun")
-                    .put("tag", "tun-in")
-                    .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
-                    .put("mtu", WireGuardConfigParser.decodeStored(profile.sourceUri).mtu)
-                    .put("auto_route", true)
-                    .put("strict_route", true)
-                    .put("dns_mode", "hijack")
-            ))
+            .put("inbounds", JSONArray().put(tunInbound))
             .put("outbounds", JSONArray()
                 .put(JSONObject().put("type", "direct").put("tag", "direct"))
                 .put(JSONObject().put("type", "block").put("tag", "block")))
