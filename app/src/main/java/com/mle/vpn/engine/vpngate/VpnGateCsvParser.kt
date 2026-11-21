@@ -9,9 +9,9 @@ import java.util.Base64
 object VpnGateCsvParser {
     private const val COLUMN_COUNT = 15
     private const val MAX_PROFILE_CHARS = 64_000
-    private val remotePattern = Regex("""^\\s*remote\\s+(\\S+)\\s+(\\d+)(?:\\s+.*)?$""", RegexOption.MULTILINE)
+    private val remotePattern = Regex("""^\s*remote\s+(\S+)\s+(\d+)(?:\s+.*)?$""", RegexOption.MULTILINE)
     private val hostPattern = Regex("""[A-Za-z0-9][A-Za-z0-9._-]{0,127}""")
-    private val ipv4Pattern = Regex("""(?:\\d{1,3}\\.){3}\\d{1,3}""")
+    private val ipv4Pattern = Regex("""(?:\d{1,3}\.){3}\d{1,3}""")
 
     fun parse(csv: String): List<VpnGateServer> {
         if (csv.length > 5_000_000) return emptyList()
@@ -26,7 +26,7 @@ object VpnGateCsvParser {
             val ip = columns[1].trim()
             val countryCode = columns[6].trim().uppercase()
             if (!hostPattern.matches(hostName) || !ipv4Pattern.matches(ip)) return@forEach
-            if (ip.split('.').any { it.toIntOrNull() !in 0..255 }) return@forEach
+            if (ip.split('.').any { octet -> octet.toIntOrNull()?.let { it in 0..255 } != true }) return@forEach
             if (countryCode.length != 2 || countryCode.any { it !in 'A'..'Z' }) return@forEach
 
             val encoded = columns[14].trim()
