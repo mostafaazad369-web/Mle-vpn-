@@ -17,7 +17,7 @@ This register separates connection engines, protocol support, account/provider i
 | sing-box / libbox | [x] | Expand verified profiles; DNS/IPv6 leak and device tests |
 | Xray / libv2ray | [x] | VLESS, VMess, Trojan, Shadowsocks mapped; XHTTP and device validation |
 | FLUX adaptive route planner | [ ] | Candidate racing, country/IP preferences, exit verification, standbys, per-network learning |
-| MAE per-app adaptive routing | [ ] | Service registry, classifier, probes, policy compiler, live balancer and per-app rules |
+| MAE per-app adaptive routing | [~] | MAE registry parser and app-level allow-list UI implemented; live network probes, adaptive classifier and domain policy remain |
 | Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
 | WARP-in-WARP | [ ] | Nested route orchestration, MTU and loop validation |
 | Aether / MASQUE | [ ] | Permitted MASQUE/WireGuard runtime and ABI review |
@@ -53,6 +53,7 @@ This register separates connection engines, protocol support, account/provider i
 - [~] Pin official AmneziaWG Android source at upstream commit `ff15093bf3856fea0947923474870b86efb682f0` as `vendor/amneziawg-android`; integration and runtime remain incomplete. See [docs/AMNEZIAWG_ENGINE_INTEGRATION.md](AMNEZIAWG_ENGINE_INTEGRATION.md).
 - [~] Add isolated CI build of the pinned upstream `:tunnel:assembleDebug` AAR; verify successful build and packaged ABIs. The artifact is not linked to MLE APK yet.
 - [ ] Integrate the built tunnel runtime with a single-VpnService lifecycle and add AWG config parser/serializer.
+- [~] Parse and display MAE service hints; apply user-selected package filters to sing-box and Xray TUNs. Live adaptive routing remains incomplete.
 - [ ] OpenVPN .ovpn import, inline certs and credential handling.
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
@@ -75,7 +76,7 @@ This register separates connection engines, protocol support, account/provider i
 | SNI / ECH diagnostics | [ ] | ECH-aware DNS/client diagnostics |
 | Serverless domain fronting | [ ] | User-owned domain/origin and TLS/Host correctness |
 | Smart Iran routing | [ ] | Signed rule data and local/foreign policy |
-| Per-app split tunneling | [~] | Finish UI/persistence and device tests |
+| Per-app split tunneling | [~] | UI, persisted app allow-list and sing-box/Xray Android TUN filters implemented; physical-device validation remains |
 | LAN proxy/hotspot/PAC sharing | [ ] | Local proxy, hotspot permissions, PAC and firewall tests |
 | Home-screen widgets / Widget Studio | [ ] | Widget provider and configurable cards |
 | Quick Settings tile | [ ] | TileService and state synchronization |
