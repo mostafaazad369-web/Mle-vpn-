@@ -43,8 +43,10 @@ foreach ($abi in $Abis) {
     if ($LASTEXITCODE) { throw "Native strip failed for $abi." }
 
     $symbols = & (Join-Path $llvm 'llvm-nm.exe') -D $library
-    if ($LASTEXITCODE -or ($symbols -notmatch 'Java_com_mle_vpn_engine_openvpn_MleOpenVpnNative_apiVersion')) {
-        throw "Expected MLE JNI exports are missing for $abi."
+    $nmExitCode = $LASTEXITCODE
+    $hasApiVersionExport = [bool]($symbols | Select-String -SimpleMatch 'Java_com_mle_vpn_engine_openvpn_MleOpenVpnNative_apiVersion')
+    if ($nmExitCode -ne 0 -or -not $hasApiVersionExport) {
+        throw "Expected MLE JNI apiVersion export is missing for $abi."
     }
 
     $programHeaders = & (Join-Path $llvm 'llvm-readelf.exe') -lW $library
