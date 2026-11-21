@@ -45,6 +45,17 @@ class PublicNodeSourceCatalogTest {
     }
 
     @Test
+    fun includesOnlyAdditionalFeedsForProtocolsWithLocalRuntimeAdapters() {
+        val ids = PublicNodeSourceCatalog.all.map { it.id }.toSet()
+        assertTrue("flux-mg-vmess" in ids)
+        assertTrue("flux-mg-shadowsocks" in ids)
+        assertTrue("flux-mg-vless" in ids)
+        assertTrue("flux-mg-trojan" in ids)
+        assertTrue("flux-mg-hy2" in ids)
+        assertTrue(ids.none { it.contains("openvpn", true) || it.contains("psiphon", true) || it.contains("tor", true) || it.contains("geph", true) })
+    }
+
+    @Test
     fun sourceLookupIsStable() {
         val source = PublicNodeSourceCatalog.all.first()
         assertEquals(source, PublicNodeSourceCatalog.find(source.id))
