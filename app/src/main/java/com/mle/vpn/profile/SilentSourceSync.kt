@@ -56,14 +56,16 @@ object SilentSourceSync {
             }
         }
 
+        val completedAt = System.currentTimeMillis()
         prefs.edit()
             .putStringSet("profile_ids", sourceManagedIds)
             .putInt("next_source_index", (startIndex + attemptedSources).mod(sources.size.coerceAtLeast(1)))
+            .also { editor -> if (successfulFetches > 0) editor.putLong("last_successful_fetch_ms", completedAt) }
             // Do not suppress retries for a full hour when every source is unreachable.
             .putLong(
                 "last_refresh_ms",
-                if (successfulFetches > 0) System.currentTimeMillis()
-                else System.currentTimeMillis() - REFRESH_INTERVAL_MS + RETRY_AFTER_FAILURE_MS
+                if (successfulFetches > 0) completedAt
+                else completedAt - REFRESH_INTERVAL_MS + RETRY_AFTER_FAILURE_MS
             )
             .apply()
         imported
