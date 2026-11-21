@@ -105,7 +105,7 @@ object EndpointProbe {
         // IETF protocol assignments (2001::/23): the first 23 bits are
         // 2001:0000 through 2001:01ff. The next hextet must not be ignored.
         val isIetfProtocolAssignment =
-            first == 0x20 && second == 0x01 && third == 0x00 && fourth <= 0x01
+            first == 0x20 && second == 0x01 && (third and 0xfe) == 0x00
         // Benchmarking (2001:2::/48) and documentation (2001:db8::/32).
         val isBenchmarking =
             first == 0x20 && second == 0x01 && third == 0x00 &&
