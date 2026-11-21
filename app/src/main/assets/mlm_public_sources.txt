@@ -1,0 +1,8 @@
+# MLE VPN public feed registry
+# Format: id|label|primary_url|mirror_url|encoding|status
+# Public URLs only. Do not add authenticated/private MLM pool endpoints or credentials.
+global|Global community feed|https://raw.githubusercontent.com/iampedii/whitedns-sub/refs/heads/main/base64.txt|https://cdn.jsdelivr.net/gh/iampedii/whitedns-sub@main/base64.txt|raw-or-base64|public
+verified|Radikal verified configs|https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/verified/configs.txt|https://cdn.jsdelivr.net/gh/0xRadikal/Free-v2ray-Configs@main/verified/configs.txt|raw-or-base64|public
+fast|Radikal fast configs|https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/fast/configs.txt|https://cdn.jsdelivr.net/gh/0xRadikal/Free-v2ray-Configs@main/fast/configs.txt|raw-or-base64|public
+secure|Radikal secure configs|https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/secure/configs.txt|https://cdn.jsdelivr.net/gh/0xRadikal/Free-v2ray-Configs@main/secure/configs.txt|raw-or-base64|public
+all|Radikal all configs|https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/all/configs.txt|https://cdn.jsdelivr.net/gh/0xRadikal/Free-v2ray-Configs@main/all/configs.txt|raw-or-base64|public
