@@ -48,6 +48,8 @@ class OpenVpnConfigParserTest {
         assertEquals("tls_auth", endpoint.getJSONObject("tls").getJSONObject("control_wrap").getString("type"))
         assertEquals("client", endpoint.getJSONObject("tls").getJSONObject("control_wrap").getString("direction"))
         assertEquals(2, endpoint.getJSONArray("data_ciphers").length())
+        assertEquals("AES-256-GCM", endpoint.getString("data_ciphers_fallback"))
+        assertTrue(endpoint.getBoolean("route_no_pull"))
     }
 
     @Test
