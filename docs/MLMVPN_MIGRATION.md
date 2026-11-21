@@ -73,3 +73,22 @@ The first executable adapter, `SingBoxEngineAdapter.kt`, bridges the existing ML
 - https://github.com/mostafaazad369-web/Mle-vpn-
 - https://github.com/SagerNet/sing-box
 - https://github.com/singbox-android/libbox
+
+
+## OpenVPN native-port audit (2026-11-21)
+
+The upstream tree contains a real OpenVPN 3 integration, not just profile samples:
+
+- Kotlin runtime: `OpenVpnNative.kt`, `OpenVpnService.kt`, profile import/runtime/repository/account policy and UI under `app/src/main/java/com/mlmvpn/scanner/openvpn/`.
+- JNI/core adapter: `app/src/main/cpp/openvpn/bridge.cpp` and its CMake target. It wraps the pinned OpenVPN 3 client API and maps TUN addresses, routes, DNS, socket protection, traffic stats and lifecycle callbacks to Android.
+- Native dependency lock: `third_party/openvpn3/source-lock.json` pins OpenVPN 3 commit `2986b58108726a7aff278a50caa0cff9c4cdf943`, Mbed TLS 3.6.7, Asio 1.30.2, LZ4 1.10.0 and fmt 11.1.4 with SHA-256 values and license identifiers. The core is MPL-2.0; dependencies retain their own licenses.
+- Build: upstream `app/src/main/cpp/openvpn/CMakeLists.txt` and `scripts/build-openvpn.ps1` build arm64-v8a and armeabi-v7a for API 24 and 16-KiB page alignment. The upstream app packages prebuilt JNI libraries; the source tree inspected here does not contain the generated OpenVPN `.so` artifacts.
+- Upstream `docs/OPENVPN.md` records profile import restrictions, certificate validation requirements, compression policy, account handling and real-device test requirements. Do not copy its sample TunnelBear profiles or CA into MLE as working endpoints/credentials.
+
+MLE currently has no OpenVPN runtime files, no OpenVPN JNI libraries, and no OpenVPN-specific external-native-build wiring in `app/build.gradle.kts`. Its current Gradle build uses sing-box and a minimal Kotlin/Compose stack. A correct port therefore requires a deliberate native build/reproducibility decision plus a dedicated `VpnService` integration and mutual-exclusion handoff with MLE's existing service; copying only Kotlin files or catalog metadata would not produce a working OpenVPN client. The upstream native bridge also calls a specific callback contract and must be adapted and reviewed rather than assumed binary-compatible.
+
+**Next OpenVPN implementation gate:** first import the pinned source/dependency lock and license notices (or produce reproducible, hash-verified ABI artifacts from those exact sources); then port/adapt the JNI callback contract and service lifecycle; then add safe profile import/storage and UI; finally run ABI packaging, parser tests, Android permission/handoff tests and real-device DNS/IPv6 leak checks. Until those gates pass, OpenVPN remains catalog-only and is not advertised as connectable.
+
+## Latest CI verification
+
+For head commit `5a8db1b0aed6010897f791f2ba0ac6d5f7e12c31`, GitHub Actions completed successfully on 2026-11-21: Android build `44900289968` (assemble-debug), Android CI `44900289965` (JVM/Android unit tests and debug APK packaging). This confirms the current foundation branch builds and packages; it does not validate native engines that have not yet been ported or live VPN behavior.
