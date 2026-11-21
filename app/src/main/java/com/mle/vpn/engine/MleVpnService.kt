@@ -220,9 +220,15 @@ class MleVpnService : VpnService() {
             .addDnsServer("1.1.1.1")
             .addDnsServer("1.0.0.1")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
-        val includePackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
-            .getStringSet("split_tunnel_packages", emptySet()).orEmpty().plus(packageName).distinct().take(128)
-        includePackages.forEach { packageName -> builder.addAllowedApplication(packageName) }
+        val selectedPackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
+            .getStringSet("split_tunnel_packages", emptySet()).orEmpty()
+            .filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }
+            .distinct().take(127)
+        // Empty selection means normal full-device VPN routing. Only apply Android's
+        // include-list when the user explicitly selected at least one application.
+        if (selectedPackages.isNotEmpty()) {
+            (selectedPackages + packageName).distinct().forEach { builder.addAllowedApplication(it) }
+        }
         builder.addAddress("fd73:6d6c:6500::1", 126)
             .addRoute("::", 0)
         return checkNotNull(builder.establish()) {
