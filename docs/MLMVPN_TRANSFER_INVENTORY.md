@@ -136,3 +136,158 @@ Each phase must be a separate commit on `integration/mlmvpn-foundation`. Do not 
 3. Reconcile actual Gradle/native dependencies and immutable source locks against MLE's versions and licenses.
 4. Add architecture contract tests and capability metadata; then wire one real engine at a time.
 5. Keep every user-facing item accurately marked as available, diagnostic-only, account-required, or not yet implemented.
+
+
+## 9. UI page and component inventory (public source tree)
+
+The upstream package contains **214 Kotlin UI files** under `scanner/ui/`. Some are complete screens; others are reusable parts, widgets, navigation or state helpers. The names below are source inventory, not a claim that each is a separate navigable page.
+
+- **aether** (1): AetherScreen.kt
+- **amnezia** (4): AmneziaScreen.kt, AmzImportActivity.kt, AmzParts.kt, AmzServersScreen.kt
+- **arena** (6): ArenaEntry.kt, ArenaMoods.kt, ArenaRace.kt, ArenaScreen.kt, ArenaSounds.kt, ArenaTeams.kt
+- **backup** (1): BackupScreen.kt
+- **cfwarp** (3): CfWarpUi.kt, Ipv4ExitUi.kt, Nat64ExitUi.kt
+- **cloud** (6): CfMethodCard.kt, CloudReceivedModule.kt, CloudUsageModule.kt, GatewayRows.kt, GatewaySettingsScreen.kt, PanelRows.kt
+- **configstudio** (42): ConfigStudioHost.kt, StudioAccountDetailScreen.kt, StudioAccountsScreen.kt, StudioAnalyticsScreen.kt, StudioAuditScreen.kt, StudioBulkActionScreen.kt, StudioBulkAddScreen.kt, StudioBulkUsersScreen.kt, StudioCentralAccountScreen.kt, StudioCentralBulkUsersScreen.kt, StudioCentralNewUserScreen.kt, StudioCentralUserScreen.kt, StudioCombineHandover.kt, StudioConfigBuilderScreen.kt, StudioConfigsScreen.kt, StudioDashboardScreen.kt, StudioExitsScreen.kt, StudioLocationsEditScreen.kt, StudioMoreScreen.kt, StudioMultiLocationScreen.kt, StudioNewUserScreen.kt, StudioNodeEditScreen.kt, StudioNodeGroupEditScreen.kt, StudioNodeGroupsScreen.kt, StudioNodesScreen.kt, StudioPlanEditScreen.kt, StudioPlansScreen.kt, StudioSettingsScreen.kt, StudioTemplateEditScreen.kt, StudioTemplatesScreen.kt, StudioUserDetailScreen.kt, StudioUsersScreen.kt, design/StudioDesign.kt, design/StudioIcons.kt, parts/CentralKit.kt, parts/LocationPicker.kt, parts/PortPicker.kt, parts/StudioCreateParts.kt, parts/StudioKit.kt, parts/StudioShare.kt, parts/VolumeField.kt, wizard/StudioSetupWizard.kt
+- **doctor** (4): CfDoctorScreen.kt, CloudDoctorScreen.kt, DoctorScanSelection.kt, DoctorShare.kt
+- **emergency** (6): EmergencyKit.kt, EmergencyLevel2Screen.kt, EmergencyLevel3Screen.kt, GstScreens.kt, GstSetupWizard.kt, SniConfigPages.kt
+- **fenix** (1): FenixScreen.kt
+- **flux** (1): FluxScreen.kt
+- **game** (3): BoostShortcut.kt, GameBoostScreen.kt, GameBoostTileService.kt
+- **geph** (5): GephAccountScreen.kt, GephExitScreen.kt, GephInfoScreens.kt, GephSettingsScreen.kt, GephUi.kt
+- **github** (1): GithubTunnelScreen.kt
+- **home** (20): ActiveEngines.kt, AppIcon.kt, Appearance.kt, BoardLayoutRules.kt, BuiltInProfilesScreen.kt, DriftingLights.kt, GerehTileMenu.kt, Glass.kt, GlassDock.kt, HomeConnectionWidget.kt, HomeDestinations.kt, HomeDrag.kt, HomeFolders.kt, HomeLayoutStore.kt, HomeScreen.kt, HomeSearch.kt, ModalHost.kt, SearchMatcher.kt, TvFocus.kt, Wallpapers.kt
+- **lan** (3): LanDiagram.kt, LanGuideScreens.kt, LanScreen.kt
+- **lantern** (1): LanternUi.kt
+- **mae** (4): MaeAppIcon.kt, MaeCloudGate.kt, MaePages.kt, MaeScreen.kt
+- **mitm** (1): MitmSetupCard.kt
+- **npv** (3): NpvImportActivity.kt, NpvScreen.kt, NpvSourcesPage.kt
+- **outline** (3): OutlineParts.kt, OutlineScreen.kt, OutlineServersPage.kt
+- **proton** (1): ProtonScreen.kt
+- **root** (43): AboutScreen.kt, AddNodeModal.kt, AddNodeScreen.kt, AppScreen.kt, BaseConfigPicker.kt, BpbSettingsModal.kt, ChangelogData.kt, CloudCoach.kt, CloudScreens.kt, CloudTab.kt, CloudTroubleshootScreen.kt, CombineCoach.kt, FixedIpScreen.kt, FreeConfigTab.kt, FreeConfigWizard.kt, GameTab.kt, GerehImportActivity.kt, HelpCenterScreen.kt, NodesFocus.kt, NodesScreens.kt, NodesTab.kt, NodesWidgets.kt, OpenVpnScreen.kt, QuickConnectTab.kt, QuickServersScreen.kt, RouteChips.kt, SafeWebView.kt, ScanGuardHost.kt, ScannerTab.kt, ScreenChrome.kt, ScreenVisibility.kt, SplashScreen.kt, SubscriptionUsageCard.kt, SystemInsets.kt, VpnGateCountryScreen.kt, VpnGateInfoScreens.kt, VpnGateServersScreen.kt, VpnGateSweepStrip.kt, VpnGateTab.kt, VpnGateWidgets.kt, WireguardGuard.kt, WireguardTab.kt, deleted_code.kt
+- **sanction** (1): AntiSanctionScreen.kt
+- **scout** (2): ScoutParts.kt, ScoutScreen.kt
+- **settings** (16): CloudResourcesScreens.kt, GeminiExitRow.kt, IosAlerts.kt, IosRefresh.kt, IosSettings.kt, NetworkSettingPages.kt, SettingsIndex.kt, SettingsScreen.kt, SettingsSpotlight.kt, SmartIranPage.kt, SoftwareUpdateScreen.kt, UpdateCheckScreen.kt, UsageScreen.kt, VpnSettingsScreen.kt, WarpIdRelayRow.kt, WorkerSetupRow.kt
+- **spider** (2): SpiderConfigs.kt, SpiderScreen.kt
+- **store** (1): StoreScreen.kt
+- **sublink** (4): SubLinkDetailScreen.kt, SubLinkFormScreen.kt, SubLinkModels.kt, SubLinkScreen.kt
+- **tgproxy** (2): TgDomainPage.kt, TgProxyScreen.kt
+- **theme** (4): IosButtons.kt, Radius.kt, Theme.kt, Type.kt
+- **tunnel** (15): CountryLabel.kt, LadderHandOverCard.kt, PsiphonPages.kt, RegionPickerScreen.kt, TorBridgesScreen.kt, TorModeScreen.kt, TransportAdvancedScreen.kt, TransportHost.kt, TransportScreen.kt, Transports.kt, TunnelController.kt, TunnelExclusion.kt, TunnelExitLocator.kt, TunnelLogScreen.kt, WarpIdentityCard.kt
+- **urnetwork** (1): UrnetworkUi.kt
+- **widgetstudio** (2): StudioParts.kt, WidgetStudioScreen.kt
+- **windscribe** (1): WindscribeScreen.kt
+
+## 10. Engine module directory inventory
+
+The upstream `scanner/engines/` tree contains these 31 modules:
+
+`amnezia`, `arena`, `cfdoctor`, `cfnet`, `cloud`, `edg`, `fenix`, `flux`, `freeconfig`, `game`, `gateway`, `github`, `gozargah`, `gst`, `mae`, `mlm`, `nahan`, `netra`, `nova`, `npv`, `outline`, `proton`, `rstaspoof`, `sanction`, `scout`, `spider`, `subgenerator`, `tgproxy`, `vpngate`, `windscribe`, `wireguard`
+
+These modules are not all independent VPN transports. For example, Cloudflare Doctor/network, Game Booster, Scout, Arena and source generators are tools or orchestration subsystems. Each must be classified from implementation and dependency evidence before being exposed as a connectable engine.
+
+## 11. Public source, pool and catalog entry points
+
+The following source-owned files/directories are relevant starting points for public resource discovery and configuration management. Their contents must be reviewed individually before any endpoint or data is reused:
+
+- `scanner/data/SubscriptionManager.kt`
+- `scanner/data/SubscriptionUsage.kt`
+- `scanner/engines/amnezia/AmzSourceRepo.kt`
+- `scanner/engines/amnezia/AmzSources.kt`
+- `scanner/engines/cfdoctor/DeepSources.kt`
+- `scanner/engines/cfnet/StrategyCatalog.kt`
+- `scanner/engines/flux/FluxSourceRepo.kt`
+- `scanner/engines/flux/core/source`
+- `scanner/engines/flux/core/source/FluxSources.kt`
+- `scanner/engines/game/booster/brain/Feedback.kt`
+- `scanner/engines/game/booster/catalog`
+- `scanner/engines/game/booster/catalog/GameCatalog.kt`
+- `scanner/engines/game/booster/model/RegionCatalog.kt`
+- `scanner/engines/outline/OutlineSources.kt`
+- `scanner/engines/vpngate/VpnGatePool.kt`
+
+## 12. Native/core wrapper inventory
+
+The upstream `core/` package contains 79 Kotlin source files, including:
+
+- `core/aether/AetherCarrier.kt`
+- `core/aether/AetherEngine.kt`
+- `core/aether/AetherOptions.kt`
+- `core/aether/AetherRegister.kt`
+- `core/aether/AetherScanService.kt`
+- `core/aether/AetherStage.kt`
+- `core/aether/AetherTls.kt`
+- `core/aether/AetherTunEngine.kt`
+- `core/aether/AetherXrayExit.kt`
+- `core/geph/GephAccount.kt`
+- `core/geph/GephConfig.kt`
+- `core/geph/GephControl.kt`
+- `core/geph/GephEngine.kt`
+- `core/geph/GephExits.kt`
+- `core/geph/GephProcess.kt`
+- `core/geph/GephSettings.kt`
+- `core/lantern/LanternEngine.kt`
+- `core/lantern/LanternMae.kt`
+- `core/tunnel/BootReceiver.kt`
+- `core/tunnel/CoreConfig.kt`
+- `core/tunnel/IpFormatter.kt`
+- `core/tunnel/IranCidr.kt`
+- `core/tunnel/MasqueCarrier.kt`
+- `core/tunnel/PsiphonBench.kt`
+- `core/tunnel/PsiphonCleanIps.kt`
+- `core/tunnel/PsiphonLive.kt`
+- `core/tunnel/PsiphonMethods.kt`
+- `core/tunnel/PsiphonPairing.kt`
+- `core/tunnel/PsiphonProbes.kt`
+- `core/tunnel/PsiphonQuality.kt`
+- `core/tunnel/PsiphonRegions.kt`
+- `core/tunnel/PsiphonUpstream.kt`
+- `core/tunnel/RegionMemory.kt`
+- `core/tunnel/SecureStore.kt`
+- `core/tunnel/ShadeCollapseActivity.kt`
+- `core/tunnel/SmartIranLists.kt`
+- `core/tunnel/SmartIranRoute.kt`
+- `core/tunnel/SocksFront.kt`
+- `core/tunnel/SplitTunnelSettings.kt`
+- `core/tunnel/TorBridges.kt`
+- `core/tunnel/TorManager.kt`
+- `core/tunnel/TorRegions.kt`
+- `core/tunnel/Tun2SocksManager.kt`
+- `core/tunnel/TunnelEngine.kt`
+- `core/tunnel/TunnelPreferences.kt`
+- `core/tunnel/TunnelStatus.kt`
+- `core/tunnel/TunnelVpnService.kt`
+- `core/tunnel/WarpLadder.kt`
+- `core/tunnel/bridge/BridgeGeo.kt`
+- `core/tunnel/bridge/BridgeManager.kt`
+- `core/tunnel/bridge/BridgeSources.kt`
+- `core/tunnel/bridge/BridgeTester.kt`
+- `core/tunnel/bridge/TorBridge.kt`
+- `core/urnetwork/UrnetworkEngine.kt`
+- `core/urnetwork/UrnetworkHost.kt`
+- `core/urnetwork/UrnetworkMae.kt`
+- `core/urnetwork/UrnetworkUsage.kt`
+- `core/warp/AmneziaWgInjector.kt`
+- `core/warp/AwgHostClient.kt`
+- `core/warp/AwgHostService.kt`
+- `core/warp/AwgProbeService.kt`
+- `core/warp/CfWarpEngine.kt`
+- `core/warp/IVpnEngine.kt`
+- `core/warp/Ipv4ExitRunner.kt`
+- `core/warp/Ipv4ExitSession.kt`
+- `core/warp/Ipv4Exits.kt`
+- `core/warp/Nat64Exits.kt`
+- `core/warp/Nat64Probe.kt`
+- `core/warp/NoiseDoor.kt`
+- `core/warp/VlessXrayInjector.kt`
+- `core/warp/WarpAccountManager.kt`
+- `core/warp/WarpApiFront.kt`
+- `core/warp/WarpCrypto.kt`
+- `core/warp/WarpIdRelay.kt`
+- `core/warp/WarpLeg.kt`
+- `core/warp/WarpVia.kt`
+- `core/warp/XrayHosts.kt`
+- `core/warp/XrayMeasureService.kt`
+- `core/warp/XrayProbeService.kt`
+
+The public source README explicitly distinguishes the main app, the Gereh Rust/Android/relay subsystem and the Telegram-derived chat UI. These remain separate audit and migration units.
