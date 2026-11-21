@@ -1,0 +1,66 @@
+name: AmneziaWG upstream source audit
+
+on:
+  push:
+    branches: [ main, "feature/**" ]
+    paths:
+      - ".gitmodules"
+      - "vendor/amneziawg-android"
+      - ".github/workflows/amneziawg-source-audit.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - ".gitmodules"
+      - "vendor/amneziawg-android"
+      - ".github/workflows/amneziawg-source-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pinned-upstream:
+    name: Verify pinned AmneziaWG source and native build inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout MLE and initialize pinned submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Verify exact upstream revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .gitmodules
+          test -d vendor/amneziawg-android/.git
+          actual="$(git -C vendor/amneziawg-android rev-parse HEAD)"
+          expected="ff15093bf3856fea0947923474870b86efb682f0"
+          echo "Pinned AmneziaWG revision: $actual"
+          test "$actual" = "$expected"
+
+      - name: Verify required source, license and native build files
+        shell: bash
+        run: |
+          set -euo pipefail
+          upstream="vendor/amneziawg-android"
+          test -f "$upstream/COPYING"
+          test -f "$upstream/tunnel/build.gradle.kts"
+          test -f "$upstream/tunnel/tools/CMakeLists.txt"
+          test -f "$upstream/tunnel/tools/libwg-go/Makefile"
+          test -f "$upstream/tunnel/src/main/AndroidManifest.xml"
+          grep -q "Apache-2.0" "$upstream/tunnel/tools/CMakeLists.txt"
+          grep -q "libwg-go.so" "$upstream/tunnel/tools/CMakeLists.txt"
+          grep -q "libwg.so" "$upstream/tunnel/tools/CMakeLists.txt"
+          grep -q "libwg-quick.so" "$upstream/tunnel/tools/CMakeLists.txt"
+          grep -q "max-page-size=16384" "$upstream/tunnel/tools/CMakeLists.txt"
+          git -C "$upstream" submodule status --recursive
+
+      - name: Report toolchain prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -nE "GO_VERSION|NDK_GO_ARCH_MAP|CGO_ENABLED" vendor/amneziawg-android/tunnel/tools/libwg-go/Makefile
+          grep -nE "externalNativeBuild|cmake|targets\(" vendor/amneziawg-android/tunnel/build.gradle.kts
