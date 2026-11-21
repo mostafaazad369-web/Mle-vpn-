@@ -121,6 +121,7 @@ private fun MleApp() {
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
     var fetchingSource by remember { mutableStateOf<String?>(null) }
     var sourceStatus by remember { mutableStateOf<String?>(null) }
+    var selectedPackages by remember { mutableStateOf(context.getSharedPreferences("mle_settings", 0).getStringSet("split_tunnel_packages", emptySet()).orEmpty().toSet()) }
     val connectionStatus by MleVpnStatus.status.collectAsState()
 
     fun startSelectedProfile() {
@@ -140,7 +141,7 @@ private fun MleApp() {
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
             runCatching {
-                val json = if (connectionEngineId == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate)
+                val json = if (connectionEngineId == "xray") XrayConfigBuilder.build(candidate) else SingBoxConfigBuilder.build(candidate, selectedPackages.toList())
                 candidate to json.toString()
             }.getOrNull()
         }
@@ -187,6 +188,7 @@ private fun MleApp() {
         selectedProfileId = profiles.firstOrNull()?.id
         selectedServer = profiles.firstOrNull()?.displayName ?: "کانفیگی انتخاب نشده"
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
+        selectedPackages = context.getSharedPreferences("mle_settings", 0).getStringSet("split_tunnel_packages", emptySet()).orEmpty().toSet()
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -194,7 +196,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload, "MAE" to Icons.Default.Apps)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -291,7 +293,7 @@ private fun MleApp() {
                             .putBoolean("automatic_failover", it).apply()
                     }
                 )
-                else -> TelegramSourcesScreen(
+                4 -> TelegramSourcesScreen(
                     sources = telegramSources,
                     publicSources = PublicNodeSourceCatalog.all,
                     fetchingSource = fetchingSource,
@@ -356,6 +358,15 @@ private fun MleApp() {
                                 fetchingSource = null
                             }
                         }
+                    },
+                    padding = padding
+                )
+                else -> MlmToolsScreen(
+                    selectedPackages = selectedPackages,
+                    onSelectedPackagesChange = { packages ->
+                        selectedPackages = packages
+                        context.getSharedPreferences("mle_settings", 0).edit()
+                            .putStringSet("split_tunnel_packages", packages.toSet()).apply()
                     },
                     padding = padding
                 )
