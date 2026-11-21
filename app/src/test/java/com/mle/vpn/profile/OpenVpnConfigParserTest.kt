@@ -68,6 +68,14 @@ class OpenVpnConfigParserTest {
         assertTrue(runCatching { OpenVpnConfigParser.parse(credentials) }.isFailure)
     }
 
+
+    @Test
+    fun importsWholeBase64EncodedOvpnDocument() {
+        val encoded = android.util.Base64.encodeToString(sample.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val profile = ProfileImporter.parseBatch(encoded).profiles.single()
+        assertEquals(ProfileProtocol.OPENVPN, profile.protocol)
+    }
+
     @Test
     fun storedProfileKeepsPrivateMaterialEncoded() {
         val encoded = OpenVpnConfigParser.encodeForStorage(sample)
