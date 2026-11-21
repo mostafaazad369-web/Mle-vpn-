@@ -12,7 +12,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 ## Implemented
 - Persian RTL Compose interface and profile manager with explicit active-profile selection
 - Encrypted local profile storage using Android Keystore AES-GCM
-- Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
+- VLESS, VMess, Trojan, Shadowsocks (legacy + SIP002), Hysteria2 and TUIC share-link conversion to sing-box JSON (unsupported variants/plugins fail closed)
 - Per-profile TCP endpoint preflight diagnostics
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
@@ -24,7 +24,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
-- The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
+- The MLM-style engine catalog is present, but OpenVPN, WireGuard, WARP, MASQUE, NPV-specific formats, provider engines, Cloudflare tools and Gereh are not yet integrated as connectable backends.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
