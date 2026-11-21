@@ -104,7 +104,7 @@ object PublicSubscriptionFetcher {
     private val allowedHosts = setOf("raw.githubusercontent.com", "cdn.jsdelivr.net")
 
     private fun bounded(text: String, source: PublicNodeSource): String =
-        text.lineSequence().take(source.maxNodes).joinToString("\\n")
+        text.lineSequence().take(source.maxNodes).joinToString("\n")
 
     suspend fun fetch(context: Context, source: PublicNodeSource): PublicSourceFetchResult =
         withContext(Dispatchers.IO) {
