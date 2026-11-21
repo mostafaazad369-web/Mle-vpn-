@@ -114,7 +114,9 @@ class OpenVpnEngineAdapter(context: Context) : EngineAdapter {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            EngineResult(false, error.message ?: "شروع OpenVPN ناموفق بود.")
+            val message = error.message ?: "شروع OpenVPN ناموفق بود."
+            MleVpnStatus.failed(message)
+            EngineResult(false, message)
         }
     }
 
