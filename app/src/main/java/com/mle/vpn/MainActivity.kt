@@ -725,8 +725,9 @@ private fun SettingsScreen(
             )
         }
         Text(
-            if (selectedEngine == "xray") "Xray: VLESS، VMess، Trojan و Shadowsocks با گونه‌های تبدیل پشتیبانی‌شده."
-            else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.",
+            (if (selectedEngine == "xray") "Xray: VLESS، VMess، Trojan و Shadowsocks با گونه‌های تبدیل پشتیبانی‌شده."
+            else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.") +
+                " پروفایل‌های WireGuard، WARP و OpenVPN همیشه از endpoint موتور sing-box استفاده می‌کنند.",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp)
         )
         Row(
