@@ -5,6 +5,7 @@ import android.os.Build
 import android.util.Log
 import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.SetupOptions
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -33,7 +34,8 @@ class MleApplication : Application() {
         super.onCreate()
         check(filesDir.exists() || filesDir.mkdirs()) { "Unable to create app files directory." }
         check(cacheDir.exists() || cacheDir.mkdirs()) { "Unable to create app cache directory." }
-        scheduleSilentSourceRefresh()
+        runCatching { scheduleSilentSourceRefresh() }
+            .onFailure { Log.w(TAG, "Periodic source refresh could not be scheduled", it) }
         applicationScope.launch {
             runCatching { ensureLibboxSetup() }
                 .onFailure { Log.e(TAG, "libbox initialization failed", it) }
@@ -46,7 +48,7 @@ class MleApplication : Application() {
     private fun scheduleSilentSourceRefresh() {
         val request = PeriodicWorkRequestBuilder<com.mle.vpn.profile.SilentSourceRefreshWorker>(
             6, TimeUnit.HOURS
-        ).build()
+        ).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             SILENT_SOURCE_REFRESH_WORK,
             ExistingPeriodicWorkPolicy.KEEP,
