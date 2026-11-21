@@ -96,7 +96,7 @@ private fun MleApp() {
                                 val count = stream.read(buffer)
                                 if (count < 0) break
                                 require(output.size() + count <= 64 * 1024) {
-                                    "فایل WireGuard نباید بیشتر از ۶۴ کیلوبایت باشد."
+                                    "فایل VPN نباید بیشتر از ۶۴ کیلوبایت باشد."
                                 }
                                 output.write(buffer, 0, count)
                             }
@@ -108,7 +108,7 @@ private fun MleApp() {
                     importError = null
                     showImport = true
                 }.onFailure { error ->
-                    importError = error.message ?: "خواندن فایل WireGuard ناموفق بود."
+                    importError = error.message ?: "خواندن فایل VPN ناموفق بود."
                     showImport = true
                 }
             }
@@ -131,7 +131,7 @@ private fun MleApp() {
             return
         }
         // WARP is a WireGuard data plane and is currently available through sing-box only.
-        val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
+        val connectionEngineId = if (profile.protocol in setOf(ProfileProtocol.WARP, ProfileProtocol.WIREGUARD, ProfileProtocol.OPENVPN)) "sing-box" else selectedEngine
         val orderedProfiles = if (automaticFailover) {
             val sourceManagedIds = context.getSharedPreferences("mle_silent_sources_v1", 0)
                 .getStringSet("profile_ids", emptySet()).orEmpty()
@@ -343,16 +343,16 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP با پسوند .conf را وارد کن. پروفایل‌های WARP شناسایی و با موتور sing-box اجرا می‌شوند؛ ثبت‌نام حساب WARP خودکار انجام نمی‌شود.", color = Color.White)
+                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP (.conf) و OpenVPN (.ovpn) را وارد کن. پروفایل‌های این سه نوع با endpoint موتور sing-box اجرا می‌شوند؛ ثبت‌نام WARP خودکار انجام نمی‌شود.", color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard")) },
+                            onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard", "application/x-openvpn-profile")) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint)
                         ) {
                             Icon(Icons.Default.FolderOpen, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("انتخاب فایل WireGuard / WARP (.conf)")
+                            Text("انتخاب فایل WireGuard / WARP (.conf) یا OpenVPN (.ovpn)")
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
@@ -380,8 +380,8 @@ private fun MleApp() {
                                 val parsed = ProfileImporter.parseBatch(source)
                                 val convertible = parsed.profiles.filter { profile ->
                                     runCatching {
-                                        if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                        else SingBoxOutboundBuilder.build(profile)
+                                        if (selectedEngine == "xray" && profile.protocol !in setOf(ProfileProtocol.WIREGUARD, ProfileProtocol.WARP, ProfileProtocol.OPENVPN)) XrayConfigBuilder.build(profile)
+                                        else SingBoxConfigBuilder.build(profile, selectedPackages.toList())
                                     }.isSuccess
                                 }
                                 parsed.copy(
