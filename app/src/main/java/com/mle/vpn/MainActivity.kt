@@ -29,6 +29,8 @@ import com.mle.vpn.profile.ProfileImporter
 import com.mle.vpn.profile.ProfileParseResult
 import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
+import com.mle.vpn.profile.PublicConfigSource
+import com.mle.vpn.profile.PublicConfigSourceCatalog
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
@@ -78,6 +80,7 @@ private fun MleApp() {
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
+    var publicSources by remember { mutableStateOf(emptyList<PublicConfigSource>()) }
     var fetchingSource by remember { mutableStateOf<String?>(null) }
     var sourceStatus by remember { mutableStateOf<String?>(null) }
     val connectionStatus by MleVpnStatus.status.collectAsState()
@@ -126,6 +129,7 @@ private fun MleApp() {
         profiles = vault.loadAll()
         selectedProfileId = profiles.firstOrNull()?.id
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
+        publicSources = runCatching { PublicConfigSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -207,8 +211,33 @@ private fun MleApp() {
                 3 -> SettingsScreen(padding)
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
+                    publicSources = publicSources,
                     fetchingSource = fetchingSource,
                     status = sourceStatus,
+                    onFetchPublic = { source ->
+                        if (fetchingSource == null) {
+                            fetchingSource = source.id
+                            sourceStatus = null
+                            scope.launch {
+                                runCatching {
+                                    val payload = PublicConfigSourceCatalog.fetch(source)
+                                    val batch = ProfileImporter.parseBatch(payload)
+                                    val existing = vault.loadAll().map { it.sourceUri }.toSet()
+                                    val supported = batch.profiles.filter { profile ->
+                                        profile.sourceUri !in existing &&
+                                            runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    }
+                                    supported.forEach(vault::save)
+                                    profiles = vault.loadAll()
+                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
+                                    "${source.label}: ${supported.size} کانفیگ جدید اضافه شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود. کانفیگ‌های شخصی حفظ شدند."
+                                }.onSuccess { sourceStatus = it }
+                                    .onFailure { sourceStatus = "${source.label}: ${it.message ?: "دریافت منبع ناموفق بود."}" }
+                                fetchingSource = null
+                            }
+                        }
+                    },
                     onFetch = { channel ->
                         if (fetchingSource == null) {
                             fetchingSource = channel
@@ -442,15 +471,31 @@ private fun ServerScreen(selected: String, onSelect: (String) -> Unit, padding: 
 @Composable
 private fun TelegramSourcesScreen(
     sources: List<String>,
+    publicSources: List<PublicConfigSource>,
     fetchingSource: String?,
     status: String?,
+    onFetchPublic: (PublicConfigSource) -> Unit,
     onFetch: (String) -> Unit,
     padding: PaddingValues
 ) {
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)
     ) {
-        Text("منابع تلگرام", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("منابع عمومی کانفیگ", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("${publicSources.size} فید عمومی؛ دریافت دستی و با حفظ کانفیگ‌های شخصی", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
+        publicSources.forEach { source ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).background(Panel, RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(source.label, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("فید عمومی • HTTPS • منبع جایگزین دارد", color = Muted, fontSize = 10.sp)
+                }
+                OutlinedButton(onClick = { onFetchPublic(source) }, enabled = fetchingSource == null, colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                    if (fetchingSource == source.id) CircularProgressIndicator(Modifier.size(14.dp), color = Mint, strokeWidth = 2.dp) else Text("دریافت", fontSize = 11.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Text("منابع تلگرام", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text("${sources.size} منبع عمومی در فهرست؛ دریافت فقط با انتخاب خودت انجام می‌شود.", color = Muted, fontSize = 12.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
         Text("این نام‌ها از فهرست اولیه وارد شده‌اند و فعال یا معتبر بودن همه آن‌ها تضمین نشده است. فقط پیش‌نمایش عمومی t.me خوانده می‌شود؛ کانال خصوصی یا ورود به حساب تلگرام پشتیبانی نمی‌شود.", color = Muted, fontSize = 11.sp,
