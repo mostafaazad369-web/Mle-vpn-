@@ -53,7 +53,7 @@ object WireGuardConfigParser {
         require(text.length <= 64_000) { "فایل WireGuard بیش از حد بزرگ است." }
         val sections = mutableListOf<Pair<String, MutableMap<String, String>>>()
         var current: Pair<String, MutableMap<String, String>>? = null
-        text.lineSequence().forEachIndexed { index, raw ->
+        text.removePrefix("\uFEFF").lineSequence().forEachIndexed { index, raw ->
             val line = raw.substringBefore('#').substringBefore(';').trim()
             if (line.isEmpty()) return@forEachIndexed
             if (line.startsWith("[") && line.endsWith("]")) {
