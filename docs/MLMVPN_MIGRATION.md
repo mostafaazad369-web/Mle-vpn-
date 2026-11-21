@@ -151,3 +151,10 @@ Schema references used for this implementation: [sing-box WireGuard endpoint](ht
 
 The MLE app dependency currently pins `com.github.singbox-android:libbox:1.14.4`; the WireGuard endpoint schema used here is documented as available since sing-box 1.11.0. The old WireGuard outbound is deprecated since 1.11 and removed in 1.13, so the implementation intentionally uses `endpoints` rather than an outbound object.
 **Import UI wiring:** the existing profile dialog now recognizes a pasted wg-quick document (including leading comment lines), calls `parseWireGuardConfig`, validates it through `SingBoxConfigBuilder`, and saves the original sensitive text using the existing Android Keystore AES-GCM `ProfileVault`. The existing connect and export flows already consume `SingBoxConfigBuilder`, so the assembled endpoint JSON follows the same path as other saved profiles. This is still not evidence that libbox 1.14.4 accepts the endpoint config or that a live Android WireGuard session works; those remain CI/runtime/device gates.
+## WireGuard CI update (2026-11-21)
+
+- UI-import commit `f5093118b3c97bc58419f1e93db5ad5b23af32a2`: Android CI run `44907382833` passed unit tests and debug APK packaging; Android build run `44907382882` also passed.
+- Strict single-peer/multiple-peer parser commit `c41e8bc977f5c29f9c3a12350623006fa2bf5b9d`: Android CI run `44907461593` passed the JVM/Android unit-test job, including the WireGuard parser/endpoint/config-assembly tests.
+- The matching Android build run `44907461507` was still assembling the debug APK at the time of this update.
+
+An earlier test attempt encountered transient Robolectric/Maven artifact-fetch 404s across unrelated existing tests; later test runs above completed successfully.
