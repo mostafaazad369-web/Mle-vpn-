@@ -36,7 +36,7 @@ object EngineCatalog {
             IntegrationState.ADAPTER_IN_PROGRESS),
         EngineDescriptor("aether", "Aether", "MLM VPN / Aether",
             listOf("MASQUE", "WireGuard", "WARP-in-WARP"), "Requires native runtime and endpoint configuration."),
-        EngineDescriptor("amnezia", "AmneziaWG", "Amnezia / Apache-2.0 Android source",
+        EngineDescriptor("amneziawg", "AmneziaWG", "Amnezia / Apache-2.0 Android source",
             listOf("AmneziaWG", "Jc/Jmin/Jmax", "S1/S2", "H1-H4", "I1-I5"),
             "Official tunnel library is packaged and isolated in :awg; real-device routing and handshake tests remain.",
             IntegrationState.ADAPTER_IN_PROGRESS),
