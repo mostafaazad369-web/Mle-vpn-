@@ -220,9 +220,16 @@ class MleVpnService : VpnService() {
             .addDnsServer("1.1.1.1")
             .addDnsServer("1.0.0.1")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
-        val includePackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
-            .getStringSet("split_tunnel_packages", emptySet()).orEmpty().plus(packageName).distinct().take(128)
-        includePackages.forEach { packageName -> builder.addAllowedApplication(packageName) }
+        val selectedPackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
+            .getStringSet("split_tunnel_packages", emptySet()).orEmpty()
+            .filter { it.isNotBlank() && !it.contains(" ") && it.contains(".") }
+            .distinct().take(127)
+        // No allow-list means the normal Android VPN behavior: all apps use the tunnel.
+        // When the user selects apps, also include MLE itself so in-app connectivity
+        // verification can test the actual tunnel path.
+        if (selectedPackages.isNotEmpty()) {
+            (selectedPackages + packageName).distinct().forEach(builder::addAllowedApplication)
+        }
         builder.addAddress("fd73:6d6c:6500::1", 126)
             .addRoute("::", 0)
         return checkNotNull(builder.establish()) {
