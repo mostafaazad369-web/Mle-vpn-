@@ -61,6 +61,16 @@ object PublicNodeSourceCatalog {
             "flux-mg-trojan", "MatinGhanbari • Trojan",
             "فهرست مستقیم Trojan",
             "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/trojan.txt"
+        ),
+        source(
+            "flux-mg-vmess", "MatinGhanbari • VMess",
+            "فهرست مستقل VMess؛ فقط پروفایل‌هایی که تبدیل محلی‌شان معتبر باشد ذخیره می‌شوند",
+            "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/vmess.txt"
+        ),
+        source(
+            "flux-mg-shadowsocks", "MatinGhanbari • Shadowsocks",
+            "فهرست مستقل Shadowsocks؛ پروفایل‌های ناسازگار با موتورهای نصب‌شده رد می‌شوند",
+            "MatinGhanbari/v2ray-configs", "subscriptions/filtered/subs/ss.txt"
         )
     )
 
