@@ -17,12 +17,13 @@ data class MleConnectionStatus(
     val phase: MleConnectionPhase = MleConnectionPhase.DISCONNECTED,
     val detail: String = "اتصال برقرار نیست",
     val bytesOut: Long = 0L,
-    val bytesIn: Long = 0L
+    val bytesIn: Long = 0L,
+    val trafficStatsAvailable: Boolean = false
 )
 
 /**
  * In-process connection state shared by the VPN service and Compose UI.
- * TUNNEL_ACTIVE means the libbox service started and Android TUN was opened;
+ * TUNNEL_ACTIVE means the selected packet engine started and Android TUN was opened;
  * it does not claim that the remote server or public internet is reachable.
  */
 object MleVpnStatus {
@@ -61,7 +62,8 @@ object MleVpnStatus {
     fun updateTraffic(bytesOut: Long, bytesIn: Long) {
         mutableStatus.value = mutableStatus.value.copy(
             bytesOut = bytesOut.coerceAtLeast(0L),
-            bytesIn = bytesIn.coerceAtLeast(0L)
+            bytesIn = bytesIn.coerceAtLeast(0L),
+            trafficStatsAvailable = true
         )
     }
 
