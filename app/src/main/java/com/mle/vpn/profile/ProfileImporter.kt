@@ -92,7 +92,7 @@ object ProfileImporter {
             val unwrapped = decodeBase64Text(payload)
             if (unwrapped != null && (unwrapped.contains("://") ||
                     unwrapped.contains("[Interface]", ignoreCase = true))) {
-                unwrapped.lineSequence().map(String::trim)
+                unwrapped.lineSequence().map { it.trim() }
                     .filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
             } else listOf(line)
         }.take(501)
