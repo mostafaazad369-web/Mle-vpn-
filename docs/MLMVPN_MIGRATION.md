@@ -135,3 +135,16 @@ Further upstream inspection clarifies several similarly named catalog entries:
 - **Aether is not fully buildable from the public MLM repository alone.** `AETHER.md` says its Rust executable source lives in a separate private companion project; the public repository contains Kotlin process/service wrappers and a script for fetching release binaries, not the complete Rust source. Aether covers MASQUE / WireGuard / WARP-in-WARP, with a native `libaether.so` and `tun2proxy` TUN bridge. MLE cannot safely recreate or claim feature parity by copying only those Kotlin wrappers.
 
 **MLE implementation consequence:** do not label the NPV catalog item as an independently implemented tunnel. A first safe NPV-compatible feature is to support importing the standard profile formats already handled by MLE's own converters and keep unsupported native `.npvt` / `.npvs` files explicitly unsupported. For WireGuard, implement and test a standard profile parser plus the exact pinned sing-box endpoint/outbound schema (or select a separately licensed runtime) before enabling the tile. Aether/MASQUE/WARP-in-WARP require source/runtime availability, ABI provenance and a single-owner VPN lifecycle; they remain unavailable until those requirements are met.
+## WireGuard first implementation slice (2026-11-21)
+
+MLE now contains a strict first-pass importer for single-peer wg-quick `.conf` profiles and a sing-box WireGuard **endpoint** JSON builder:
+
+- `WireGuardConfigParser` validates Interface/Peer sections, 32-byte Base64 keys, endpoint host/port, CIDR addresses/AllowedIPs, keepalive and MTU.
+- `PostUp`/`PostDown`, unknown directives, duplicate keys, malformed numeric fields and unsupported multi-peer profiles fail closed. This intentionally avoids silently discarding hooks or peer behavior.
+- `ProfileImporter.parseWireGuardConfig` creates a sensitive `ImportedProfile`; its source text includes the private key and must only be stored in the encrypted profile vault.
+- `WireGuardEndpointBuilder` emits the modern sing-box `endpoints[].type=wireguard` schema (sing-box 1.11+), rather than the deprecated WireGuard outbound removed in sing-box 1.13.
+- Robolectric tests cover parsing, endpoint conversion, invalid keys/ports and fail-closed hook handling.
+
+**Not yet a usable VPN connection:** this parser/builder slice is not yet wired into the profile-import UI, encrypted-vault UX, sing-box runtime lifecycle or end-to-end Android VPN service. DNS, multiple peers, and wg-quick hook semantics are deliberately unsupported in this first slice. Do not mark WireGuard as connectable until config assembly, runtime validation against the exact bundled sing-box build, and real-device tunnel/kill-switch tests pass.
+
+Schema references used for this implementation: sing-box WireGuard endpoint and endpoint migration documentation (endpoint introduced in 1.11; legacy outbound deprecated in 1.11 and removed in 1.13).
