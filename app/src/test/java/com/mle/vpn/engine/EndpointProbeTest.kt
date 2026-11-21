@@ -4,7 +4,6 @@ import com.mle.vpn.profile.ImportedProfile
 import com.mle.vpn.profile.ProfileProtocol
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,7 +50,7 @@ class EndpointProbeTest {
     }
 
     @Test
-    fun reportsUnreachablePublicEndpointWhenTcpPortIsClosed() = runBlocking {
+    fun rejectsDocumentationAddressWithoutAttemptingTcp() = runBlocking {
         // TEST-NET addresses are intentionally rejected before a network attempt.
         val result = EndpointProbe.check(profile("203.0.113.10", 443))
         assertFalse(result.reachable)
