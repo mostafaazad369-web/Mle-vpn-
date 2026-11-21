@@ -17,7 +17,7 @@ data class AmneziaWgProfileConfig(
  */
 object AmneziaWgConfigParser {
     private val endpointLine = Regex(
-        """(?im)^\s*Endpoint\s*=\s*(\\[[^]]+]|[^\s:]+):(\\d+)\s*$"""
+        """(?im)^\s*Endpoint\s*=\s*(\[[^]]+]|[^\s:]+):(\d+)\s*$"""
     )
 
     fun parse(raw: String): AmneziaWgProfileConfig {
