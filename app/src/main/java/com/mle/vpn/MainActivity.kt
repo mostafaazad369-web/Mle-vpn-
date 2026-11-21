@@ -83,6 +83,28 @@ private fun MleApp() {
     var vpnPermissionGranted by remember { mutableStateOf(false) }
     var vpnPermissionMessage by remember { mutableStateOf("اجازه VPN هنوز بررسی نشده است.") }
     val scope = rememberCoroutineScope()
+    val wireGuardFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { stream ->
+                            val bytes = stream.readNBytes(64 * 1024 + 1)
+                            require(bytes.size <= 64 * 1024) { "فایل WireGuard نباید بیشتر از ۶۴ کیلوبایت باشد." }
+                            bytes.toString(Charsets.UTF_8)
+                        } ?: error("خواندن فایل انجام نشد.")
+                    }
+                }.onSuccess { text ->
+                    importText = text
+                    importError = null
+                    showImport = true
+                }.onFailure { error ->
+                    importError = error.message ?: "خواندن فایل WireGuard ناموفق بود."
+                    showImport = true
+                }
+            }
+        }
+    }
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
@@ -355,7 +377,17 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. VLESS، VMess، Trojan، Shadowsocks، Hysteria2، TUIC، AnyTLS، SOCKS و HTTP با گونه‌های پشتیبانی‌شده قابل ذخیره‌اند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک HTTPS اشتراک، چند لینک، متن Base64 یا فایل WireGuard را وارد کن. WireGuard با فایل استاندارد .conf و موتور sing-box پشتیبانی می‌شود؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Mint)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("انتخاب فایل WireGuard (.conf)")
+                        }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
