@@ -32,6 +32,9 @@ class MleApplication : Application() {
         applicationScope.launch {
             runCatching { ensureLibboxSetup() }
                 .onFailure { Log.e(TAG, "libbox initialization failed", it) }
+            // Discover and cache compatible fallback profiles without exposing source names or URLs.
+            runCatching { com.mle.vpn.profile.SilentSourceSync.refresh(this@MleApplication) }
+                .onFailure { Log.w(TAG, "Background profile refresh was unavailable") }
         }
     }
 
