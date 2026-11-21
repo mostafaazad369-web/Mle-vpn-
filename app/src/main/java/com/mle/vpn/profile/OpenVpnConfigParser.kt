@@ -187,6 +187,12 @@ object OpenVpnConfigParser {
         val tlsAuth = blocks["tls-auth"]
         val tlsCrypt = blocks["tls-crypt"]
         require(tlsAuth == null || tlsCrypt == null) { "tls-auth و tls-crypt هم‌زمان قابل استفاده نیستند." }
+        (tlsAuth ?: tlsCrypt)?.let { controlKey ->
+            require(controlKey.contains("BEGIN OpenVPN Static key V1") &&
+                controlKey.contains("END OpenVPN Static key V1")) {
+                "کلید tls-auth/tls-crypt قالب OpenVPN Static Key V1 معتبر ندارد."
+            }
+        }
         val keyDirection = scalar("key-direction")?.let {
             when (it) { "0" -> "server"; "1" -> "client"; else -> error("key-direction باید 0 یا 1 باشد.") }
         }
