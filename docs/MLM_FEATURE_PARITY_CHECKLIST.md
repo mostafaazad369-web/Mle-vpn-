@@ -22,7 +22,7 @@ This register separates connection engines, protocol support, account/provider i
 | Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
 | WARP-in-WARP | [ ] | Nested route orchestration, MTU and loop validation |
 | Aether / MASQUE | [ ] | Permitted MASQUE/WireGuard runtime and ABI review |
-| AmneziaWG | [~] | Official Apache-2.0 Android source pinned as submodule; native Go/CMake build, one-TUN lifecycle, parser/runtime adapter and ABI/device tests remain |
+| AmneziaWG | [~] | Official Apache-2.0 tunnel module linked; isolated :awg process, native adapter and official config parser integrated; ABI packaging and physical-device handshake/routing/leak tests remain |
 | WireGuard | [~] | Standard .conf import and sing-box endpoint config implemented; physical-device routing, DNS and leak validation remain |
 | Hysteria 2 | [~] | sing-box share-link mapping; expand fixtures and UDP device tests |
 | TUIC | [~] | sing-box share-link mapping; expand fixtures and UDP tests |
@@ -50,10 +50,10 @@ This register separates connection engines, protocol support, account/provider i
 - [~] Public feeds now mirror MLM's own FLUX, Quick Connect and Amnezia catalogs: FLUX VLESS/Trojan/Hysteria2, Quick Connect Global plus Verified/Fast/Secure/All, and Amnezia Hysteria2 collectors. MLM's private shared Quick Connect Worker pool remains unavailable without its deployed endpoint and per-install credentials. Feeds hydrate silently in the background. Nested Base64 subscription documents and per-line Base64 payloads are decoded before parsing. Raw/jsDelivr mirror fallback, bounded downloads, ETag/HTTP 304 revalidation and last-good offline cache are used. Profiles are imported only when a local engine builder accepts them; every route still requires real HTTPS verification through TUN. Source names and URLs are not shown in the app.
 - [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests.
 - [x] Cloudflare WARP peer-key recognition for imported registered WARP `.conf` files; WARP profiles automatically select sing-box for the data plane. Automatic account registration/provisioning is not implemented.
-- [x] Explicit AmneziaWG obfuscation-field detection and fail-closed rejection; no silent downgrade to standard WireGuard.
-- [~] Pin official AmneziaWG Android source at upstream commit `ff15093bf3856fea0947923474870b86efb682f0` as `vendor/amneziawg-android`; integration and runtime remain incomplete. See [docs/AMNEZIAWG_ENGINE_INTEGRATION.md](AMNEZIAWG_ENGINE_INTEGRATION.md).
-- [~] Add isolated CI build of the pinned upstream `:tunnel:assembleDebug` AAR; verify successful build and packaged ABIs. The artifact is not linked to MLE APK yet.
-- [ ] Integrate the built tunnel runtime with a single-VpnService lifecycle and add AWG config parser/serializer.
+- [x] AmneziaWG `.conf` import via the pinned official parser; preserves Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5 and never downgrades to ordinary WireGuard.
+- [~] Pin and link the official AmneziaWG Android `:tunnel` module at upstream commit `ff15093bf3856fea0947923474870b86efb682f0`; use AGP 8.13 / Gradle 8.13 / SDK 36 / NDK 26.1.10909125 / CMake 3.22.1.
+- [~] Run AmneziaWG's Go backend and official `GoBackend.VpnService` in the isolated `:awg` process, controlled by a Messenger host and the common MLE engine manager.
+- [x] Add official-parser validation, encrypted-vault storage and profile-to-engine routing for AmneziaWG `.conf`; physical-device handshake, route, DNS/IPv6 leak and lifecycle verification remain.
 - [~] Basic MAE service registry display and per-app allow-list routing implemented; adaptive routing remains outstanding.
 - [~] Strict OpenVPN `.ovpn` import with inline CA, optional paired client certificate/key, tls-auth/tls-crypt and sing-box endpoint config; external credentials/scripts/compression/static-key mode rejected. CI and device handshake validation pending.
 - [ ] Outline access-key variants.
@@ -98,4 +98,4 @@ This register separates connection engines, protocol support, account/provider i
 
 ## CI baseline
 
-Historical GitHub Actions run 44769690782 completed the debug APK build and JVM/Android unit-test jobs for an earlier feature-branch revision. The current silent-source/failover head (`ef29552637a0f0af2104172309796565d7205563`) has no associated PR workflow run or commit status yet; do not treat the historical run as validation of this revision. CI success is not a physical-device connectivity or leak-test result.
+Historical GitHub Actions run 44769690782 completed the debug APK build and JVM/Android unit-test jobs for an earlier feature-branch revision. The current AmneziaWG integration revision requires a fresh passing native build and JVM/Android test run; CI success is not a physical-device connectivity or leak-test result. CI success is not a physical-device connectivity or leak-test result.
