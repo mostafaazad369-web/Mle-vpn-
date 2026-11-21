@@ -158,3 +158,15 @@ The MLE app dependency currently pins `com.github.singbox-android:libbox:1.14.4`
 - The matching Android build run `44907461507` completed successfully, including debug APK assembly and artifact upload.
 
 An earlier test attempt encountered transient Robolectric/Maven artifact-fetch 404s across unrelated existing tests; later test runs above completed successfully.
+
+## Cloudflare Doctor diagnostic (2026-11-21)
+
+MLE now includes a small, independent Cloudflare trace diagnostic at `engine/cloudflare/CloudflareDoctor.kt` and an interactive card in the engine catalog screen.
+
+- Uses HTTPS GET to Cloudflare's public `/cdn-cgi/trace` endpoint with bounded connect/read timeouts and a 32-KiB response limit.
+- Displays the trace's observed public IP, Cloudflare colo, WARP flag and gateway flag only when returned by the endpoint.
+- Does not register a WARP account, create a tunnel, alter routing, or store/log the returned IP.
+- The catalog marks this entry as `DIAGNOSTIC_ONLY`, explicitly distinct from a VPN transport.
+- Parser unit tests cover expected fields, optional fields and malformed/error responses.
+
+This is a useful diagnostic foundation, not a port of MLM's full Cloudflare Doctor suite. The broader scanner, account-owned Cloudflare integrations and WARP data plane still require separate migration and review.
