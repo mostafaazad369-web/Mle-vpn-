@@ -22,6 +22,7 @@ class SingBoxConfigBuilderTest {
         )
         val config = SingBoxConfigBuilder.build(profile)
         assertEquals("tun", config.getJSONArray("inbounds").getJSONObject(0).getString("type"))
+        assertTrue("empty split-tunnel selection must route all apps", !config.getJSONArray("inbounds").getJSONObject(0).has("include_package"))
         assertEquals("hijack", config.getJSONArray("inbounds").getJSONObject(0).getString("dns_mode"))
         val dnsServers = config.getJSONObject("dns").getJSONArray("servers")
         assertEquals("local", dnsServers.getJSONObject(0).getString("type"))
