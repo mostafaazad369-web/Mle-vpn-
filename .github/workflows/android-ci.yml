@@ -31,10 +31,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install AmneziaWG native build toolchain
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Upload debug APK
@@ -66,7 +69,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
       - name: Install AmneziaWG native build toolchain
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
       - name: Run unit tests with diagnostic output
         run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
       - name: Upload test reports even on failure
