@@ -118,3 +118,9 @@ These are source/build definitions only. The Windows/NDK build has not yet been 
 ## TUN descriptor and IPv6 leak-safety follow-up
 
 The OpenVPN TUN builder now explicitly uses `setBlocking(false)`, matching the upstream core's nonblocking descriptor contract. Before establishing the TUN, `MleOpenVpnServiceCallbacks` also adds an IPv6 default route (`::/0`) even when the profile did not negotiate IPv6. This intentionally fails closed: unsupported IPv6 traffic is dropped into the tunnel rather than escaping through the physical underlay. Duplicate route insertion is deduplicated by the validated builder. These Android service changes still require device-level tests, including IPv4-only profiles on networks with native IPv6.
+
+## Automated Windows/NDK native-build gate
+
+A dedicated GitHub Actions workflow (`.github/workflows/openvpn-native.yml`) now provisions Android NDK r27d on Windows and builds both supported ABIs independently. It verifies pinned source archives, compiles the JNI bridge and OpenVPN core, strips the library, checks the exported JNI symbol and audits ELF 16-KiB load-segment alignment; successful artifacts are retained for inspection rather than automatically committed or packaged.
+
+The first workflow attempt exposed a source-fetcher edge case: the Mbed TLS ZIP contains an empty `framework/` directory for its omitted submodule, so the separate pinned framework archive was blocked as an existing unmarked destination. The fetcher now removes only a demonstrably empty destination directory and still refuses to overwrite any non-empty unverified path. The native build is being retried. The CMake target also explicitly enables `USE_TUN_BUILDER` and `OPENVPN_PLATFORM_ANDROID`; without the former, OpenVPN 3 would not attach the Android dynamic TUN callbacks to the client session.
