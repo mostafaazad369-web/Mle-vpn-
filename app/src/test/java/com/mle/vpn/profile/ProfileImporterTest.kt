@@ -1,5 +1,6 @@
 package com.mle.vpn.profile
 
+import com.mle.vpn.engine.XrayConfigBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
