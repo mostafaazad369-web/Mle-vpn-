@@ -76,6 +76,10 @@ object WireGuardConfigParser {
         require(interfaces.size == 1) { "فایل باید دقیقاً یک بخش [Interface] داشته باشد." }
         require(peerSections.isNotEmpty() && peerSections.size <= 16) { "حداقل یک Peer و حداکثر ۱۶ Peer لازم است." }
         val iface = interfaces.single().second
+        val amneziaOptions = setOf("jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5")
+        require(iface.keys.none { it in amneziaOptions }) {
+            "این فایل AmneziaWG است. برای جلوگیری از حذف تنظیمات مبهم‌سازی، تا زمان نصب موتور اختصاصی AmneziaWG وارد نمی‌شود."
+        }
         val allowedInterfaceKeys = setOf("privatekey", "address", "dns", "mtu")
         require(iface.keys.all { it in allowedInterfaceKeys }) {
             "فایل شامل گزینه‌های Interface ناشناخته یا اجراهای اسکریپتی است؛ برای امنیت فقط PrivateKey، Address، DNS و MTU پذیرفته می‌شوند."
