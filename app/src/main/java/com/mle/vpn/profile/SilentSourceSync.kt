@@ -39,7 +39,7 @@ object SilentSourceSync {
                 val fetched = PublicSubscriptionFetcher.fetch(appContext, source)
                 // Cached last-good data remains usable for imports, but it must not
                 // masquerade as a successful online refresh or reset retry backoff.
-                if (!fetched.fromCache) successfulFetches++
+                if (fetched.networkValidated) successfulFetches++
                 ProfileImporter.parseBatch(fetched.text).profiles.filter { profile ->
                     profile.sourceUri !in knownUris && (
                         runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess ||
