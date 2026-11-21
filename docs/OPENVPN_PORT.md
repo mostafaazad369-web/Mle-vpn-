@@ -2,6 +2,8 @@
 
 **Status: dependency provenance imported; engine is not yet executable.**
 
+Latest WireGuard integration and UI validation on the same branch also completed Android CI and debug APK assembly successfully: Android CI run `44907644370` and Android build run `44907644378` (commit `fcbaca36eac983e84a43c2402a1f2c2a5bf53d13`).
+
 This directory records the reviewed upstream OpenVPN 3 dependency lock. The original MLM VPN source is https://github.com/mlmvpn/mlmvpn_android and the MLE integration branch is `integration/mlmvpn-foundation`.
 
 ## Pinned dependency set
