@@ -103,24 +103,7 @@ class MleVpnService : VpnService() {
                             // network as its underlay before probing app traffic.
                             configureUnderlyingNetwork()
                             MleVpnStatus.tunnelActive()
-                            trafficProbeJob?.cancel()
-                            trafficProbeJob = serviceScope.launch {
-                                while (isActive && !stopping.get()) {
-                                    val failure = verifyInternetThroughVpn()
-                                    if (failure == null) {
-                                        MleVpnStatus.internetVerified()
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
-                                        )
-                                    } else {
-                                        MleVpnStatus.trafficUnavailable(failure)
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
-                                        )
-                                    }
-                                    delay(15_000)
-                                }
-                            }
+                            startConnectivityMonitor()
                         }
                         .onFailure { error ->
                             android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
@@ -180,12 +163,14 @@ class MleVpnService : VpnService() {
                     getSystemService(NotificationManager::class.java).notify(
                         NOTIFICATION_ID, buildNotification("تونل OpenVPN متصل شد")
                     )
+                    startConnectivityMonitor()
                 }
             },
             onFailure = { message ->
                 android.util.Log.e("MLE-VPN", message)
                 MleVpnStatus.failed(message)
                 stopping.set(true)
+                trafficProbeJob?.cancel()
             },
             onFinished = {
                 openVpnRuntime = null
@@ -384,9 +369,31 @@ class MleVpnService : VpnService() {
     /**
      * Performs a real HTTPS request from this app process while the VPN is active.
      * Because the app is included in the Android VPN, this checks the actual
-     * TUN -> sing-box outbound -> remote server -> internet path, not just TUN setup.
+     * TUN -> active engine -> remote server -> internet path, not just TUN setup.
+     * This is an HTTPS reachability check, not a complete leak or exit-IP audit.
      * Returns null on success or a diagnostic message on failure.
      */
+    private fun startConnectivityMonitor() {
+        trafficProbeJob?.cancel()
+        trafficProbeJob = serviceScope.launch {
+            while (isActive && !stopping.get()) {
+                val failure = verifyInternetThroughVpn()
+                if (failure == null) {
+                    MleVpnStatus.internetVerified()
+                    getSystemService(NotificationManager::class.java).notify(
+                        NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
+                    )
+                } else {
+                    MleVpnStatus.trafficUnavailable(failure)
+                    getSystemService(NotificationManager::class.java).notify(
+                        NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
+                    )
+                }
+                delay(15_000)
+            }
+        }
+    }
+
     private fun verifyInternetThroughVpn(): String? {
         val endpoints = listOf(
             "https://cp.cloudflare.com/generate_204",
