@@ -1,0 +1,120 @@
+name: OpenVPN native Android build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app/src/main/cpp/openvpn/**'
+      - 'scripts/build-openvpn.ps1'
+      - 'scripts/fetch-openvpn-sources.ps1'
+      - 'third_party/openvpn3/**'
+      - '.github/workflows/openvpn-native.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-openvpn:
+    name: Build OpenVPN 3 (${{ matrix.abi }})
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, armeabi-v7a ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Android SDK and NDK r27d
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;27.3.13750724'
+
+      - name: Verify toolchain
+        shell: pwsh
+        run: |
+          if (!(Test-Path "$env:ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake")) {
+            throw "Android NDK toolchain was not installed."
+          }
+          cmake --version
+          ninja --version
+
+      - name: Fetch and verify pinned OpenVPN sources
+        shell: pwsh
+        run: ./scripts/fetch-openvpn-sources.ps1
+
+      - name: Build and audit native library
+        shell: pwsh
+        run: |
+          $ndk = $env:ANDROID_NDK_HOME
+          if (!$ndk) { $ndk = Join-Path $env:ANDROID_HOME "ndk/27.3.13750724" }
+          ./scripts/build-openvpn.ps1 -Ndk $ndk -Cmake "cmake" -Generator "Ninja" -Abis @("${{ matrix.abi }}") -SkipFetch
+
+      - name: Upload native library
+        uses: actions/upload-artifact@v4
+        with:
+          name: mleopenvpn-${{ matrix.abi }}
+          path: app/src/main/jniLibs/${{ matrix.abi }}/libmleopenvpn.so
+          if-no-files-found: error
+          retention-days: 14
+
+  package-debug:
+    name: Package debug APK with OpenVPN
+    needs: build-openvpn
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the exact native-build revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Download both ABI libraries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mleopenvpn-*
+          path: native-artifacts
+          merge-multiple: false
+
+      - name: Verify and stage native libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a; do
+            source="native-artifacts/mleopenvpn-${abi}/libmleopenvpn.so"
+            test -s "$source"
+            mkdir -p "app/src/main/jniLibs/$abi"
+            install -m 0644 "$source" "app/src/main/jniLibs/$abi/libmleopenvpn.so"
+          done
+
+      - name: Assemble APK with both OpenVPN ABIs
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify both native libraries are packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          unzip -l "$apk" | grep -q 'lib/arm64-v8a/libmleopenvpn.so'
+          unzip -l "$apk" | grep -q 'lib/armeabi-v7a/libmleopenvpn.so'
+
+      - name: Upload OpenVPN-enabled debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mle-vpn-openvpn-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -24,6 +24,28 @@ class ProfileImporterTest {
         assertEquals("edge.example", outbound.getJSONObject("tls").getString("server_name"))
     }
 
+
+    @Test
+    fun importsValidatedOpenVpnProfilesWithoutPassingThemToSingBox() {
+        val fingerprint = "SHA256:" + List(32) { "A0" }.joinToString(":")
+        val ovpn = """
+            client
+            dev tun
+            proto udp
+            remote vpn.example.net 443 udp
+            remote-cert-tls server
+            peer-fingerprint $fingerprint
+            auth-user-pass
+        """.trimIndent()
+        val result = ProfileImporter.parseOpenVpnConfig(ovpn)
+        assertTrue(result is ProfileParseResult.Success)
+        val profile = (result as ProfileParseResult.Success).profile
+        assertEquals(ProfileProtocol.OPENVPN, profile.protocol)
+        assertEquals("vpn.example.net", profile.host)
+        assertEquals(443, profile.port)
+        assertTrue(OpenVpnProfilePreflight.inspect(profile.sourceUri).requiresCredentials)
+    }
+
     @Test
     fun rejectsUnsupportedTransportInsteadOfSilentlyDroppingIt() {
         val result = ProfileImporter.parse(

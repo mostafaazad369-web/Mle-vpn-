@@ -14,6 +14,8 @@ import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
 import com.mle.vpn.MainActivity
 import com.mle.vpn.R
+import com.mle.vpn.engine.openvpn.OpenVpnTunConfig
+import com.mle.vpn.engine.openvpn.MleOpenVpnRuntime
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,10 +40,14 @@ import kotlinx.coroutines.isActive
  */
 class MleVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
+    // OpenVPN keeps the service-owned descriptor while native core receives a detached duplicate.
+    private var openVpnTun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
+    @Volatile private var engineLease: MleVpnEngineArbiter.Lease? = null
+    @Volatile private var openVpnRuntime: MleOpenVpnRuntime? = null
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
@@ -57,18 +63,31 @@ class MleVpnService : VpnService() {
                 trafficProbeJob?.cancel()
                 serviceScope.launch {
                     if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                    val openVpn = openVpnRuntime
+                    if (openVpn != null) {
+                        openVpn.stop()
+                        return@launch
+                    }
                     stopTunnelResources()
+                    releaseEngineLease()
                     MleVpnStatus.disconnected()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
             }
+            ACTION_START_OPENVPN -> startOpenVpn(intent, startId)
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
                 if (config.isNullOrBlank()) {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val lease = runCatching { MleVpnEngineArbiter.acquire(MleVpnEngine.SING_BOX) }.getOrElse { error ->
+                    MleVpnStatus.failed(error.message ?: "موتور دیگری در حال استفاده از تونل VPN است")
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                engineLease = lease
                 stopping.set(false)
                 trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
@@ -108,6 +127,7 @@ class MleVpnService : VpnService() {
                             MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
                             runCatching { boxRuntime.stop() }
                             stopTunnelResources()
+                            releaseEngineLease()
                             stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
@@ -116,6 +136,78 @@ class MleVpnService : VpnService() {
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Starts OpenVPN 3 through the shared Android VpnService and engine arbiter.
+     * Credentials are consumed from the start Intent and are never persisted here.
+     */
+    private fun startOpenVpn(intent: Intent, startId: Int) {
+        if (openVpnRuntime != null) {
+            MleVpnStatus.failed("موتور OpenVPN از قبل در حال اجرا یا توقف است")
+            stopSelf(startId)
+            return
+        }
+        val profile = intent.getStringExtra(EXTRA_OPENVPN_PROFILE)
+        val username = intent.getStringExtra(EXTRA_OPENVPN_USERNAME).orEmpty()
+        val password = intent.getStringExtra(EXTRA_OPENVPN_PASSWORD).orEmpty()
+        if (profile.isNullOrBlank()) {
+            MleVpnStatus.failed("پروفایل OpenVPN خالی است")
+            stopSelf(startId)
+            return
+        }
+        if (!com.mle.vpn.engine.openvpn.MleOpenVpnNative.available()) {
+            MleVpnStatus.failed("کتابخانه OpenVPN برای این معماری در APK موجود نیست")
+            stopSelf(startId)
+            return
+        }
+        val lease = runCatching { MleVpnEngineArbiter.acquire(MleVpnEngine.OPENVPN) }.getOrElse { error ->
+            MleVpnStatus.failed(error.message ?: "موتور دیگری مالک تونل VPN است")
+            stopSelf(startId)
+            return
+        }
+        engineLease = lease
+        stopping.set(false)
+        trafficProbeJob?.cancel()
+        configureUnderlyingNetwork()
+        MleVpnStatus.starting()
+        startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی OpenVPN 3"))
+        val runtime = MleOpenVpnRuntime(
+            service = this,
+            onConnected = {
+                if (!stopping.get()) {
+                    MleVpnStatus.tunnelActive()
+                    getSystemService(NotificationManager::class.java).notify(
+                        NOTIFICATION_ID, buildNotification("تونل OpenVPN متصل شد")
+                    )
+                }
+            },
+            onFailure = { message ->
+                android.util.Log.e("MLE-VPN", message)
+                MleVpnStatus.failed(message)
+                stopping.set(true)
+            },
+            onFinished = {
+                openVpnRuntime = null
+                stopTunnelResources()
+                releaseEngineLease()
+                if (MleVpnStatus.status.value.phase != MleConnectionPhase.ERROR) {
+                    if (stopping.get()) MleVpnStatus.disconnected()
+                    else MleVpnStatus.failed("اتصال OpenVPN پایان یافت")
+                }
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        )
+        openVpnRuntime = runtime
+        if (!runtime.start(profile, username, password)) {
+            openVpnRuntime = null
+            stopTunnelResources()
+            releaseEngineLease()
+            MleVpnStatus.failed("موتور OpenVPN نتوانست اجرا شود")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+        }
     }
 
     /**
@@ -175,6 +267,43 @@ class MleVpnService : VpnService() {
         return descriptor.detachFd().also { tun = null }
     }
 
+    /**
+     * Establishes an OpenVPN TUN from server-pushed settings. The service retains
+     * the original descriptor; native code receives a detached duplicate and owns
+     * that duplicate until the core has stopped.
+     *
+     * This is a service primitive only. No OpenVPN start action is wired until the
+     * native core, arbiter lease and callback lifecycle are implemented together.
+     */
+    @Synchronized
+    internal fun establishOpenVpnTun(config: OpenVpnTunConfig): Int {
+        check(!stopping.get()) { "VPN service is stopping." }
+        check(tun == null && openVpnTun == null) { "A VPN TUN interface is already active." }
+        val builder = Builder()
+            .setSession("MLE VPN · OpenVPN")
+            .setBlocking(false)
+            .setMtu(config.mtu)
+        config.addresses.forEach { builder.addAddress(it.address, it.prefixLength) }
+        config.routes.forEach { builder.addRoute(it.address, it.prefixLength) }
+        config.dnsServers.forEach(builder::addDnsServer)
+        config.searchDomains.forEach(builder::addSearchDomain)
+
+        val retained = checkNotNull(builder.establish()) {
+            "Android did not grant an OpenVPN TUN interface."
+        }
+        var nativeDuplicate: ParcelFileDescriptor? = null
+        try {
+            val duplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
+            nativeDuplicate = duplicate
+            openVpnTun = retained
+            return duplicate.detachFd()
+        } catch (error: Exception) {
+            runCatching { nativeDuplicate?.close() }
+            runCatching { retained.close() }
+            throw error
+        }
+    }
+
     @Synchronized
     internal fun holdTunDescriptor(descriptor: ParcelFileDescriptor) {
         check(!stopping.get()) { "VPN service is stopping." }
@@ -187,7 +316,13 @@ class MleVpnService : VpnService() {
         trafficProbeJob?.cancel()
         serviceScope.launch {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+            val openVpn = openVpnRuntime
+            if (openVpn != null) {
+                openVpn.stop()
+                return@launch
+            }
             stopTunnelResources()
+            releaseEngineLease()
             MleVpnStatus.disconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -200,6 +335,8 @@ class MleVpnService : VpnService() {
     fun closeTun() {
         runCatching { tun?.close() }
         tun = null
+        runCatching { openVpnTun?.close() }
+        openVpnTun = null
     }
 
     override fun onRevoke() {
@@ -212,11 +349,27 @@ class MleVpnService : VpnService() {
         trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-            stopTunnelResources()
-            MleVpnStatus.disconnected()
+            val openVpn = openVpnRuntime
+            val stopped = openVpn?.stopAndAwait() ?: true
+            if (stopped) {
+                openVpnRuntime = null
+                stopTunnelResources()
+                releaseEngineLease()
+                MleVpnStatus.disconnected()
+            } else {
+                // Do not close a descriptor that the native worker may still be
+                // using. Its onFinished callback owns final cleanup after run().
+                android.util.Log.w("MLE-VPN", "OpenVPN worker did not stop before service teardown timeout; deferring TUN cleanup.")
+            }
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
+    }
+
+    @Synchronized
+    private fun releaseEngineLease() {
+        MleVpnEngineArbiter.release(engineLease)
+        engineLease = null
     }
 
     @Synchronized
@@ -224,6 +377,8 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         runCatching { tun?.close() }
         tun = null
+        runCatching { openVpnTun?.close() }
+        openVpnTun = null
     }
 
     /**
@@ -290,6 +445,10 @@ class MleVpnService : VpnService() {
     companion object {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
+        const val ACTION_START_OPENVPN = "com.mle.vpn.action.START_OPENVPN"
+        const val EXTRA_OPENVPN_PROFILE = "com.mle.vpn.extra.OPENVPN_PROFILE"
+        const val EXTRA_OPENVPN_USERNAME = "com.mle.vpn.extra.OPENVPN_USERNAME"
+        const val EXTRA_OPENVPN_PASSWORD = "com.mle.vpn.extra.OPENVPN_PASSWORD"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
