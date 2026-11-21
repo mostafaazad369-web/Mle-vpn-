@@ -28,6 +28,7 @@ class OpenVpnProfilePreflightTest {
         assertTrue(summary.usesPeerFingerprint)
         assertFalse(summary.hasCa)
         assertFalse(summary.hasInlineCredentials)
+        assertTrue(summary.requiresCredentials)
     }
 
     @Test
@@ -38,6 +39,7 @@ class OpenVpnProfilePreflightTest {
         )
         val summary = OpenVpnProfilePreflight.inspect(profile)
         assertTrue(summary.hasInlineCredentials)
+        assertFalse(summary.requiresCredentials)
         assertFalse(summary.toString().contains("super-secret"))
     }
 
