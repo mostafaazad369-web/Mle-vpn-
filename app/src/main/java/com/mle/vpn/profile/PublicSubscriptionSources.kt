@@ -80,7 +80,7 @@ object PublicNodeSourceCatalog {
             "0xRadikal/Free-v2ray-Configs", "all/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500)
     )
 
-    /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
+    /** Public MLM Amnezia collectors. AWG-obfuscated links fail closed; standard WireGuard/WARP profiles are imported through sing-box. */
     private val amneziaSources = listOf(
         source("amz-morpheus-hy2", "Morpheus • Hysteria 2", "کانفیگ‌های گردآوری‌شده Hysteria 2",
             "morpheusadam/v2ray-config", "subs/bundles/hysteria2.txt"),
@@ -101,7 +101,21 @@ object PublicNodeSourceCatalog {
         source("amz-vpnclash-hy2", "VpnClashFaCollector • Hysteria 2", "فهرست گردآوری‌شده و بررسی‌شده",
             "10ium/VpnClashFaCollector", "sub/all/hysteria2.txt"),
         source("amz-submod-hy2", "sub-mod • Hysteria 2", "فهرست تجمیعی عمومی",
-            "10Dream/sub-mod", "sub/split/protocols/hy2.txt")
+            "10Dream/sub-mod", "sub/split/protocols/hy2.txt"),
+        source("amz-morpheus-wg", "Morpheus • WireGuard", "لینک‌های عمومی WireGuard؛ لینک‌های دارای پارامتر AWG رد می‌شوند",
+            "morpheusadam/v2ray-config", "subs/bundles/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-vcc-wg", "VpnConfigCollector • WireGuard", "فهرست عمومی WireGuard",
+            "Argh73/VpnConfigCollector", "Splitted-By-Protocol/WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-argh94-wg", "Argh94 • WireGuard", "فهرست عمومی WireGuard",
+            "Argh94/Proxy-List", "WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-argh94-auto-wg", "Argh94 Auto • WireGuard", "فهرست عمومی WireGuard",
+            "Argh94/V2RayAutoConfig", "configs/WireGuard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-vcf-wg", "VpnClashFaCollector • WireGuard", "فهرست عمومی WireGuard",
+            "10ium/VpnClashFaCollector", "sub/all/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-submod-wg", "sub-mod • WireGuard", "فهرست تجمیعی WireGuard",
+            "10Dream/sub-mod", "sub/split/protocols/wireguard.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("amz-warp-links", "Delta-Kronecker • WARP", "لینک‌های عمومی WARP؛ فقط پروفایل ثبت‌شده و قابل تبدیل پذیرفته می‌شود",
+            "Delta-Kronecker/WARP-Config", "ALL.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500)
     )
 
     val all: List<PublicNodeSource> = (fluxSources + quickConnectSources + amneziaSources).distinctBy { it.id }
