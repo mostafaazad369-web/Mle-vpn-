@@ -294,7 +294,7 @@ private fun MleApp() {
                                         is ProfileParseResult.Success ->
                                             com.mle.vpn.profile.ProfileBatchResult(listOf(wireGuard.profile), 0, 0)
                                         is ProfileParseResult.Failure ->
-                                            com.mle.vpn.profile.ProfileBatchResult(emptyList(), 1, 0)
+                                            throw IllegalArgumentException(wireGuard.reason)
                                     }
                                 } else {
                                     ProfileImporter.parseBatch(source)
