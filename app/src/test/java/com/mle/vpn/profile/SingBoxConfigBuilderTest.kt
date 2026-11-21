@@ -51,9 +51,10 @@ class SingBoxConfigBuilderTest {
             listOf("com.example.browser", "invalid package", "com.example.chat")
         )
         val include = config.getJSONArray("inbounds").getJSONObject(0).getJSONArray("include_package")
-        assertEquals(2, include.length())
+        assertEquals(3, include.length())
         assertEquals("com.example.browser", include.getString(0))
         assertEquals("com.example.chat", include.getString(1))
+        assertEquals("com.mle.vpn", include.getString(2))
     }
 
 }
