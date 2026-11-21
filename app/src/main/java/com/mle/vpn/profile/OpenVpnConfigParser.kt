@@ -67,9 +67,9 @@ data class OpenVpnConfig(
             }))
             endpoint.put("remote_random", remoteRandom)
         }
-        cipher?.let { endpoint.put("cipher", it) }
         if (dataCiphers.isNotEmpty()) endpoint.put("data_ciphers", JSONArray(dataCiphers))
-        dataCipherFallback?.let { endpoint.put("data_ciphers_fallback", it) }
+        (dataCipherFallback ?: cipher)?.let { endpoint.put("data_ciphers_fallback", it) }
+        endpoint.put("route_no_pull", true)
         auth?.let { endpoint.put("auth", it) }
         mssFix?.let { endpoint.put("mss_fix", it) }
         pingInterval?.let { endpoint.put("ping_interval", "${it}s") }
