@@ -37,6 +37,14 @@ class WireGuardConfigParserTest {
     }
 
     @Test
+    fun importsBase64EncodedWireGuardConfig() {
+        val encoded = Base64.encodeToString(config().toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        val batch = ProfileImporter.parseBatch(encoded)
+        assertEquals(1, batch.profiles.size)
+        assertEquals(ProfileProtocol.WIREGUARD, batch.profiles.single().protocol)
+    }
+
+    @Test
     fun rejectsMissingPeerAndUnsafeUnknownOptions() {
         assertFalse(runCatching {
             WireGuardConfigParser.parse("[Interface]\nPrivateKey = $key\nAddress = 10.0.0.2/32")
