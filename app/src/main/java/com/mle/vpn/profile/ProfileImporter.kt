@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 enum class ProfileProtocol {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA, HYSTERIA2,
-    TUIC, ANYTLS, WIREGUARD, SOCKS, HTTP, UNKNOWN
+    TUIC, ANYTLS, WIREGUARD, OPENVPN, SOCKS, HTTP, UNKNOWN
 }
 
 data class ImportedProfile(
@@ -83,6 +83,41 @@ object ProfileImporter {
             }
         }
         return ProfileBatchResult(accepted.values.toList(), rejected, duplicates)
+    }
+
+    /** Imports a single wg-quick .conf profile. Never logs or exposes the private key. */
+    fun parseWireGuardConfig(input: String): ProfileParseResult = try {
+        val data = WireGuardConfigParser.parse(input)
+        ProfileParseResult.Success(
+            ImportedProfile(
+                id = java.util.UUID.randomUUID().toString(),
+                protocol = ProfileProtocol.WIREGUARD,
+                displayName = "WireGuard • ${data.peerHost}",
+                host = data.peerHost,
+                port = data.peerPort,
+                sourceUri = input
+            )
+        )
+    } catch (error: Exception) {
+        ProfileParseResult.Failure(error.message ?: "فایل WireGuard معتبر نیست.")
+    }
+
+    /** Imports a self-contained .ovpn profile after conservative directive and TLS preflight. */
+    fun parseOpenVpnConfig(input: String): ProfileParseResult = try {
+        val summary = OpenVpnProfilePreflight.inspect(input)
+        val remote = summary.remotes.first()
+        ProfileParseResult.Success(
+            ImportedProfile(
+                id = java.util.UUID.randomUUID().toString(),
+                protocol = ProfileProtocol.OPENVPN,
+                displayName = "OpenVPN • ${remote.host}",
+                host = remote.host,
+                port = remote.port,
+                sourceUri = input
+            )
+        )
+    } catch (error: Exception) {
+        ProfileParseResult.Failure(error.message ?: "OpenVPN profile is not supported.")
     }
 
     fun parse(input: String): ProfileParseResult {

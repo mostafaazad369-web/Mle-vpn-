@@ -1,0 +1,199 @@
+# MLM VPN → MLE VPN migration
+
+**Status:** foundation branch; staged migration, not a completed port.
+**Target:** MLE VPN Android, Kotlin / Jetpack Compose, existing sing-box 1.14.4 runtime.
+**Upstream:** https://github.com/mlmvpn/mlmvpn_android
+**Target:** https://github.com/mostafaazad369-web/Mle-vpn-
+
+## Decisions recorded
+
+- Work on `integration/mlmvpn-foundation`; do not change `main`.
+- Preserve MLE's navy / turquoise / violet identity and existing launcher artwork.
+- Keep the current Persian RTL UI and build each engine tile with its own stable icon key.
+- Preserve upstream attribution to **mlmvpn** and GPLv3 notices.
+- Gereh messenger is in scope, but is a separate subsystem and must be ported only after reviewing its Rust core, Android bridge, Telegram-derived UI and each bundled dependency's license.
+- Never copy upstream redacted server addresses, private keys, account data, or assume placeholders are usable endpoints.
+
+## Source inventory
+
+The upstream README describes these connection methods and related systems:
+
+- Protocols / tunnels: VLESS, VMess, Trojan, Shadowsocks, WireGuard, WARP, MASQUE, WARP-in-WARP, AmneziaWG, Hysteria2, OpenVPN, NPV, Outline.
+- Provider / network clients: Psiphon, Tor, Geph, Lantern, URnetwork, Proton VPN, Windscribe, FENIX / Firefox VPN, VPN Gate.
+- Adaptive and discovery systems: FLUX, MAE, Quick Connect, Iran profiles, SNI/ECH fronting, GitHub Tunnel, Telegram Proxy.
+- Cloud and diagnostics: Cloudflare Panel, Cloudflare Doctor, Config Studio, MLM Scout, Game Booster, per-app split tunneling, local proxy / hotspot / PAC sharing.
+- App shell: home board, folders/search, widgets, settings, signed engine store, backup/restore, in-app updates.
+- Messenger: Gereh (Rust identity and Olm/Megolm E2EE core, Android package/bridge, Telegram Android-derived interface, relays and protocol docs).
+
+See upstream README and CONTRIBUTING for the canonical evolving inventory and integration conventions.
+
+## Current MLE baseline
+
+MLE already has:
+- Kotlin + Jetpack Compose, Persian RTL screens and its own navy/turquoise/violet theme.
+- Encrypted profile storage using Android Keystore AES-GCM.
+- VLESS / VMess / Trojan conversion for explicitly supported options.
+- sing-box 1.14.4 libbox runtime, VPN permission flow, Android TUN setup and lifecycle wrapper.
+- endpoint preflight checks, Telegram public-source import and tests.
+
+These existing features should be extended rather than replaced. MLE documentation explicitly says unsupported outbound variants are rejected and that a successful runtime startup is not proof of working internet.
+
+## Integration phases
+
+1. **Foundation (this branch):** record upstream inventory, stable unique icon keys, compatibility boundaries, attribution and staged work.
+2. **Engine adapters:** MLE already parses and converts VLESS, VMess, Trojan, Shadowsocks (legacy + SIP002), Hysteria2 and TUIC into sing-box outbounds; Shadowsocks plugins are rejected rather than silently ignored. These six plus Outline-compatible Shadowsocks access keys are marked as existing sing-box paths. WireGuard now has a strict single-peer wg-quick parser, encrypted vault storage and a sing-box endpoint configuration builder; device routing verification remains. OpenVPN 3 has its native/JNI adapter and CI-packaged ABI libraries, but real-device verification remains. Add isolated native/provider adapters for AmneziaWG, Psiphon, Tor, Geph, Lantern and URnetwork only after license/API/ABI review.
+3. **UI:** add an MLM-inspired home board and per-engine cards/screens while retaining MLE colors, logo, RTL and accessibility. Each card's icon is unique and maps to its engine ID.
+4. **Tools:** subscription and config import, Quick Connect, Scout, diagnostics, Cloudflare user-owned integrations, split tunneling and local sharing. Do not ship fake controls or hard-coded server credentials.
+5. **Gereh:** audit `mlm-chat/` Rust core, Android package, relay service, `chat/` Telegram fork, Olm/Megolm dependencies and all licenses. Port behind a separate process/service boundary with encrypted key storage and a reviewed protocol.
+6. **Release hardening:** native ABI builds, unit/instrumentation tests, real-device VPN switching, DNS/IPv6 leak checks, network changes, background lifecycle, crash handling, backup/restore and reproducible build verification.
+
+## Engine catalog
+
+The source code catalog is `app/src/main/java/com/mle/vpn/engine/catalog/MleEngineCatalog.kt`.
+Every entry has a unique `id` and `iconKey`; the catalog now includes Gereh as a separately gated subsystem and marks the implemented sing-box profile paths accurately. `EngineCatalogScreen.kt` exposes the inventory in the MLE UI with a unique colored monogram mark per engine while preserving the existing MLE theme. A unit test checks unique IDs/icon keys, key requested entries and the six protocols already converted by the outbound builder.
+
+The first executable adapter, `SingBoxEngineAdapter.kt`, bridges the existing MLE `EngineAdapter` contract to `MleVpnService`. It respects Android VPN consent and waits for the service's HTTPS-through-VPN verification before returning connection success. It does not add a new native engine; it formalizes the already-existing sing-box path. Other catalog entries remain metadata until their adapters are implemented and verified.
+
+## Licensing and attribution checklist
+
+- MLM VPN's root LICENSE is GPLv3 with an additional attribution term under GPLv3 §7. Keep the original license text and all upstream copyright notices.
+- Credit **mlmvpn — https://github.com/mlmvpn** in the app's About / legal screen and in project documentation.
+- Mark this derivative as modified and record modification dates.
+- Review each bundled component independently. MLM VPN includes third-party projects with their own terms; upstream's overall GPL notice does not erase component-level notices.
+- Gereh's Telegram-derived UI and cryptographic dependencies require a separate license inventory before copying.
+- Preserve sing-box libbox GPL-3.0 notices already present in MLE.
+- Before distributing APKs, provide the complete corresponding source and required build/install scripts for GPL-covered components.
+- This document is an engineering checklist, not legal advice.
+
+## References
+
+- https://github.com/mlmvpn/mlmvpn_android
+- https://github.com/mlmvpn/mlmvpn_android/blob/main/CONTRIBUTING.md
+- https://github.com/mlmvpn/mlmvpn_android/blob/main/docs/OPENVPN.md
+- https://github.com/mostafaazad369-web/Mle-vpn-
+- https://github.com/SagerNet/sing-box
+- https://github.com/singbox-android/libbox
+
+
+## OpenVPN native-port audit (2026-11-21)
+
+The upstream tree contains a real OpenVPN 3 integration, not just profile samples:
+
+- Kotlin runtime: `OpenVpnNative.kt`, `OpenVpnService.kt`, profile import/runtime/repository/account policy and UI under `app/src/main/java/com/mlmvpn/scanner/openvpn/`.
+- JNI/core adapter: `app/src/main/cpp/openvpn/bridge.cpp` and its CMake target. It wraps the pinned OpenVPN 3 client API and maps TUN addresses, routes, DNS, socket protection, traffic stats and lifecycle callbacks to Android.
+- Native dependency lock: `third_party/openvpn3/source-lock.json` pins OpenVPN 3 commit `2986b58108726a7aff278a50caa0cff9c4cdf943`, Mbed TLS 3.6.7, Asio 1.30.2, LZ4 1.10.0 and fmt 11.1.4 with SHA-256 values and license identifiers. The core is MPL-2.0; dependencies retain their own licenses.
+- Build: upstream `app/src/main/cpp/openvpn/CMakeLists.txt` and `scripts/build-openvpn.ps1` build arm64-v8a and armeabi-v7a for API 24 and 16-KiB page alignment. The upstream app packages prebuilt JNI libraries; the source tree inspected here does not contain the generated OpenVPN `.so` artifacts.
+- Upstream `docs/OPENVPN.md` records profile import restrictions, certificate validation requirements, compression policy, account handling and real-device test requirements. Do not copy its sample TunnelBear profiles or CA into MLE as working endpoints/credentials.
+
+MLE now contains an OpenVPN 3 JNI facade, callback adapter, worker-thread runtime, shared `VpnService` lifecycle, engine arbitration, conservative `.ovpn` preflight/import and credential prompting. The pinned native source and dependency lock are used by the branch's native build workflow for `arm64-v8a` and `armeabi-v7a`; the packaging job verifies both libraries inside the debug APK. The bridge is MLE-adapted and is not binary-compatible with upstream Kotlin callbacks by assumption.
+
+**Remaining OpenVPN gates:** run CI against the latest branch head, test provider profiles and authentication on physical Android devices, verify IPv4/IPv6/DNS routing and traffic counters, then exercise reconnect, user stop, Android VPN revoke, process teardown and TUN descriptor cleanup. Until those tests pass, OpenVPN is implemented at source/build level but not certified as a working production connection.
+
+## Latest CI verification
+
+For head commit `5a8db1b0aed6010897f791f2ba0ac6d5f7e12c31`, GitHub Actions completed successfully on 2026-11-21: Android build `44900289968` (assemble-debug), Android CI `44900289965` (JVM/Android unit tests and debug APK packaging). This confirms the current foundation branch builds and packages; it does not validate native engines that have not yet been ported or live VPN behavior.
+
+
+## OpenVPN dependency provenance imported into MLE (2026-11-21)
+
+The next non-runtime migration step is now committed on the foundation branch:
+
+- `third_party/openvpn3/source-lock.json`: exact upstream source URLs, immutable core/dependency revisions, SHA-256 values and license identifiers copied from MLM VPN.
+- `third_party/openvpn3/README.md` and `docs/OPENVPN_PORT.md`: MLE-specific port gates, reproducibility and service-ownership constraints.
+- `app/src/main/assets/openvpn-licenses/`: OpenVPN MPL-2.0, Mbed TLS, Asio, LZ4 and fmt license texts plus the source manifest.
+
+No OpenVPN source archive has yet been vendored or built, no JNI/native library is packaged, and no OpenVPN service has been registered. The imported provenance/notice files are intentionally inert and do not change the app runtime. The next safe engineering step is hash-verified acquisition of the pinned sources and an isolated native build target; service integration must wait for a single-owner VPN coordinator and reviewed JNI lifecycle.
+
+The immediately preceding foundation commit `d5857f0a65dd21be7bf6b35c3d05c18e7c11c6bf` passed Android build and Android CI (unit tests and debug APK packaging). New commits created by the provenance import trigger fresh workflows; their results must be checked separately.
+
+## Gereh messenger source audit (2026-11-21)
+
+A source-tree audit of the upstream `mlm-chat/` subtree confirms Gereh is a separate messenger product, not a VPN engine or a drop-in Android activity:
+
+- The upstream tree contains 322 paths under `mlm-chat/`. Its Rust core (`mlm-chat/core/`) is declared Apache-2.0 in Cargo.toml and implements identity, Olm/Megolm sessions, encrypted envelopes/storage, groups, channels, Bluetooth/LAN/direct transports, Google mailbox and Nostr relay paths, plus a large protocol test suite.
+- The wire contract is `mlm-chat/docs/SPEC.md` (draft 30 in the audited revision). The document explicitly describes itself as non-final; compatibility must be pinned to a reviewed spec revision and test vectors before interoperability is claimed.
+- The Android integration is split into a Kotlin library (`mlm-chat/android/core/`, namespace `org.mlmchat.core`) and Rust JNI crate (`mlm-chat/android/jni/`, output `libmlmchat.so`). `android/scripts/build-native.sh` builds native artifacts into `core/src/main/jniLibs/`; those `.so` outputs are intentionally absent from Git.
+- The core's Android build guide documents `arm64-v8a` as its currently supported default because the Telegram-derived UI native components are not built for all ABIs. The shell script comments/default ABI list are not perfectly consistent with that guide; MLE must resolve and verify the actual ABI matrix rather than copying assumptions.
+- The UI is a separate Telegram Android fork under `chat/`, with a GPLv2 license file and many nested third-party modules/notices (including JLatexMath and media libraries). It must not be blindly imported into MLE's Compose app; each copied component needs provenance and license review.
+- Upstream README states that relay addresses/keys are replaced with placeholders and release-only `.so`, `.aar` and `.dat` binaries are not in the public source tree. Do not restore, guess, or hard-code relay endpoints or credentials.
+
+**MLE impact / implementation gate:** no Gereh Rust core, JNI bridge, Kotlin core module, relay implementation or Telegram fork has been integrated into MLE. The catalog tile is only an inventory entry. A safe port requires (1) freeze the protocol/spec revision and vectors, (2) vendor the Apache-2.0 Rust core and lockfile with a dependency/license inventory, (3) build and verify `libmlmchat.so` reproducibly for the ABI(s) actually supported by MLE, (4) adapt the Kotlin API and encrypted database-key storage to MLE's lifecycle, (5) decide whether to port selected Compose UI flows or the separate Telegram fork, and (6) test Bluetooth/LAN/direct/relay transports and E2EE interoperability. Gereh should remain disabled/non-connectable until these gates pass.
+
+## CI verification update (2026-11-21)
+
+The latest head commit checked for this update, `3260bd921915b2b0d04639443f63ae910ffaeba5`, passed both GitHub Actions workflows:
+- Android build run `44900719343`: `assemble-debug` succeeded.
+- Android CI run `44900719273`: JVM/Android unit tests and debug APK packaging succeeded.
+
+These runs supersede the older CI run IDs recorded above. CI validates the current foundation branch only; it does not validate absent OpenVPN/Gereh native runtimes or real-device VPN behavior.
+## NPV, WireGuard and Aether source audit (2026-11-21)
+
+Further upstream inspection clarifies several similarly named catalog entries:
+
+- **NPV is primarily a profile library/import workflow, not a new tunnel core.** `NpvLibrary.kt` distinguishes standard links (VLESS/VMess/Trojan/Shadowsocks/SOCKS/Hysteria2, run through MLM's existing Xray path) from native `.npvt` / `.npvs` files. The upstream code explicitly says those native files are stored and handed to the NPV Tunnel app; MLMVPN does not decrypt or run them because it has no authorized key. Remote Telegram posts and the NPV store are inventory/discovery features, not a protocol implementation.
+- **WireGuard scanner is not equivalent to a general WireGuard client.** The inspected `WireguardScannerEngine` scans candidate IP/port endpoints and uses the existing Xray injector for tests; it is not itself a generic import/parser/runtime for arbitrary WireGuard profiles. The upstream `WireguardGuard` also documents a shared native Go runtime constraint with Xray actions.
+- **Aether is not fully buildable from the public MLM repository alone.** `AETHER.md` says its Rust executable source lives in a separate private companion project; the public repository contains Kotlin process/service wrappers and a script for fetching release binaries, not the complete Rust source. Aether covers MASQUE / WireGuard / WARP-in-WARP, with a native `libaether.so` and `tun2proxy` TUN bridge. MLE cannot safely recreate or claim feature parity by copying only those Kotlin wrappers.
+
+**MLE implementation consequence:** do not label the NPV catalog item as an independently implemented tunnel. A first safe NPV-compatible feature is to support importing the standard profile formats already handled by MLE's own converters and keep unsupported native `.npvt` / `.npvs` files explicitly unsupported. For WireGuard, implement and test a standard profile parser plus the exact pinned sing-box endpoint/outbound schema (or select a separately licensed runtime) before enabling the tile. Aether/MASQUE/WARP-in-WARP require source/runtime availability, ABI provenance and a single-owner VPN lifecycle; they remain unavailable until those requirements are met.
+## WireGuard first implementation slice (2026-11-21)
+
+MLE now contains a strict first-pass importer for single-peer wg-quick `.conf` profiles and a sing-box WireGuard **endpoint** JSON builder:
+
+- `WireGuardConfigParser` validates Interface/Peer sections, 32-byte Base64 keys, endpoint host/port, CIDR addresses/AllowedIPs, keepalive and MTU.
+- `PostUp`/`PostDown`, unknown directives, duplicate keys, malformed numeric fields and unsupported multi-peer profiles fail closed. This intentionally avoids silently discarding hooks or peer behavior.
+- `ProfileImporter.parseWireGuardConfig` creates a sensitive `ImportedProfile`; its source text includes the private key and must only be stored in the encrypted profile vault.
+- `WireGuardEndpointBuilder` emits the modern sing-box `endpoints[].type=wireguard` schema (sing-box 1.11+), rather than the deprecated WireGuard outbound removed in sing-box 1.13. `SingBoxConfigBuilder` now assembles this endpoint into a complete config and selects its tag as the final route and secure-DNS detour.
+- Robolectric tests cover parsing, endpoint conversion, invalid keys/ports and fail-closed hook handling.
+
+**Not yet a verified end-user VPN connection:** the parser and config assembly are implemented, but the importer is not yet wired into the profile-import UI/encrypted-vault UX, and no real-device WireGuard tunnel/kill-switch test has passed. DNS directives, multiple peers, and wg-quick hook semantics are deliberately unsupported in this first slice. Do not mark WireGuard as connectable until the exact bundled libbox runtime accepts the config and real-device tunnel/kill-switch tests pass.
+
+Schema references used for this implementation: [sing-box WireGuard endpoint](https://sing-box.sagernet.org/configuration/endpoint/wireguard/), [Dial Fields](https://sing-box.sagernet.org/configuration/shared/dial/) and [WireGuard outbound migration](https://sing-box.sagernet.org/migration/#migrate-wireguard-outbound-to-endpoint). The endpoint was introduced in 1.11; the legacy outbound was deprecated in 1.11 and removed in 1.13. Since 1.14, endpoints with a domain peer address require `domain_resolver`; MLE explicitly sets it to the bootstrap DNS tag.
+
+The MLE app dependency currently pins `com.github.singbox-android:libbox:1.14.4`; the WireGuard endpoint schema used here is documented as available since sing-box 1.11.0. The old WireGuard outbound is deprecated since 1.11 and removed in 1.13, so the implementation intentionally uses `endpoints` rather than an outbound object.
+**Import UI wiring:** the existing profile dialog now recognizes a pasted wg-quick document (including leading comment lines), calls `parseWireGuardConfig`, validates it through `SingBoxConfigBuilder`, and saves the original sensitive text using the existing Android Keystore AES-GCM `ProfileVault`. The existing connect and export flows already consume `SingBoxConfigBuilder`, so the assembled endpoint JSON follows the same path as other saved profiles. This is still not evidence that libbox 1.14.4 accepts the endpoint config or that a live Android WireGuard session works; those remain CI/runtime/device gates.
+## WireGuard CI update (2026-11-21)
+
+- UI-import commit `f5093118b3c97bc58419f1e93db5ad5b23af32a2`: Android CI run `44907382833` passed unit tests and debug APK packaging; Android build run `44907382882` also passed.
+- Strict single-peer/multiple-peer parser commit `c41e8bc977f5c29f9c3a12350623006fa2bf5b9d`: Android CI run `44907461593` passed the JVM/Android unit-test job, including the WireGuard parser/endpoint/config-assembly tests.
+- The matching Android build run `44907461507` completed successfully, including debug APK assembly and artifact upload.
+
+An earlier test attempt encountered transient Robolectric/Maven artifact-fetch 404s across unrelated existing tests; later test runs above completed successfully.
+
+## Cloudflare Doctor diagnostic (2026-11-21)
+
+MLE now includes a small, independent Cloudflare trace diagnostic at `engine/cloudflare/CloudflareDoctor.kt` and an interactive card in the engine catalog screen.
+
+- Uses HTTPS GET to Cloudflare's public `/cdn-cgi/trace` endpoint with bounded connect/read timeouts and a 32-KiB response limit.
+- Displays the trace's observed public IP, Cloudflare colo, WARP flag and gateway flag only when returned by the endpoint.
+- Does not register a WARP account, create a tunnel, alter routing, or store/log the returned IP.
+- The catalog marks this entry as `DIAGNOSTIC_ONLY`, explicitly distinct from a VPN transport.
+- Parser unit tests cover expected fields, optional fields and malformed/error responses.
+
+This is a useful diagnostic foundation, not a port of MLM's full Cloudflare Doctor suite. The broader scanner, account-owned Cloudflare integrations and WARP data plane still require separate migration and review.
+
+## Aether / WARP / MASQUE runtime audit (2026-11-21)
+
+A deeper review of upstream `AETHER.md`, the Android Kotlin wrappers and the binary installer script establishes the actual integration boundary:
+
+- The public MLMVPN repository contains Android orchestration code under `app/src/main/java/com/mlmvpn/core/aether/` (including `AetherEngine.kt`, `AetherOptions.kt`, `AetherStage.kt` and `AetherScanService.kt`) and tunnel/carrier code under `core/tunnel/`.
+- The Aether Rust executable source is **not** in that public repository. Upstream `AETHER.md` explicitly places `core/aether/aether/src/main.rs` and `aether-src/build-android.sh` in a separate private companion project. The public Android project therefore does not provide the complete source needed to reproduce its Aether executable.
+- The public installer script `scripts/install-aether-binary.ps1` fetches prebuilt `aether-android-arm64.tar.gz` and `aether-android-armv7.tar.gz` archives from the external `CluvexStudio/Aether` v1.4.0 release, then installs them as `jniLibs/<abi>/libaether.so`. This is a binary distribution path, not a source build or proof that the required corresponding source is available.
+- On Android 10+ the upstream design relies on the package installer unpacking `libaether.so` into `nativeLibraryDir`, then starts it as a process. The process exposes a local SOCKS endpoint (default `127.0.0.1:20810`). The three advertised modes are MASQUE, classic WARP/WireGuard and WARP-in-WARP; MASQUE uses QUIC/HTTP3 with an HTTP/2 fallback.
+- The Kotlin wrappers depend on additional upstream types/services, account identity registration and tunnel plumbing. Copying only `AetherEngine.kt` or adding a catalog tile would not provide a functioning Aether tunnel.
+
+**MLE decision / next gate:** do not import the prebuilt executable or advertise WARP/MASQUE as implemented until the exact v1.4.0 binary provenance, license, corresponding source availability and redistribution terms are verified. Prefer obtaining the private companion source under an authorized license, pinning its revision and Rust dependencies, then building both ARM ABIs reproducibly in CI. In parallel, map the upstream SOCKS/TUN bridge onto MLE's existing single-owner VPN service and engine arbiter; do not start a second Android `VpnService` or leave a second TUN owner active. Only after source/build provenance and lifecycle design are reviewed should the Kotlin stage/options UI be adapted.
+
+**Verification still required:** ABI and ELF inspection for both binaries, process startup/stop/restart, SOCKS readiness and data-plane checks, Android VPN consent, IPv4/IPv6/DNS routing, reconnect and network-change behavior, traffic counters, stop/revoke, and TUN/file-descriptor cleanup on physical devices. No Aether/WARP/MASQUE runtime is integrated into MLE at this point.
+
+## AmneziaWG runtime and license audit (2026-11-21)
+
+The upstream Android implementation is more concrete than a catalog-only reference, but it is not a drop-in extension of MLE's current sing-box endpoint:
+
+- MLMVPN pins the embeddable Android tunnel artifact `com.zaneschepke:amneziawg-android:2.1.13` in its app Gradle file. Maven Central identifies this artifact family as an Android AAR and lists Apache-2.0 for the published package; the upstream AmneziaWG Android project also identifies its repository license as Apache-2.0. Preserve the exact version and audit its transitive dependencies/native payload before adopting it.
+- MLMVPN's `AmneziaWgInjector.kt` sends the private configuration to a separate `:awg` process over Messenger IPC. `AwgHostService.kt` creates a `GoBackend`, parses the config and drives the same `Tunnel` instance UP/DOWN. The code explicitly isolates this Go runtime because it conflicts with the Xray Go runtime when both are loaded in one process.
+- The upstream wrapper also has a dedicated probe process and a configuration parser/generator that understands AmneziaWG-specific `Jc/Jmin/Jmax/S1/S2/H1..H4/I1..I5` fields. Plain WireGuard-compatible settings alone do not implement those obfuscation semantics.
+- The AAR's backend manages its own library `VpnService`; upstream explicitly stops that service after DOWN to avoid an orphaned VPN owner. MLE already has a shared `MleVpnService` and an engine arbiter, so the upstream service/process ownership cannot be copied verbatim without designing one authoritative active TUN owner and ensuring the sing-box/OpenVPN paths cannot overlap it.
+
+**MLE decision / next gate:** the Apache-2.0 AAR is a plausible integration route, unlike Aether's unavailable public Rust source, but it is not yet integrated. Before adding the dependency, pin the artifact and every transitive/native component, record notices and ABI contents, then implement a dedicated isolated-process adapter that cooperates with MLE's VPN arbiter and service state without creating a competing active TUN. Reuse the upstream parser only after validating config compatibility and secret redaction; never log private keys or raw configs. Add parser tests for all AmneziaWG extension fields and physical-device tests for process death, reconnect, stop/revoke, routing and cleanup.
+
+References: https://github.com/amnezia-vpn/amneziawg-android (Apache-2.0 project); https://central.sonatype.com/artifact/com.zaneschepke/amneziawg-android (published AAR metadata and license); MLMVPN's pinned dependency and process bridge are in `app/build.gradle`, `core/warp/AmneziaWgInjector.kt` and `core/warp/AwgHostService.kt`.

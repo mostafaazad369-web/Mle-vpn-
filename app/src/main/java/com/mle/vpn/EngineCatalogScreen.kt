@@ -1,0 +1,295 @@
+package com.mle.vpn
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.mle.vpn.engine.cloudflare.CloudflareDoctor
+import com.mle.vpn.engine.catalog.Integration
+import com.mle.vpn.engine.catalog.MleEngineCatalog
+import com.mle.vpn.engine.vpngate.VpnGateRepository
+import com.mle.vpn.engine.vpngate.VpnGateServer
+
+/** Short, stable brand marks: each engine gets a distinct visual identity without emoji fallback. */
+private val EngineMarks = mapOf(
+    "vless" to "VL", "vmess" to "VM", "trojan" to "TR",
+    "shadowsocks" to "SS", "wireguard" to "WG", "warp" to "W",
+    "masque" to "MQ", "warp_on_warp" to "W²", "amneziawg" to "AWG",
+    "hysteria2" to "H2", "tuic" to "TU", "openvpn" to "OVPN", "npv" to "NPV",
+    "outline" to "OL", "psiphon" to "PSI", "tor" to "TOR",
+    "geph" to "GPH", "lantern" to "LNT", "urnetwork" to "URN",
+    "proton" to "PR", "windscribe" to "WS", "fenix" to "FNX",
+    "vpngate" to "VG", "quick" to "Q", "flux" to "FLX",
+    "mae" to "MAE", "github" to "GH", "telegram-proxy" to "TG",
+    "iran" to "IR", "fronting" to "SNI", "cloudflare" to "CF",
+    "cfdoctor" to "DOC", "configstudio" to "CFG", "scout" to "SC",
+    "game" to "GAME", "gereh" to "GRH"
+)
+
+private val EngineColors = mapOf(
+    "vless" to Color(0xFF55D6BE), "vmess" to Color(0xFF8B9CFF),
+    "trojan" to Color(0xFFFF8A80), "shadowsocks" to Color(0xFFB39DDB),
+    "wireguard" to Color(0xFF64B5F6), "warp" to Color(0xFFF6C85F),
+    "masque" to Color(0xFF80CBC4), "warp_on_warp" to Color(0xFFFFB74D),
+    "amneziawg" to Color(0xFF90CAF9), "hysteria2" to Color(0xFFFF8A65),
+    "tuic" to Color(0xFFCE93D8), "openvpn" to Color(0xFFEA6C72),
+    "npv" to Color(0xFF4DD0E1), "outline" to Color(0xFFA5D6A7),
+    "psiphon" to Color(0xFFFFAB91), "tor" to Color(0xFFB0BEC5),
+    "geph" to Color(0xFF80DEEA), "lantern" to Color(0xFFFFCC80),
+    "urnetwork" to Color(0xFF9FA8DA), "proton" to Color(0xFFBA68C8),
+    "windscribe" to Color(0xFF81C784), "fenix" to Color(0xFFFFB74D),
+    "vpngate" to Color(0xFF90CAF9), "quick" to Color(0xFFFFD54F),
+    "flux" to Color(0xFF4FC3F7), "mae" to Color(0xFF9575CD),
+    "github" to Color(0xFFB0BEC5), "telegram-proxy" to Color(0xFF64B5F6),
+    "iran" to Color(0xFF66BB6A), "fronting" to Color(0xFFFF8A65),
+    "cloudflare" to Color(0xFFFFB74D), "cfdoctor" to Color(0xFF4DB6AC),
+    "configstudio" to Color(0xFFBA68C8), "scout" to Color(0xFF4DD0E1),
+    "game" to Color(0xFF7986CB), "gereh" to Color(0xFF80CBC4)
+)
+
+private fun integrationLabel(value: Integration): String = when (value) {
+    Integration.EXISTING_SING_BOX_PATH -> "مسیر فعلی sing-box"
+    Integration.EXISTING_OPENVPN_PATH -> "موتور OpenVPN یکپارچه؛ نیازمند پروفایل"
+    Integration.PUBLIC_DISCOVERY_ONLY -> "کشف سرور عمومی؛ اتصال نیازمند واردکردن پروفایل"
+    Integration.ADAPTER_REQUIRED -> "نیازمند اتصال‌دهنده"
+    Integration.NATIVE_OR_PROVIDER_REQUIRED -> "نیازمند هسته یا سرویس رسمی"
+    Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED -> "نیازمند کانفیگ یا حساب کاربر"
+    Integration.DIAGNOSTIC_ONLY -> "ابزار عیب‌یابی؛ موتور VPN نیست"
+}
+
+@Composable
+private fun EngineMark(iconKey: String) {
+    val accent = EngineColors[iconKey] ?: Color(0xFF55D6BE)
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .background(Color(0xFF29314A), RoundedCornerShape(13.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = EngineMarks[iconKey] ?: iconKey.take(3).uppercase(),
+            color = accent,
+            fontSize = if ((EngineMarks[iconKey]?.length ?: 3) > 3) 10.sp else 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+fun EngineCatalogScreen(
+    padding: androidx.compose.foundation.layout.PaddingValues,
+    onImportVpnGate: (VpnGateServer) -> Unit
+) {
+    var doctorLoading by remember { mutableStateOf(false) }
+    var doctorMessage by remember { mutableStateOf<String?>(null) }
+    var doctorDetails by remember { mutableStateOf<String?>(null) }
+    var vpnGateLoading by remember { mutableStateOf(false) }
+    var vpnGateMessage by remember { mutableStateOf<String?>(null) }
+    var vpnGateServers by remember { mutableStateOf<List<VpnGateServer>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(18.dp)
+    ) {
+        Text("موتورهای اتصال", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "هر موتور نشان اختصاصی دارد. نمایش در فهرست به معنی آماده‌بودن اتصال آن نیست.",
+            color = Color(0xFF929BB5), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2036))
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EngineMark("cfdoctor")
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Cloudflare Doctor", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("بررسی مسیر فعلی تا Cloudflare؛ بدون ایجاد تونل VPN", color = Color(0xFF929BB5), fontSize = 10.sp)
+                    }
+                }
+                Button(
+                    onClick = {
+                        if (!doctorLoading) {
+                            doctorLoading = true
+                            doctorMessage = null
+                            doctorDetails = null
+                            scope.launch {
+                                val result = runCatching { withContext(Dispatchers.IO) { CloudflareDoctor.check() } }
+                                doctorLoading = false
+                                result.onSuccess { trace ->
+                                    doctorMessage = "پاسخ Cloudflare دریافت شد؛ HTTP ${trace.httpStatus}"
+                                    doctorDetails = listOfNotNull(
+                                        trace.ip?.let { "IP: $it" },
+                                        trace.colo?.let { "مرکز داده: $it" },
+                                        trace.warp?.let { "WARP: $it" },
+                                        trace.gateway?.let { "Gateway: $it" }
+                                    ).joinToString(" • ")
+                                }.onFailure { error ->
+                                    doctorMessage = error.message ?: "بررسی Cloudflare ناموفق بود."
+                                }
+                            }
+                        }
+                    },
+                    enabled = !doctorLoading,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                ) {
+                    if (doctorLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("بررسی اتصال Cloudflare")
+                }
+                doctorMessage?.let {
+                    Text(it, color = Color(0xFF42E8D5), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+                doctorDetails?.let {
+                    Text(it, color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+                Text(
+                    "این نتیجه فقط پاسخ trace را نشان می‌دهد و به‌تنهایی اتصال VPN یا محافظت‌شدن ترافیک را اثبات نمی‌کند.",
+                    color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2036))
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EngineMark("vpngate")
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("VPN Gate • سرورهای عمومی", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("فهرست عمومی داوطلبانه؛ دریافت فقط با درخواست شما", color = Color(0xFF929BB5), fontSize = 10.sp)
+                    }
+                }
+                Button(
+                    onClick = {
+                        if (!vpnGateLoading) {
+                            vpnGateLoading = true
+                            vpnGateMessage = null
+                            scope.launch {
+                                runCatching { VpnGateRepository.fetchPublicServers() }
+                                    .onSuccess { servers ->
+                                        vpnGateServers = servers.sortedWith(
+                                            compareBy<VpnGateServer> { if (it.pingMs < 0) Int.MAX_VALUE else it.pingMs }
+                                                .thenByDescending { it.score }
+                                        ).take(10)
+                                        vpnGateMessage = "دریافت شد: ${servers.size} سرور دارای پروفایل OpenVPN"
+                                    }
+                                    .onFailure { error ->
+                                        vpnGateMessage = error.message ?: "دریافت فهرست VPN Gate ناموفق بود."
+                                    }
+                                vpnGateLoading = false
+                            }
+                        }
+                    },
+                    enabled = !vpnGateLoading,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                ) {
+                    if (vpnGateLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("دریافت سرورهای عمومی")
+                }
+                vpnGateMessage?.let {
+                    Text(it, color = Color(0xFF42E8D5), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+                if (vpnGateServers.isNotEmpty()) {
+                    val quickest = vpnGateServers.first()
+                    OutlinedButton(
+                        onClick = { onImportVpnGate(quickest) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                    ) {
+                        Text("واردکردن سریع گزینه اول بر اساس Ping اعلام‌شده")
+                    }
+                    Text(
+                        "رتبه‌بندی بر اساس داده منتشرشده توسط VPN Gate است، نه سنجش زنده و نه تأیید اتصال VPN.",
+                        color = Color(0xFF929BB5), fontSize = 10.sp
+                    )
+                }
+                vpnGateServers.forEach { server ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${server.country} • ${server.hostName}", color = Color.White, fontSize = 12.sp)
+                            Text(
+                                "Ping: ${server.pingMs.takeIf { it >= 0 }?.let { "${it} ms" } ?: "نامشخص"} • ${"%.1f".format(java.util.Locale.ROOT, server.speedMbps)} Mbps",
+                                color = Color(0xFF929BB5), fontSize = 10.sp
+                            )
+                        }
+                        Button(onClick = { onImportVpnGate(server) }) { Text("واردکردن") }
+                    }
+                }
+                Text(
+                    "این فهرست، سرورهای عمومی اشخاص ثالث است. پایداری، حریم خصوصی و دسترس‌پذیری آن‌ها تضمین نمی‌شود؛ واردکردن، اتصال را شروع نمی‌کند.",
+                    color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+        MleEngineCatalog.items.forEach { engine ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp),
+                shape = RoundedCornerShape(15.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2036))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    EngineMark(engine.iconKey)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(engine.title, color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text(integrationLabel(engine.integration), color = Color(0xFF42E8D5), fontSize = 10.sp)
+                        Text(engine.detail, color = Color(0xFF929BB5), fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+        Text(
+            "منابع و انتساب: بخشی از فهرست و قابلیت‌های در حال انتقال از MLM VPN است. توسعه‌دهنده اصلی: mlmvpn — github.com/mlmvpn. مجوز و جزئیات در اسناد پروژه درج شده است.",
+            color = Color(0xFF929BB5),
+            fontSize = 10.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 20.dp),
+            textAlign = TextAlign.Center
+        )
+    }
+}

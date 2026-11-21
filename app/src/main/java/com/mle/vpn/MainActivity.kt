@@ -34,6 +34,7 @@ import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
 import com.mle.vpn.engine.MleVpnStatus
+import com.mle.vpn.engine.openvpn.OpenVpnEngineAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
@@ -76,16 +77,56 @@ private fun MleApp() {
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
+    var openVpnCredentialProfile by remember { mutableStateOf<ImportedProfile?>(null) }
+    var openVpnUsername by remember { mutableStateOf("") }
+    var openVpnPassword by remember { mutableStateOf("") }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
     var fetchingSource by remember { mutableStateOf<String?>(null) }
     var sourceStatus by remember { mutableStateOf<String?>(null) }
     val connectionStatus by MleVpnStatus.status.collectAsState()
 
+    fun startOpenVpnProfile(profile: ImportedProfile, username: String = "", password: String = "") {
+        scope.launch {
+            vpnPermissionMessage = "در حال راه‌اندازی و بررسی اتصال OpenVPN..."
+            showNotice = true
+            val result = runCatching {
+                OpenVpnEngineAdapter(context).connect(profile.sourceUri, username, password)
+            }.getOrElse { error ->
+                com.mle.vpn.engine.EngineResult(
+                    false,
+                    error.message ?: "راه‌اندازی OpenVPN ناموفق بود."
+                )
+            }
+            // Do not retain user-entered credentials in Compose state after the start attempt.
+            openVpnUsername = ""
+            openVpnPassword = ""
+            vpnPermissionGranted = result.success
+            vpnPermissionMessage = result.message
+            showNotice = true
+            if (!result.success) {
+                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     fun startSelectedProfile() {
         val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
         if (profile == null) {
             showImport = true
+            return
+        }
+        if (profile.protocol == com.mle.vpn.profile.ProfileProtocol.OPENVPN) {
+            val preflight = runCatching { com.mle.vpn.profile.OpenVpnProfilePreflight.inspect(profile.sourceUri) }
+                .getOrElse { error ->
+                    Toast.makeText(context, error.message ?: "پروفایل OpenVPN معتبر نیست", Toast.LENGTH_LONG).show()
+                    return
+                }
+            if (preflight.requiresCredentials) {
+                openVpnCredentialProfile = profile
+                return
+            }
+            startOpenVpnProfile(profile)
             return
         }
         val config = runCatching { SingBoxConfigBuilder.build(profile).toString() }
@@ -133,7 +174,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "موتورها" to Icons.Default.Extension, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -155,6 +196,9 @@ private fun MleApp() {
                     profileCount = profiles.size,
                     connectionDetail = connectionStatus.detail,
                     connectionPhase = connectionStatus.phase,
+                    trafficStatsAvailable = connectionStatus.trafficStatsAvailable,
+                    bytesOut = connectionStatus.bytesOut,
+                    bytesIn = connectionStatus.bytesIn,
                     onServers = { selectedTab = 1 },
                     onConnect = {
                         if (profiles.isEmpty()) {
@@ -204,7 +248,29 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                3 -> SettingsScreen(padding)
+                3 -> EngineCatalogScreen(
+                    padding = padding,
+                    onImportVpnGate = { server ->
+                        when (val parsed = ProfileImporter.parseOpenVpnConfig(server.openVpnConfig)) {
+                            is ProfileParseResult.Success -> {
+                                vault.save(parsed.profile)
+                                profiles = vault.loadAll()
+                                selectedProfileId = parsed.profile.id
+                                Toast.makeText(
+                                    context,
+                                    "پروفایل عمومی VPN Gate وارد شد؛ برای اتصال، آن را از صفحه کانفیگ‌ها انتخاب کنید.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is ProfileParseResult.Failure -> Toast.makeText(
+                                context,
+                                parsed.reason,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                )
+                4 -> SettingsScreen(padding)
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
                     fetchingSource = fetchingSource,
@@ -264,7 +330,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک HTTPS اشتراک، چند لینک یا متن Base64 را وارد کن. فعلاً فقط VLESS، VMess و Trojan با تنظیمات پشتیبانی‌شده ذخیره می‌شوند؛ موارد ناسازگار رد خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، چند لینک، متن Base64، پیکربندی WireGuard با قالب wg-quick یا متن کامل فایل .ovpn را وارد کن. پروفایل OpenVPN فقط در صورت داشتن تنظیمات و تأیید هویت پشتیبانی‌شده پذیرفته می‌شود.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
@@ -288,9 +354,23 @@ private fun MleApp() {
                         scope.launch {
                             runCatching {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
-                                val parsed = ProfileImporter.parseBatch(source)
+                                val firstLine = source.lineSequence().map { it.trim() }
+                                    .firstOrNull { it.isNotEmpty() && !it.startsWith("#") && !it.startsWith(";") }.orEmpty()
+                                val parsed = when {
+                                    firstLine.equals("[Interface]", ignoreCase = true) -> when (val wireGuard = ProfileImporter.parseWireGuardConfig(source)) {
+                                        is ProfileParseResult.Success -> com.mle.vpn.profile.ProfileBatchResult(listOf(wireGuard.profile), 0, 0)
+                                        is ProfileParseResult.Failure -> throw IllegalArgumentException(wireGuard.reason)
+                                    }
+                                    source.lineSequence().any { it.trim().equals("client", ignoreCase = true) || it.trim().startsWith("dev tun", ignoreCase = true) } ->
+                                        when (val openVpn = ProfileImporter.parseOpenVpnConfig(source)) {
+                                            is ProfileParseResult.Success -> com.mle.vpn.profile.ProfileBatchResult(listOf(openVpn.profile), 0, 0)
+                                            is ProfileParseResult.Failure -> throw IllegalArgumentException(openVpn.reason)
+                                        }
+                                    else -> ProfileImporter.parseBatch(source)
+                                }
                                 val convertible = parsed.profiles.filter { profile ->
-                                    runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    profile.protocol == com.mle.vpn.profile.ProfileProtocol.OPENVPN ||
+                                        runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                 }
                                 parsed.copy(
                                     profiles = convertible,
@@ -321,6 +401,57 @@ private fun MleApp() {
                 }
             )
         }
+        openVpnCredentialProfile?.let { profile ->
+            AlertDialog(
+                onDismissRequest = {
+                    openVpnCredentialProfile = null
+                    openVpnUsername = ""
+                    openVpnPassword = ""
+                },
+                containerColor = Panel,
+                title = { Text("ورود اطلاعات OpenVPN", color = Mint, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("برای اتصال به ${profile.host}:${profile.port} نام کاربری و رمز عبور را وارد کن. این اطلاعات در پروفایل ذخیره نمی‌شوند.", color = Color.White)
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = openVpnUsername,
+                            onValueChange = { openVpnUsername = it },
+                            label = { Text("نام کاربری") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Mint, unfocusedBorderColor = Muted)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = openVpnPassword,
+                            onValueChange = { openVpnPassword = it },
+                            label = { Text("رمز عبور") },
+                            singleLine = true,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Mint, unfocusedBorderColor = Muted)
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = openVpnUsername.isNotBlank() && openVpnPassword.isNotEmpty(),
+                        onClick = {
+                            startOpenVpnProfile(profile, openVpnUsername, openVpnPassword)
+                            openVpnCredentialProfile = null
+                            openVpnUsername = ""
+                            openVpnPassword = ""
+                        }
+                    ) { Text("اتصال", color = Mint) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        openVpnCredentialProfile = null
+                        openVpnUsername = ""
+                        openVpnPassword = ""
+                    }) { Text("انصراف", color = Muted) }
+                }
+            )
+        }
         if (showNotice) {
             AlertDialog(
                 onDismissRequest = { showNotice = false },
@@ -333,12 +464,25 @@ private fun MleApp() {
     }
 }
 
+private fun formatTrafficBytes(bytes: Long): String {
+    val value = bytes.coerceAtLeast(0L).toDouble()
+    return when {
+        value >= 1024.0 * 1024.0 * 1024.0 -> String.format(java.util.Locale.ROOT, "%.2f GB", value / (1024.0 * 1024.0 * 1024.0))
+        value >= 1024.0 * 1024.0 -> String.format(java.util.Locale.ROOT, "%.1f MB", value / (1024.0 * 1024.0))
+        value >= 1024.0 -> String.format(java.util.Locale.ROOT, "%.1f KB", value / 1024.0)
+        else -> String.format(java.util.Locale.ROOT, "%.0f B", value)
+    }
+}
+
 @Composable
 private fun HomeScreen(
     server: String,
     profileCount: Int,
     connectionDetail: String,
     connectionPhase: com.mle.vpn.engine.MleConnectionPhase,
+    trafficStatsAvailable: Boolean,
+    bytesOut: Long,
+    bytesIn: Long,
     onServers: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -374,7 +518,7 @@ private fun HomeScreen(
                             com.mle.vpn.engine.MleConnectionPhase.STARTING -> "در حال اتصال"
                             com.mle.vpn.engine.MleConnectionPhase.TUNNEL_ACTIVE -> "در حال آزمایش اینترنت"
                             com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED -> "اینترنت وصل است"
-                            com.mle.vpn.engine.MleConnectionPhase.NO_INTERNET -> "تونل فعال؛ اینترنت قطع"
+                            com.mle.vpn.engine.MleConnectionPhase.NO_INTERNET -> "تونل فعال؛ اینترنت تأیید نشد"
                             com.mle.vpn.engine.MleConnectionPhase.ERROR -> "خطا"
                         },
                         color = if ((connectionPhase == com.mle.vpn.engine.MleConnectionPhase.ERROR || connectionPhase == com.mle.vpn.engine.MleConnectionPhase.NO_INTERNET)) Color(0xFFFF7B86) else if (connectionPhase == com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED) Color(0xFF62E6A7) else Mint,
@@ -385,6 +529,22 @@ private fun HomeScreen(
                     Text(if (profileCount > 0) "$profileCount کانفیگ ذخیره‌شده" else "ابتدا کانفیگ اضافه کن", color = Muted, fontSize = 12.sp)
                 }
             }
+        }
+        if (trafficStatsAvailable) {
+            Row(
+                Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("ارسال‌شده", color = Muted, fontSize = 11.sp)
+                    Text(formatTrafficBytes(bytesOut), color = Mint, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("دریافت‌شده", color = Muted, fontSize = 11.sp)
+                    Text(formatTrafficBytes(bytesIn), color = Mint, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
         }
         Spacer(Modifier.height(28.dp))
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
@@ -415,7 +575,7 @@ private fun HomeScreen(
             Icon(Icons.Default.ChevronLeft, null, tint = Muted)
         }
         Spacer(Modifier.height(22.dp))
-        Text("نسخه 1.0.0 • موتور sing-box در مرحله آزمایش", color = Muted, fontSize = 11.sp)
+        Text("نسخه 1.0.0 • موتورهای sing-box و OpenVPN در مرحله آزمایش", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -566,6 +726,6 @@ private fun ProfilesScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text("توجه: اتصال از موتور sing-box استفاده می‌کند؛ پایداری آن به کیفیت سرور و نتیجه آزمایش روی دستگاه بستگی دارد.", color = Muted, fontSize = 12.sp)
+        Text("توجه: موتور متناسب با نوع پروفایل انتخاب می‌شود؛ پایداری اتصال به کیفیت سرور و نتیجه آزمایش روی دستگاه بستگی دارد.", color = Muted, fontSize = 12.sp)
     }
 }

@@ -12,8 +12,11 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 ## Implemented
 - Persian RTL Compose interface and profile manager with explicit active-profile selection
 - Encrypted local profile storage using Android Keystore AES-GCM
-- Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
+- VLESS, VMess, Trojan, Shadowsocks (legacy + SIP002), Hysteria2 and TUIC share-link conversion to sing-box JSON (unsupported variants/plugins fail closed)
 - Per-profile TCP endpoint preflight diagnostics
+- Cloudflare Doctor trace check (public IP, colo and WARP flag); diagnostic only, not a VPN engine
+- OpenVPN 3 JNI/service integration and `.ovpn` import on the foundation branch; native ABI APK packaging is CI-verified
+- WireGuard `.conf` parsing, encrypted storage and sing-box endpoint configuration assembly
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
 - Native `Libbox.checkConfig` validation before startup
@@ -24,7 +27,10 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
-- The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
+- OpenVPN 3 native/JNI integration, `.ovpn` preflight/import and shared VPN-service lifecycle are present on `integration/mlmvpn-foundation`; both `arm64-v8a` and `armeabi-v7a` libraries are CI-built and packaged. Real-device connection, DNS/IPv6 leak and teardown tests are still pending.
+- WireGuard `.conf` parsing and sing-box configuration assembly exist, but end-to-end device verification is pending.
+- NPV standard share links use the shared supported-profile importer. Native `.npvt` / `.npvs` files are not decrypted or executed by MLE; they require the separate NPV Tunnel app/integration.
+- Full WARP/Aether and MASQUE tunnel runtime, AmneziaWG, provider engines, Cloudflare account panels/Worker tools, the complete Cloudflare Doctor scanner, Gereh and remaining MLM-specific systems are still migration work, not connectable MLE backends. The current Cloudflare Doctor is only a trace-based diagnostic.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
@@ -38,3 +44,9 @@ See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [end
 
 ## Third-party licensing
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is GPL-3.0; redistributions must comply with its license and source-availability requirements.
+
+## MLM VPN integration (staged)
+
+MLE VPN is developing an attributed, GPLv3-compatible integration of selected MLM VPN Android capabilities. The work is tracked on the `integration/mlmvpn-foundation` branch. This is a staged port, not a claim that every upstream engine or Gereh is already operational. See [the migration plan](docs/MLMVPN_MIGRATION.md), the [audited transfer inventory and compatibility matrix](docs/MLMVPN_TRANSFER_INVENTORY.md), and the unique engine/icon inventory in `MleEngineCatalog.kt`.
+
+Upstream credit: **mlmvpn** — https://github.com/mlmvpn/mlmvpn_android. Preserve the upstream GPLv3 license and additional attribution condition in derivative distributions.
