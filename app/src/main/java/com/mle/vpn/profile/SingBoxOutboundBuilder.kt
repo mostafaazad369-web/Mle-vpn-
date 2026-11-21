@@ -35,7 +35,7 @@ object SingBoxOutboundBuilder {
                 section = line.substring(1, line.length - 1).trim().lowercase()
                 sections.getOrPut(section!!) { linkedMapOf() }
             } else if (section != null && '=' in line) {
-                sections[section!!][line.substringBefore('=').trim().lowercase()] = line.substringAfter('=').trim()
+                sections[section!!]?.set(line.substringBefore('=').trim().lowercase(), line.substringAfter('=').trim())
             }
         }
         val iface = sections["interface"] ?: error("بخش [Interface] وجود ندارد.")
