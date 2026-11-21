@@ -133,6 +133,9 @@ object ProfileImporter {
         if (looksLikeOpenVpn(raw)) {
             return parseOpenVpn(raw)
         }
+        if (raw.startsWith("wireguard://", ignoreCase = true) || raw.startsWith("wg://", ignoreCase = true)) {
+            return parseWireGuardUri(raw)
+        }
         if (raw.contains("[Interface]", ignoreCase = true)) {
             return parseWireGuard(raw)
         }
@@ -198,6 +201,22 @@ object ProfileImporter {
         value.contains("<ca>", ignoreCase = true) ||
             (Regex("(?m)^\\s*client\\s*$", RegexOption.IGNORE_CASE).containsMatchIn(value) &&
                 Regex("(?m)^\\s*remote\\s+", RegexOption.IGNORE_CASE).containsMatchIn(value))
+
+
+    private fun parseWireGuardUri(raw: String): ProfileParseResult = runCatching {
+        val (config, name) = WireGuardConfigParser.parseUri(raw)
+        val peer = config.peers.first()
+        val warp = peer.publicKey == WARP_PEER_PUBLIC_KEY
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = if (warp) ProfileProtocol.WARP else ProfileProtocol.WIREGUARD,
+            displayName = name.takeIf(String::isNotBlank)?.take(80)
+                ?: if (warp) "Cloudflare WARP • ${peer.host}" else "WireGuard • ${peer.host}",
+            host = peer.host,
+            port = peer.port,
+            sourceUri = WireGuardConfigParser.encodeForStorage(config.toConf())
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "لینک WireGuard معتبر نیست یا شامل گزینه‌های پشتیبانی‌نشده است.") }
 
     private fun parseOpenVpn(raw: String): ProfileParseResult = runCatching {
         val config = OpenVpnConfigParser.parse(raw)
