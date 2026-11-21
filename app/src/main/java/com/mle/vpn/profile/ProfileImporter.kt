@@ -176,6 +176,12 @@ object ProfileImporter {
      */
     private fun parseWireGuardConfig(raw: String): ImportedProfile {
         require(raw.length <= 64_000) { "فایل WireGuard بیش از حد بزرگ است." }
+        require(raw.lineSequence().count { it.trim().equals("[Interface]", true) } == 1) {
+            "فایل WireGuard باید دقیقاً یک بخش [Interface] داشته باشد."
+        }
+        require(raw.lineSequence().count { it.trim().equals("[Peer]", true) } == 1) {
+            "فعلاً فایل WireGuard باید دقیقاً یک بخش [Peer] داشته باشد؛ فایل چند Peer پشتیبانی نمی‌شود."
+        }
         val sections = linkedMapOf<String, MutableMap<String, String>>()
         var section: String? = null
         raw.lineSequence().forEach { original ->
@@ -207,7 +213,16 @@ object ProfileImporter {
         require(port in 1..65535) { "پورت Endpoint در فایل WireGuard معتبر نیست." }
         val allowed = peer["allowedips"].orEmpty().split(',').map(String::trim).filter(String::isNotBlank)
         require(allowed.isNotEmpty() && allowed.all { '/' in it }) { "AllowedIPs در فایل WireGuard معتبر نیست." }
-        peer["persistentkeepalive"]?.toIntOrNull()?.let { require(it in 0..65535) { "PersistentKeepalive معتبر نیست." } }
+        val keepaliveRaw = peer["persistentkeepalive"]
+        if (!keepaliveRaw.isNullOrBlank()) {
+            val keepalive = keepaliveRaw.toIntOrNull() ?: error("PersistentKeepalive باید عدد صحیح باشد.")
+            require(keepalive in 0..65535) { "PersistentKeepalive معتبر نیست." }
+        }
+        val mtuRaw = iface["mtu"]
+        if (!mtuRaw.isNullOrBlank()) {
+            val mtu = mtuRaw.toIntOrNull() ?: error("MTU باید عدد صحیح باشد.")
+            require(mtu in 1280..9000) { "MTU باید بین ۱۲۸۰ و ۹۰۰۰ باشد." }
+        }
         peer["reserved"]?.takeIf(String::isNotBlank)?.let { rawReserved ->
             val bytes = rawReserved.split(',').mapNotNull { it.trim().toIntOrNull() }
             require(bytes.size == 3 && bytes.all { it in 0..255 }) { "Reserved باید دقیقاً سه عدد بین صفر تا ۲۵۵ باشد." }
