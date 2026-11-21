@@ -126,7 +126,7 @@ object WireGuardConfigParser {
         } else {
             require(prefix in 0..32)
             val parts = address.split('.')
-            parts.size == 4 && parts.all { it.toIntOrNull() in 0..255 }
+            parts.size == 4 && parts.all { part -> part.toIntOrNull()?.let { it in 0..255 } == true }
         }
     }.getOrDefault(false)
 }
