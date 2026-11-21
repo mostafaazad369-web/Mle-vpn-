@@ -89,7 +89,8 @@ class MleVpnService : VpnService() {
                     val singBox = MleBoxRuntime(this, MlePlatformInterface(this))
                     engineManager = MleEngineManager(listOf(
                         SingBoxEngineAdapter(singBox),
-                        XrayEngineAdapter(XrayRuntime(this))
+                        XrayEngineAdapter(XrayRuntime(this)),
+                        AmneziaWgEngineAdapter(this)
                     ))
                 }
                 serviceScope.launch {
