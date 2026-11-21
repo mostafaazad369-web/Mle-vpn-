@@ -70,4 +70,55 @@ class OpenVpnTunConfigTest {
             // Expected.
         }
     }
+
+    @Test
+    fun enforcesAllServerPushedCollectionLimits() {
+        val builder = OpenVpnTunConfig.Builder()
+        repeat(16) { index -> builder.addAddress("10.0.0.${index + 1}", 32) }
+        expectFailure { builder.addAddress("10.0.1.1", 32) }
+
+        repeat(128) { index ->
+            builder.addRoute("10.1.${index / 256}.${index % 256}", 32)
+        }
+        expectFailure { builder.addRoute("10.2.0.1", 32) }
+
+        repeat(8) { index -> builder.addDns("1.1.1.${index + 1}") }
+        expectFailure { builder.addDns("9.9.9.9") }
+
+        repeat(16) { index -> builder.addSearchDomain("node${index}.example.test") }
+        expectFailure { builder.addSearchDomain("overflow.example.test") }
+        val config = builder.build()
+        assertEquals(16, config.addresses.size)
+        assertEquals(128, config.routes.size)
+        assertEquals(8, config.dnsServers.size)
+        assertEquals(16, config.searchDomains.size)
+    }
+
+    @Test
+    fun rejectsMalformedAndScopedIpLiterals() {
+        val builder = OpenVpnTunConfig.Builder()
+        expectFailure { builder.addAddress("192.0.2", 24) }
+        expectFailure { builder.addAddress("2001:db8:::1", 64) }
+        expectFailure { builder.addDns("fe80::1%wlan0") }
+        expectFailure { builder.addRoute("vpn.example", 24) }
+    }
+
+    @Test
+    fun acceptsIdnDomainsAndNormalizesCaseAndTrailingDot() {
+        val builder = OpenVpnTunConfig.Builder()
+        builder.addAddress("10.8.0.2", 24)
+        builder.addRoute("0.0.0.0", 0)
+        builder.addSearchDomain(" BÜCHER.example. ")
+        assertEquals(listOf("xn--bcher-kva.example"), builder.build().searchDomains)
+    }
+
+    @Test
+    fun rejectsOutOfRangeMtuAndPrefixLengthsForBothFamilies() {
+        val builder = OpenVpnTunConfig.Builder()
+        expectFailure { builder.setMtu(1279) }
+        expectFailure { builder.setMtu(0) }
+        expectFailure { builder.addAddress("2001:db8::1", 129) }
+        expectFailure { builder.addRoute("2001:db8::", -1) }
+    }
+
 }
