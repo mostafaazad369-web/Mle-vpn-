@@ -47,6 +47,6 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is G
 
 ## MLM VPN integration (staged)
 
-MLE VPN is developing an attributed, GPLv3-compatible integration of selected MLM VPN Android capabilities. The work is tracked on the `integration/mlmvpn-foundation` branch. This is a staged port, not a claim that every upstream engine or Gereh is already operational. See [the migration plan](docs/MLMVPN_MIGRATION.md) and the unique engine/icon inventory in `MleEngineCatalog.kt`.
+MLE VPN is developing an attributed, GPLv3-compatible integration of selected MLM VPN Android capabilities. The work is tracked on the `integration/mlmvpn-foundation` branch. This is a staged port, not a claim that every upstream engine or Gereh is already operational. See [the migration plan](docs/MLMVPN_MIGRATION.md), the [audited transfer inventory and compatibility matrix](docs/MLMVPN_TRANSFER_INVENTORY.md), and the unique engine/icon inventory in `MleEngineCatalog.kt`.
 
 Upstream credit: **mlmvpn** — https://github.com/mlmvpn/mlmvpn_android. Preserve the upstream GPLv3 license and additional attribution condition in derivative distributions.
