@@ -280,7 +280,11 @@ private fun MleApp() {
                                     }
                                     supported.forEach(vault::save)
                                     profiles = vault.loadAll()
-                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    if (selectedProfileId == null) {
+                                        val firstProfile = profiles.firstOrNull()
+                                        selectedProfileId = firstProfile?.id
+                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
+                                    }
                                     val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
                                     "${source.title}: ${supported.size} کانفیگ جدید ذخیره شد؛ ${rejected} مورد نامعتبر، ناسازگار یا تکراری بود. ${if (fetched.fromCache) "از نسخه ذخیره‌شده استفاده شد." else "منبع تازه دریافت شد."}"
                                 }.onSuccess { sourceStatus = it }
@@ -307,7 +311,11 @@ private fun MleApp() {
                                     }
                                     supported.forEach(vault::save)
                                     profiles = vault.loadAll()
-                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    if (selectedProfileId == null) {
+                                        val firstProfile = profiles.firstOrNull()
+                                        selectedProfileId = firstProfile?.id
+                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
+                                    }
                                     val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
                                     "$channel: ${supported.size} کانفیگ جدید ذخیره شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود."
                                 }.onSuccess { sourceStatus = it }
@@ -388,7 +396,11 @@ private fun MleApp() {
                                 } else {
                                     batch.profiles.forEach(vault::save)
                                     profiles = vault.loadAll()
-                                    if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                    if (selectedProfileId == null) {
+                                        val firstProfile = profiles.firstOrNull()
+                                        selectedProfileId = firstProfile?.id
+                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
+                                    }
                                     importText = ""
                                     importError = null
                                     showImport = false
