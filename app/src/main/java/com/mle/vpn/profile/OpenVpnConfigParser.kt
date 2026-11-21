@@ -95,11 +95,10 @@ object OpenVpnConfigParser {
         "explicit-exit-notify", "ping", "ping-restart", "reneg-sec",
         "mssfix", "verb", "mute", "auth-nocache", "fast-io", "float",
         "remote-random-hostname", "pull", "route-nopull", "topology",
-        "tun-mtu", "tun-mtu-extra", "sndbuf", "rcvbuf", "connect-retry",
-        "connect-retry-max", "connect-timeout", "hand-window", "tls-timeout",
+        "tun-mtu", "tun-mtu-extra", "sndbuf", "rcvbuf",
         "route-delay", "route", "route-ipv6", "redirect-gateway",
         "dhcp-option", "block-outside-dns", "register-dns", "setenv",
-        "explicit-exit-notify", "keepalive"
+        "explicit-exit-notify"
     )
     private val supportedBlocks = setOf("ca", "cert", "key", "tls-auth", "tls-crypt")
 
@@ -197,13 +196,20 @@ object OpenVpnConfigParser {
         require(scalar("remote-cert-tls") == null || scalar("remote-cert-tls") == "server") {
             "remote-cert-tls باید server باشد."
         }
-        fun seconds(key: String): Int? = scalar(key)?.toIntOrNull()?.also { require(it in 1..86400) { "$key نامعتبر است." } }
+        fun seconds(key: String): Int? {
+            val rawValue = scalar(key) ?: return null
+            val parsed = rawValue.toIntOrNull() ?: error("$key باید عدد صحیح باشد.")
+            require(parsed in 1..86400) { "$key نامعتبر است." }
+            return parsed
+        }
         val mtu = scalar("tun-mtu")?.toIntOrNull() ?: 1500
         require(mtu in 576..9000) { "tun-mtu باید بین 576 و 9000 باشد." }
-        val mss = scalar("mssfix")?.toIntOrNull()
-        require(scalar("mssfix").isNullOrBlank() || mss in 536..9000) { "mssfix نامعتبر است." }
-        val explicit = scalar("explicit-exit-notify")?.toIntOrNull()
-        require(scalar("explicit-exit-notify").isNullOrBlank() || explicit in 0..10) { "explicit-exit-notify نامعتبر است." }
+        val mssRaw = scalar("mssfix")
+        val mss = mssRaw?.toIntOrNull()
+        if (!mssRaw.isNullOrBlank()) require(mss != null && mss in 536..9000) { "mssfix نامعتبر است." }
+        val explicitRaw = scalar("explicit-exit-notify")
+        val explicit = explicitRaw?.toIntOrNull()
+        if (!explicitRaw.isNullOrBlank()) require(explicit != null && explicit in 0..10) { "explicit-exit-notify نامعتبر است." }
         val controlType = when {
             tlsCrypt != null -> "tls_crypt"
             tlsAuth != null -> "tls_auth"
