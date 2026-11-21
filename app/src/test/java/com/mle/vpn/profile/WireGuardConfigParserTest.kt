@@ -63,6 +63,30 @@ class WireGuardConfigParserTest {
         assertEquals("wg-ep", json.getJSONObject("route").getString("final"))
     }
 
+
+    @Test
+    fun parsesStandardWireGuardShareLinksAndNormalizesToEncryptedConfStorage() {
+        val link = "wireguard://$key@vpn.example.net:51820?publickey=$key&address=10.7.0.2%2F32&dns=1.1.1.1&allowedips=0.0.0.0%2F0%2C%3A%3A%2F0&mtu=1380&keepalive=25#Test%20WG"
+        val (config, name) = WireGuardConfigParser.parseUri(link)
+        assertEquals("Test WG", name)
+        assertEquals("vpn.example.net", config.peers.single().host)
+        assertEquals("10.7.0.2/32", config.addresses.single())
+        val parsed = ProfileImporter.parse(link) as ProfileParseResult.Success
+        assertEquals(ProfileProtocol.WIREGUARD, parsed.profile.protocol)
+        val endpoint = SingBoxConfigBuilder.build(parsed.profile).getJSONArray("endpoints").getJSONObject(0)
+        assertEquals("wireguard", endpoint.getString("type"))
+    }
+
+    @Test
+    fun parsesWARPShareLinkAndRejectsAmneziaOnlyQueryParameters() {
+        val warpLink = "wg://$key@warp.example.net:2408?publickey=${ProfileImporter.WARP_PEER_PUBLIC_KEY}&address=172.16.0.2%2F32&reserved=1%2C2%2C3#WARP"
+        val parsed = ProfileImporter.parse(warpLink) as ProfileParseResult.Success
+        assertEquals(ProfileProtocol.WARP, parsed.profile.protocol)
+        assertEquals("wireguard", SingBoxConfigBuilder.build(parsed.profile).getJSONArray("endpoints").getJSONObject(0).getString("type"))
+        val awg = "wireguard://$key@vpn.example.net:51820?publickey=$key&address=10.7.0.2%2F32&jc=4"
+        assertFalse(runCatching { WireGuardConfigParser.parseUri(awg) }.isSuccess)
+    }
+
     @Test
     fun rejectsMissingPeerAndUnsafeUnknownOptions() {
         assertFalse(runCatching {
