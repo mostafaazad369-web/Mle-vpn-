@@ -202,7 +202,8 @@ object OpenVpnConfigParser {
             require(parsed in 1..86400) { "$key نامعتبر است." }
             return parsed
         }
-        val mtu = scalar("tun-mtu")?.toIntOrNull() ?: 1500
+        val mtuRaw = scalar("tun-mtu")
+        val mtu = mtuRaw?.toIntOrNull() ?: if (mtuRaw.isNullOrBlank()) 1500 else error("tun-mtu باید عدد صحیح باشد.")
         require(mtu in 576..9000) { "tun-mtu باید بین 576 و 9000 باشد." }
         val mssRaw = scalar("mssfix")
         val mss = mssRaw?.toIntOrNull()
