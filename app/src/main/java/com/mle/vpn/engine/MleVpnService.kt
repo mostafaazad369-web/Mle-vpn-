@@ -14,6 +14,7 @@ import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
 import com.mle.vpn.MainActivity
 import com.mle.vpn.R
+import com.mle.vpn.engine.openvpn.OpenVpnTunConfig
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,8 @@ import kotlinx.coroutines.isActive
  */
 class MleVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
+    // OpenVPN keeps the service-owned descriptor while native core receives a detached duplicate.
+    private var openVpnTun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
@@ -184,6 +187,39 @@ class MleVpnService : VpnService() {
         return descriptor.detachFd().also { tun = null }
     }
 
+    /**
+     * Establishes an OpenVPN TUN from server-pushed settings. The service retains
+     * the original descriptor; native code receives a detached duplicate and owns
+     * that duplicate until the core has stopped.
+     *
+     * This is a service primitive only. No OpenVPN start action is wired until the
+     * native core, arbiter lease and callback lifecycle are implemented together.
+     */
+    @Synchronized
+    internal fun establishOpenVpnTun(config: OpenVpnTunConfig): Int {
+        check(!stopping.get()) { "VPN service is stopping." }
+        check(tun == null && openVpnTun == null) { "A VPN TUN interface is already active." }
+        val builder = Builder()
+            .setSession("MLE VPN · OpenVPN")
+            .setMtu(config.mtu)
+        config.addresses.forEach { builder.addAddress(it.address, it.prefixLength) }
+        config.routes.forEach { builder.addRoute(it.address, it.prefixLength) }
+        config.dnsServers.forEach(builder::addDnsServer)
+        config.searchDomains.forEach(builder::addSearchDomain)
+
+        val retained = checkNotNull(builder.establish()) {
+            "Android did not grant an OpenVPN TUN interface."
+        }
+        try {
+            val nativeDuplicate = ParcelFileDescriptor.dup(retained.fileDescriptor)
+            openVpnTun = retained
+            return nativeDuplicate.detachFd()
+        } catch (error: Exception) {
+            runCatching { retained.close() }
+            throw error
+        }
+    }
+
     @Synchronized
     internal fun holdTunDescriptor(descriptor: ParcelFileDescriptor) {
         check(!stopping.get()) { "VPN service is stopping." }
@@ -210,6 +246,8 @@ class MleVpnService : VpnService() {
     fun closeTun() {
         runCatching { tun?.close() }
         tun = null
+        runCatching { openVpnTun?.close() }
+        openVpnTun = null
     }
 
     override fun onRevoke() {
@@ -241,6 +279,8 @@ class MleVpnService : VpnService() {
         stopping.set(true)
         runCatching { tun?.close() }
         tun = null
+        runCatching { openVpnTun?.close() }
+        openVpnTun = null
     }
 
     /**
