@@ -239,6 +239,34 @@ private fun MleApp() {
                             }
                         }
                     },
+                    onFetchAllPublic = {
+                        if (fetchingSource == null) {
+                            fetchingSource = "all-public"
+                            sourceStatus = null
+                            scope.launch {
+                                var added = 0
+                                var rejected = 0
+                                var failed = 0
+                                for (source in publicSources) {
+                                    runCatching {
+                                        val batch = ProfileImporter.parseBatch(PublicConfigSourceCatalog.fetch(source))
+                                        val existing = vault.loadAll().map { it.sourceUri }.toSet()
+                                        val supported = batch.profiles.filter { profile ->
+                                            profile.sourceUri !in existing &&
+                                                runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                        }
+                                        supported.forEach(vault::save)
+                                        added += supported.size
+                                        rejected += batch.rejectedCount + batch.profiles.size - supported.size
+                                    }.onFailure { failed++ }
+                                }
+                                profiles = vault.loadAll()
+                                if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+                                sourceStatus = "پایان دریافت همه منابع: $added کانفیگ جدید، $rejected مورد ردشده، $failed منبع ناموفق. کانفیگ‌های شخصی حفظ شدند."
+                                fetchingSource = null
+                            }
+                        }
+                    },
                     onFetch = { channel ->
                         if (fetchingSource == null) {
                             fetchingSource = channel
@@ -476,6 +504,7 @@ private fun TelegramSourcesScreen(
     fetchingSource: String?,
     status: String?,
     onFetchPublic: (PublicConfigSource) -> Unit,
+    onFetchAllPublic: () -> Unit,
     onFetch: (String) -> Unit,
     padding: PaddingValues
 ) {
@@ -484,6 +513,11 @@ private fun TelegramSourcesScreen(
     ) {
         Text("منابع عمومی کانفیگ", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Text("${publicSources.size} فید عمومی؛ دریافت دستی و با حفظ کانفیگ‌های شخصی", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
+        Button(onClick = onFetchAllPublic, enabled = fetchingSource == null && publicSources.isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
+            Icon(Icons.Default.Refresh, null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (fetchingSource == "all-public") "در حال دریافت همه منابع..." else "به‌روزرسانی همه منابع عمومی")
+        }
         publicSources.forEach { source ->
             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).background(Panel, RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
