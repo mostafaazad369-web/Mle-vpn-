@@ -151,6 +151,13 @@
       "kind": "license",
       "status": "notice_only",
       "description": "Upstream bundled OpenVPN dependency license texts"
+    },
+    {
+      "id": "npv_channels",
+      "path": "npv/channels.txt",
+      "kind": "source_catalog",
+      "status": "bundled_not_wired",
+      "description": "NPV channel/source names only; does not include NPV access-key seed profiles or runtime"
     }
   ],
   "not_imported": [
