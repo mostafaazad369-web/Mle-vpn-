@@ -17,7 +17,7 @@ data class AmneziaWgProfileConfig(
  */
 object AmneziaWgConfigParser {
     private val endpointLine = Regex(
-        """(?im)^\\s*Endpoint\\s*=\\s*(\\[[^]]+]|[^\\s:]+):(\\d+)\\s*$"""
+        """(?im)^\s*Endpoint\s*=\s*(\\[[^]]+]|[^\s:]+):(\\d+)\s*$"""
     )
 
     fun parse(raw: String): AmneziaWgProfileConfig {
@@ -51,7 +51,7 @@ object AmneziaWgConfigParser {
     }
 
     fun isAmneziaConfig(value: String): Boolean =
-        Regex("""(?im)^\\s*(?:Jc|Jmin|Jmax|S1|S2|H[1-4]|I[1-5])\\s*=""")
+        Regex("""(?im)^\s*(?:Jc|Jmin|Jmax|S1|S2|H[1-4]|I[1-5])\s*=""")
             .containsMatchIn(value)
 
     private const val PREFIX = "awg-conf://"
