@@ -43,3 +43,9 @@ The lock and license notices in this branch are copied from MLM VPN's OpenVPN in
 This is intentionally not yet the full OpenVPN importer: external companion-file selection, complete certificate/key validation, encrypted profile persistence, native runtime and VPN-service coordination are not implemented by this class. Its test suite covers allow-list enforcement, remote parsing, TLS verification requirements, compression rejection, credential-file rejection and size bounds. No profile can connect through OpenVPN until the native port and service integration gates above are complete.
 
 The repository now includes `scripts/fetch-openvpn-sources.ps1` to materialize the six locked dependency archives for a native build host. It verifies SHA-256 before extraction, restricts downloads to GitHub codeload, rejects zip path traversal and writes provenance markers. This fetch step does not itself build or enable OpenVPN; the MLE JNI bridge, CMake target, ABI packaging and service adapter are still outstanding.
+
+## CI checkpoint (2026-11-21)
+
+- OpenVPN preflight validator and its tests at commit `c79827af49392402096f1cbf5dcba135fc08e23d` passed Android CI run `44907913535` (unit tests and debug APK package) and Android build run `44907913552` (debug APK assembly and artifact upload).
+- The fetch-script and documentation commits are newer than that validator checkpoint; their CI is running separately. The fetch script itself has not been executed on a Windows/NDK host yet.
+- This validates Kotlin compilation and tests only. No OpenVPN native library was built or packaged, and no OpenVPN connection is possible yet.
