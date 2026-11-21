@@ -79,6 +79,7 @@ private val EngineColors = mapOf(
 private fun integrationLabel(value: Integration): String = when (value) {
     Integration.EXISTING_SING_BOX_PATH -> "مسیر فعلی sing-box"
     Integration.EXISTING_OPENVPN_PATH -> "موتور OpenVPN یکپارچه؛ نیازمند پروفایل"
+    Integration.PUBLIC_DISCOVERY_ONLY -> "کشف سرور عمومی؛ اتصال نیازمند واردکردن پروفایل"
     Integration.ADAPTER_REQUIRED -> "نیازمند اتصال‌دهنده"
     Integration.NATIVE_OR_PROVIDER_REQUIRED -> "نیازمند هسته یا سرویس رسمی"
     Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED -> "نیازمند کانفیگ یا حساب کاربر"
