@@ -82,8 +82,8 @@ object EndpointProbe {
                 a == 100 && b in 64..127 -> false // Shared address space (100.64/10)
                 a == 169 && b == 254 -> false
                 a == 172 && b in 16..31 -> false
-                a == 192 && (b == 0 || b == 168) -> false
-                a == 192 && b == 0 && c == 2 -> false
+                a == 192 && b == 0 && (c == 0 || c == 2) -> false
+                a == 192 && b == 168 -> false
                 a == 192 && b == 88 && c == 99 -> false
                 a == 198 && (b == 18 || b == 19) -> false
                 a == 198 && b == 51 && c == 100 -> false
