@@ -265,7 +265,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، چند لینک، متن Base64 یا یک فایل WireGuard با قالب wg-quick را وارد کن. فقط قالب‌هایی که تبدیل امن آن‌ها پشتیبانی می‌شود ذخیره خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، چند لینک، متن Base64 یا متن یک پیکربندی WireGuard با قالب wg-quick را وارد کن. فقط قالب‌هایی که تبدیل امن آن‌ها پشتیبانی می‌شود ذخیره خواهند شد.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
@@ -289,7 +289,7 @@ private fun MleApp() {
                         scope.launch {
                             runCatching {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
-                                val parsed = if (source.trimStart().startsWith("[Interface]", ignoreCase = true)) {
+                                val parsed = if (source.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.startsWith("#") }?.equals("[Interface]", ignoreCase = true) == true) {
                                     when (val wireGuard = ProfileImporter.parseWireGuardConfig(source)) {
                                         is ProfileParseResult.Success ->
                                             com.mle.vpn.profile.ProfileBatchResult(listOf(wireGuard.profile), 0, 0)
