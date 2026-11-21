@@ -226,7 +226,7 @@ private fun MleApp() {
                                     val existing = vault.loadAll().map { it.sourceUri }.toSet()
                                     val supported = batch.profiles.filter { profile ->
                                         profile.sourceUri !in existing &&
-                                            runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                            runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                     }
                                     supported.forEach(vault::save)
                                     profiles = vault.loadAll()
@@ -253,7 +253,7 @@ private fun MleApp() {
                                         val existing = vault.loadAll().map { it.sourceUri }.toSet()
                                         val supported = batch.profiles.filter { profile ->
                                             profile.sourceUri !in existing &&
-                                                runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                                runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                         }
                                         supported.forEach(vault::save)
                                         added += supported.size
@@ -278,7 +278,7 @@ private fun MleApp() {
                                     val existing = profiles.map { it.sourceUri }.toSet()
                                     val supported = batch.profiles.filter { profile ->
                                         profile.sourceUri !in existing &&
-                                            runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                            runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                     }
                                     supported.forEach(vault::save)
                                     profiles = vault.loadAll()
@@ -348,7 +348,7 @@ private fun MleApp() {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
                                 val parsed = ProfileImporter.parseBatch(source)
                                 val convertible = parsed.profiles.filter { profile ->
-                                    runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess
                                 }
                                 parsed.copy(
                                     profiles = convertible,
