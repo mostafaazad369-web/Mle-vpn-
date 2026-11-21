@@ -144,6 +144,7 @@ object OpenVpnConfigParser {
         }
         require(activeBlock == null) { "بلوک inline OpenVPN بسته نشده است." }
         val values = directives.groupBy({ it.first }, { it.second })
+        require(values["remote-random"].orEmpty().all { it.isEmpty() }) { "remote-random نباید آرگومان داشته باشد." }
         fun first(key: String): List<String>? = values[key]?.firstOrNull()
         fun scalar(key: String): String? = first(key)?.firstOrNull()
         require(values["client"] != null) { "فقط پروفایل‌های OpenVPN client پشتیبانی می‌شوند." }
@@ -153,6 +154,7 @@ object OpenVpnConfigParser {
         require(values["pkcs12"] == null && values["secret"] == null) { "حالت‌های فایل PKCS12 و static-key پشتیبانی نمی‌شوند." }
         val remotes = values["remote"].orEmpty().map { args ->
             require(args.isNotEmpty()) { "دستور remote ناقص است." }
+            require(args.size <= 3) { "دستور remote بیش از سه آرگومان دارد." }
             val host = args[0]
             val explicitPort = args.getOrNull(1)?.toIntOrNull()
             val port = explicitPort ?: 1194
@@ -176,7 +178,12 @@ object OpenVpnConfigParser {
         val key = blocks["key"]
         require((cert == null) == (key == null)) { "گواهی کلاینت و کلید خصوصی باید با هم ارائه شوند." }
         if (cert != null) require(cert.contains("BEGIN CERTIFICATE") && cert.contains("END CERTIFICATE")) { "گواهی کلاینت معتبر نیست." }
-        if (key != null) require(key.contains("PRIVATE KEY") && key.contains("END")) { "کلید خصوصی کلاینت معتبر نیست." }
+        if (key != null) {
+            require(key.contains("PRIVATE KEY") && key.contains("END")) { "کلید خصوصی کلاینت معتبر نیست." }
+            require(!key.contains("ENCRYPTED PRIVATE KEY") && !key.contains("Proc-Type: 4,ENCRYPTED")) {
+                "کلید خصوصی رمزگذاری‌شده به رمز عبور جداگانه نیاز دارد و هنوز پشتیبانی نمی‌شود."
+            }
+        }
         val tlsAuth = blocks["tls-auth"]
         val tlsCrypt = blocks["tls-crypt"]
         require(tlsAuth == null || tlsCrypt == null) { "tls-auth و tls-crypt هم‌زمان قابل استفاده نیستند." }
