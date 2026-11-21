@@ -574,14 +574,14 @@ private fun EngineCatalogScreen(padding: PaddingValues) {
         Text("موتورهای اتصال", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Text("فهرست قابلیت‌های خانواده MLM؛ وضعیت هر موتور شفاف نمایش داده می‌شود.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
         engines.forEach { engine ->
-            val ready = engine.state != com.mle.vpn.engine.IntegrationState.CATALOG_ONLY
+            val ready = engine.state == com.mle.vpn.engine.IntegrationState.IMPLEMENTED_UNVERIFIED || engine.state == com.mle.vpn.engine.IntegrationState.DEVICE_VERIFIED
             val glyph = when (engine.id) {
                 "sing_box" -> "◈"; "warp" -> "☁"; "aether" -> "◎"; "amnezia" -> "⌁"
                 "openvpn" -> "⇄"; "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"
                 "geph" -> "✣"; "lantern" -> "✧"; "urnetwork" -> "⌘"; "proton" -> "△"
                 "windscribe" -> "≋"; "fenix" -> "◌"; "vpngate" -> "▤"; "npv" -> "▦"
                 "flux" -> "ϟ"; "mae" -> "⌬"; "gst_edg" -> "⟡"; "github_tunnel" -> "⌂"
-                "telegram_proxy" -> "➤"; else -> "◇"
+                "telegram_proxy" -> "✉"; "sni_ech" -> "⌖"; else -> "◇"
             }
             Row(Modifier.fillMaxWidth().padding(bottom = 9.dp).background(Panel, RoundedCornerShape(15.dp)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).background(if (ready) Mint.copy(alpha = .14f) else Violet.copy(alpha = .14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
