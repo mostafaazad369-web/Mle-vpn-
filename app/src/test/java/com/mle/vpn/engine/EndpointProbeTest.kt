@@ -35,6 +35,7 @@ class EndpointProbeTest {
     fun acceptsGloballyRoutableIpv4AndIpv6Literals() {
         assertTrue(EndpointProbe.isPubliclyRoutable(InetAddress.getByName("1.1.1.1")))
         assertTrue(EndpointProbe.isPubliclyRoutable(InetAddress.getByName("2606:4700:4700::1111")))
+        assertTrue(EndpointProbe.isPubliclyRoutable(InetAddress.getByName("2001:2:1::1")))
     }
 
     @Test
