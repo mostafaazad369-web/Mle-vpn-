@@ -15,7 +15,6 @@ class WireGuardConfigTest {
         [Interface]
         PrivateKey = $key
         Address = 10.66.0.2/32, fd00::2/128
-        DNS = 1.1.1.1
 
         [Peer]
         PublicKey = $key
