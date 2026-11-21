@@ -38,3 +38,11 @@ See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [end
 
 ## Third-party licensing
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is GPL-3.0; redistributions must comply with its license and source-availability requirements.
+
+## MLM VPN resource integration (in progress)
+
+MLE VPN includes an attributed, selected snapshot of public data and Cloudflare Worker source from [MLM VPN](https://github.com/mlmvpn/mlmvpn_android), under `app/src/main/assets/mlm/`. See [the resource manifest](app/src/main/assets/mlm/RESOURCE_MANIFEST.json) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+**Important:** these are bundled resources/reference sources, not activated VPN engines. FLUX, MAE, Cloudflare Worker deployment, Game Booster, OpenVPN, Gereh and the other upstream engines still require their own runtime/native dependencies, application lifecycle and real-device validation. Catalog-only items must never be advertised as connectable. Upstream-operated server addresses and credentials are intentionally redacted and are not included.
+
+Integration is being staged on branch `feature/mlm-feature-parity`; do not treat this branch as a production-ready APK.
