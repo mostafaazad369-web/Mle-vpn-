@@ -33,14 +33,14 @@ class ProfileFailoverPlannerTest {
     }
 
     @Test
-    fun supportsTenCandidatesWhenRequested() {
-        val profiles = (1..12).map { profile("node-$it") }
+    fun supportsTwentyFiveCandidatesWhenRequested() {
+        val profiles = (1..30).map { profile("node-$it") }
         val ordered = ProfileFailoverPlanner.order(
             profiles,
             selectedProfileId = "node-7",
-            maxAttempts = 10
+            maxAttempts = 25
         )
-        assertEquals(10, ordered.size)
+        assertEquals(25, ordered.size)
         assertEquals("node-7", ordered.first().id)
     }
     @Test
