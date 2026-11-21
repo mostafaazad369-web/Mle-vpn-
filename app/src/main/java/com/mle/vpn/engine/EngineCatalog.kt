@@ -38,7 +38,7 @@ object EngineCatalog {
             listOf("MASQUE", "WireGuard", "WARP-in-WARP"), "Requires native runtime and endpoint configuration."),
         EngineDescriptor("amnezia", "AmneziaWG", "Amnezia / Apache-2.0 Android source",
             listOf("AmneziaWG", "Jc/Jmin/Jmax", "S1/S2", "H1-H4", "I1-I5"),
-            "Official source is pinned and isolated build-audited; native runtime and single-TUN lifecycle are not integrated yet.",
+            "Official tunnel library is packaged and isolated in :awg; real-device routing and handshake tests remain.",
             IntegrationState.ADAPTER_IN_PROGRESS),
         EngineDescriptor("openvpn", "OpenVPN", "OpenVPN via sing-box 1.14 endpoint",
             listOf("OpenVPN TLS client", ".ovpn", "UDP", "TCP"),
