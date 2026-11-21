@@ -42,7 +42,7 @@ object SilentSourceSync {
                 if (fetched.networkValidated) successfulFetches++
                 ProfileImporter.parseBatch(fetched.text).profiles.filter { profile ->
                     profile.sourceUri !in knownUris && (
-                        runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess ||
+                        runCatching { SingBoxConfigBuilder.build(profile) }.isSuccess ||
                             runCatching { XrayConfigBuilder.build(profile) }.isSuccess
                     )
                 }
