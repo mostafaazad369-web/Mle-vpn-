@@ -48,7 +48,9 @@ jobs:
       - name: Build and audit native library
         shell: pwsh
         run: |
-          ./scripts/build-openvpn.ps1 -Ndk "$env:ANDROID_NDK_HOME" -Cmake "cmake" -Generator "Ninja" -Abis @("${{ matrix.abi }}") -SkipFetch
+          $ndk = $env:ANDROID_NDK_HOME
+          if (!$ndk) { $ndk = Join-Path $env:ANDROID_HOME "ndk/27.3.13750724" }
+          ./scripts/build-openvpn.ps1 -Ndk $ndk -Cmake "cmake" -Generator "Ninja" -Abis @("${{ matrix.abi }}") -SkipFetch
 
       - name: Upload native library
         uses: actions/upload-artifact@v4
