@@ -35,3 +35,9 @@ No upstream TunnelBear sample profiles, CA certificates, accounts, credentials, 
 ## Provenance
 
 The lock and license notices in this branch are copied from MLM VPN's OpenVPN integration metadata. Upstream author credit: **mlmvpn** — https://github.com/mlmvpn. MLE's derivative remains subject to the repository's GPLv3 and applicable upstream attribution terms; OpenVPN and its dependencies retain their individual licenses.
+
+## Strict profile preflight (first Kotlin slice)
+
+`app/src/main/java/com/mle/vpn/profile/OpenVpnProfilePreflight.kt` now performs a bounded, conservative preflight for pasted/imported OpenVPN text. It recognizes client/TUN mode, remote endpoints, transport and TLS peer-verification policy, accepts only a narrow directive allow-list, and returns non-secret metadata. It rejects unknown directives rather than silently dropping them, and explicitly blocks scripts, plugins, management interfaces, external credential/certificate paths and compression directives.
+
+This is intentionally not yet the full OpenVPN importer: external companion-file selection, complete certificate/key validation, encrypted profile persistence, native runtime and VPN-service coordination are not implemented by this class. Its test suite covers allow-list enforcement, remote parsing, TLS verification requirements, compression rejection, credential-file rejection and size bounds. No profile can connect through OpenVPN until the native port and service integration gates above are complete.
