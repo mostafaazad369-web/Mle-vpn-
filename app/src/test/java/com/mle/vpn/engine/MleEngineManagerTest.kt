@@ -54,6 +54,57 @@ class MleEngineManagerTest {
         assertEquals(listOf("start", "stop"), broken.events)
     }
 
+
+    @Test
+    fun failedPreviousEngineStopKeepsOwnershipAndPreventsSecondTunnel() = runBlocking {
+        val first = object : MleEngineAdapter {
+            override val id = "amneziawg"
+            override val displayName = id
+            var failStop = true
+            override suspend fun start(config: String) = Unit
+            override suspend fun stop() {
+                if (failStop) error("simulated TUN shutdown failure")
+            }
+        }
+        val second = FakeEngine("sing-box")
+        val manager = MleEngineManager(listOf(first, second))
+        manager.start("amneziawg", "awg-config")
+
+        assertTrue(runCatching { manager.start("sing-box", "{}") }.isFailure)
+        assertEquals("amneziawg", manager.activeEngineId())
+        assertTrue(second.events.isEmpty())
+
+        first.failStop = false
+        manager.start("sing-box", "{}")
+        assertEquals(listOf("start:{}"), second.events)
+        assertEquals("sing-box", manager.activeEngineId())
+    }
+
+    @Test
+    fun failedStopRetainsActiveEngineSoShutdownCanBeRetried() = runBlocking {
+        val engine = object : MleEngineAdapter {
+            override val id = "amneziawg"
+            override val displayName = id
+            var failStop = true
+            var stopAttempts = 0
+            override suspend fun start(config: String) = Unit
+            override suspend fun stop() {
+                stopAttempts++
+                if (failStop) error("simulated shutdown failure")
+            }
+        }
+        val manager = MleEngineManager(listOf(engine))
+        manager.start("amneziawg", "awg-config")
+
+        assertTrue(runCatching { manager.stop() }.isFailure)
+        assertEquals("amneziawg", manager.activeEngineId())
+
+        engine.failStop = false
+        manager.stop()
+        assertNull(manager.activeEngineId())
+        assertEquals(2, engine.stopAttempts)
+    }
+
     @Test
     fun managerRejectsUnregisteredEngine() = runBlocking {
         val manager = MleEngineManager(listOf(FakeEngine("sing-box")))
