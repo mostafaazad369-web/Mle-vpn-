@@ -8,7 +8,7 @@ package com.mle.vpn.engine
  * compatible runtime, license, configuration flow, lifecycle, and device tests
  * are integrated. The UI must not present CATALOG_ONLY entries as connectable.
  */
-enum class IntegrationState { CATALOG_ONLY, ADAPTER_IN_PROGRESS, DEVICE_VERIFIED }
+enum class IntegrationState { CATALOG_ONLY, ADAPTER_IN_PROGRESS, IMPLEMENTED_UNVERIFIED, DEVICE_VERIFIED }
 
 data class EngineDescriptor(
     val id: String,
@@ -25,7 +25,7 @@ object EngineCatalog {
         EngineDescriptor("sing_box", "V2Ray / Xray via sing-box", "SagerNet / sing-box",
             listOf("VLESS", "VMess", "Trojan", "Shadowsocks", "REALITY", "TLS", "WebSocket", "gRPC", "XHTTP", "Hysteria 2", "TUIC", "AnyTLS", "WireGuard"),
             "A compatible node or subscription is required.", "v2ray",
-            IntegrationState.ADAPTER_IN_PROGRESS),
+            IntegrationState.IMPLEMENTED_UNVERIFIED),
         EngineDescriptor("warp", "Cloudflare WARP", "Cloudflare",
             listOf("WARP", "WireGuard"), "Requires official WARP registration and runtime.", "warp"),
         EngineDescriptor("aether", "Aether / MASQUE", "MLM VPN / Aether",
