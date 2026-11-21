@@ -16,7 +16,7 @@ This register separates connection engines, protocol support, account/provider i
 |---|---|---|
 | sing-box / libbox | [x] | Expand verified profiles; DNS/IPv6 leak and device tests |
 | Xray / libv2ray | [x] | VLESS, VMess, Trojan, Shadowsocks mapped; XHTTP and device validation |
-| FLUX adaptive route planner | [ ] | Candidate racing, country/IP preferences, exit verification, standbys, per-network learning |
+| FLUX adaptive route planner | [~] | Health-ranked fallback across up to ten saved routes and real HTTPS exit verification are implemented; parallel candidate racing, country/IP preferences, standby routes and per-network learning remain |
 | MAE per-app adaptive routing | [~] | Upstream service registry is parsed and shown; app-level include allow-list is implemented for sing-box and Xray. Live network-specific probes, adaptive classifier, domain-level policy compiler and balancer remain |
 
 | Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
@@ -46,8 +46,8 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Shadowsocks share links for sing-box and Xray.
 - [x] Hysteria2, TUIC, AnyTLS, SOCKS and HTTP conversion for sing-box.
 - [x] Batch import, encrypted local profile vault and subscription fetch.
-- [x] Public Telegram source catalog and explicit public-preview fetch.
-- [~] MLM FLUX/Amnezia-inspired VLESS, Trojan, Hysteria2 and multi-protocol Morpheus/FastNodes public feed catalog; GitHub raw/jsDelivr mirrors, bounded download, ETag cache and last-good fallback are integrated. Verify CI and real feed availability before marking fully validated.
+- [~] Public Telegram preview fetch remains available internally; the source catalog is removed from the primary app navigation.
+- [~] MLM/FLUX-inspired public feeds are hydrated silently in the background; raw/jsDelivr mirror fallback, bounded downloads, ETag cache and last-good cache are used. Profiles are imported only when a local engine builder accepts them; every route still requires real HTTPS verification through TUN. Source names and URLs are not shown in the app.
 - [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests.
 - [x] Cloudflare WARP peer-key recognition for imported registered WARP `.conf` files; WARP profiles automatically select sing-box for the data plane. Automatic account registration/provisioning is not implemented.
 - [x] Explicit AmneziaWG obfuscation-field detection and fail-closed rejection; no silent downgrade to standard WireGuard.
@@ -59,7 +59,7 @@ This register separates connection engines, protocol support, account/provider i
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
 - [ ] Xray XHTTP mapping and tests.
-- [ ] Subscription refresh scheduling, expiry and source-health reporting.
+- [~] Silent startup source refresh and bounded automatic fallback are implemented; periodic WorkManager scheduling, expiry, source-level telemetry and per-network health remain.
 
 ## Companion tools and app features
 
