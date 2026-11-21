@@ -143,6 +143,11 @@ class MleVpnService : VpnService() {
      * Credentials are consumed from the start Intent and are never persisted here.
      */
     private fun startOpenVpn(intent: Intent, startId: Int) {
+        if (openVpnRuntime != null) {
+            MleVpnStatus.failed("موتور OpenVPN از قبل در حال اجرا یا توقف است")
+            stopSelf(startId)
+            return
+        }
         val profile = intent.getStringExtra(EXTRA_OPENVPN_PROFILE)
         val username = intent.getStringExtra(EXTRA_OPENVPN_USERNAME).orEmpty()
         val password = intent.getStringExtra(EXTRA_OPENVPN_PASSWORD).orEmpty()
@@ -186,8 +191,10 @@ class MleVpnService : VpnService() {
                 openVpnRuntime = null
                 stopTunnelResources()
                 releaseEngineLease()
-                if (stopping.get()) MleVpnStatus.disconnected()
-                else MleVpnStatus.failed("اتصال OpenVPN پایان یافت")
+                if (MleVpnStatus.status.value.phase != MleConnectionPhase.ERROR) {
+                    if (stopping.get()) MleVpnStatus.disconnected()
+                    else MleVpnStatus.failed("اتصال OpenVPN پایان یافت")
+                }
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
