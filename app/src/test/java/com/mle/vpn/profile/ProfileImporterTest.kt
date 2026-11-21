@@ -60,6 +60,25 @@ class ProfileImporterTest {
     }
 
     @Test
+    fun vmessAndShadowsocksFeedsProduceConfigsForBothInstalledEngines() {
+        val vmessJson = """{"v":"2","ps":"feed-test","add":"example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"ws","type":"none","host":"cdn.example","path":"/gateway","tls":"tls","sni":"edge.example"}"""
+        val vmessUri = "vmess://" + android.util.Base64.encodeToString(
+            vmessJson.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        val vmess = (ProfileImporter.parse(vmessUri) as ProfileParseResult.Success).profile
+        assertEquals("vmess", SingBoxOutboundBuilder.build(vmess).getString("type"))
+        assertEquals("vmess", XrayConfigBuilder.build(vmess)
+            .getJSONArray("outbounds").getJSONObject(0).getString("protocol"))
+
+        val shadowsocksUri = "ss://YWVzLTI1Ni1nY206cGFzcw@example.com:8388#feed-test"
+        val shadowsocks = (ProfileImporter.parse(shadowsocksUri) as ProfileParseResult.Success).profile
+        assertEquals("shadowsocks", SingBoxOutboundBuilder.build(shadowsocks).getString("type"))
+        assertEquals("shadowsocks", XrayConfigBuilder.build(shadowsocks)
+            .getJSONArray("outbounds").getJSONObject(0).getString("protocol"))
+    }
+
+    @Test
     fun importsWireGuardConfAsSingleProfile() {
         val key = android.util.Base64.encodeToString(ByteArray(32) { 1 }, android.util.Base64.NO_WRAP)
         val conf = listOf(
