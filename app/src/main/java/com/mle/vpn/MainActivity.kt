@@ -141,7 +141,7 @@ private fun MleApp() {
             val bounded = ProfileFailoverPlanner.order(
                 prioritizedProfiles,
                 profile.id,
-                maxAttempts = 10
+                maxAttempts = 25
             )
             val rankedIds = MleRouteHealthStore(context).rank(
                 bounded.filterNot { it.id == profile.id }.map { "$connectionEngineId:${it.id}" }
