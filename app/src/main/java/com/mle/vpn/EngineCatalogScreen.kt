@@ -16,8 +16,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +32,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.mle.vpn.engine.cloudflare.CloudflareDoctor
 import com.mle.vpn.engine.catalog.Integration
 import com.mle.vpn.engine.catalog.MleEngineCatalog
 
@@ -70,6 +81,7 @@ private fun integrationLabel(value: Integration): String = when (value) {
     Integration.ADAPTER_REQUIRED -> "نیازمند اتصال‌دهنده"
     Integration.NATIVE_OR_PROVIDER_REQUIRED -> "نیازمند هسته یا سرویس رسمی"
     Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED -> "نیازمند کانفیگ یا حساب کاربر"
+    Integration.DIAGNOSTIC_ONLY -> "ابزار عیب‌یابی؛ موتور VPN نیست"
 }
 
 @Composable
@@ -94,6 +106,10 @@ private fun EngineMark(iconKey: String) {
 
 @Composable
 fun EngineCatalogScreen(padding: androidx.compose.foundation.layout.PaddingValues) {
+    var doctorLoading by remember { mutableStateOf(false) }
+    var doctorMessage by remember { mutableStateOf<String?>(null) }
+    var doctorDetails by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(18.dp)
     ) {
@@ -103,6 +119,61 @@ fun EngineCatalogScreen(padding: androidx.compose.foundation.layout.PaddingValue
             color = Color(0xFF929BB5), fontSize = 12.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
         )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2036))
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EngineMark("cfdoctor")
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Cloudflare Doctor", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("بررسی مسیر فعلی تا Cloudflare؛ بدون ایجاد تونل VPN", color = Color(0xFF929BB5), fontSize = 10.sp)
+                    }
+                }
+                Button(
+                    onClick = {
+                        if (!doctorLoading) {
+                            doctorLoading = true
+                            doctorMessage = null
+                            doctorDetails = null
+                            scope.launch {
+                                val result = runCatching { withContext(Dispatchers.IO) { CloudflareDoctor.check() } }
+                                doctorLoading = false
+                                result.onSuccess { trace ->
+                                    doctorMessage = "پاسخ Cloudflare دریافت شد؛ HTTP ${trace.httpStatus}"
+                                    doctorDetails = listOfNotNull(
+                                        trace.ip?.let { "IP: $it" },
+                                        trace.colo?.let { "مرکز داده: $it" },
+                                        trace.warp?.let { "WARP: $it" },
+                                        trace.gateway?.let { "Gateway: $it" }
+                                    ).joinToString(" • ")
+                                }.onFailure { error ->
+                                    doctorMessage = error.message ?: "بررسی Cloudflare ناموفق بود."
+                                }
+                            }
+                        }
+                    },
+                    enabled = !doctorLoading,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                ) {
+                    if (doctorLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("بررسی اتصال Cloudflare")
+                }
+                doctorMessage?.let {
+                    Text(it, color = Color(0xFF42E8D5), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+                doctorDetails?.let {
+                    Text(it, color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+                Text(
+                    "این نتیجه فقط پاسخ trace را نشان می‌دهد و به‌تنهایی اتصال VPN یا محافظت‌شدن ترافیک را اثبات نمی‌کند.",
+                    color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
         MleEngineCatalog.items.forEach { engine ->
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp),
