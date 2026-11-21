@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap
 import android.system.OsConstants
 import io.nekohasekai.libbox.*
 import java.io.File
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
