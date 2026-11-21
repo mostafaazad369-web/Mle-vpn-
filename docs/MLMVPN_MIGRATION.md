@@ -92,3 +92,16 @@ MLE currently has no OpenVPN runtime files, no OpenVPN JNI libraries, and no Ope
 ## Latest CI verification
 
 For head commit `5a8db1b0aed6010897f791f2ba0ac6d5f7e12c31`, GitHub Actions completed successfully on 2026-11-21: Android build `44900289968` (assemble-debug), Android CI `44900289965` (JVM/Android unit tests and debug APK packaging). This confirms the current foundation branch builds and packages; it does not validate native engines that have not yet been ported or live VPN behavior.
+
+
+## OpenVPN dependency provenance imported into MLE (2026-11-21)
+
+The next non-runtime migration step is now committed on the foundation branch:
+
+- `third_party/openvpn3/source-lock.json`: exact upstream source URLs, immutable core/dependency revisions, SHA-256 values and license identifiers copied from MLM VPN.
+- `third_party/openvpn3/README.md` and `docs/OPENVPN_PORT.md`: MLE-specific port gates, reproducibility and service-ownership constraints.
+- `app/src/main/assets/openvpn-licenses/`: OpenVPN MPL-2.0, Mbed TLS, Asio, LZ4 and fmt license texts plus the source manifest.
+
+No OpenVPN source archive has yet been vendored or built, no JNI/native library is packaged, and no OpenVPN service has been registered. The imported provenance/notice files are intentionally inert and do not change the app runtime. The next safe engineering step is hash-verified acquisition of the pinned sources and an isolated native build target; service integration must wait for a single-owner VPN coordinator and reviewed JNI lifecycle.
+
+The immediately preceding foundation commit `d5857f0a65dd21be7bf6b35c3d05c18e7c11c6bf` passed Android build and Android CI (unit tests and debug APK packaging). New commits created by the provenance import trigger fresh workflows; their results must be checked separately.
