@@ -45,6 +45,25 @@ class ProfileImporterTest {
     }
 
     @Test
+    fun unwrapsNestedBase64SubscriptionFeedsWithMetadataHeaders() {
+        val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=tls&sni=edge.example"
+        val inner = android.util.Base64.encodeToString(
+            uri.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        val document = "#profile-title: base64:Public feed\n#subscription-userinfo: upload=10; download=20\n$inner"
+        val outer = android.util.Base64.encodeToString(
+            document.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+
+        val batch = ProfileImporter.parseBatch(outer)
+        assertEquals(1, batch.profiles.size)
+        assertEquals(ProfileProtocol.VLESS, batch.profiles.single().protocol)
+        assertEquals(0, batch.rejectedCount)
+    }
+
+    @Test
     fun importsHysteria2FeedsUsedByPublicSourceCatalog() {
         val parsed = ProfileImporter.parse(
             "hysteria2://secret@example.com:443?sni=edge.example"
