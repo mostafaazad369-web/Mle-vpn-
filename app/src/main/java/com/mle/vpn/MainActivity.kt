@@ -302,7 +302,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، چند لینک، متن Base64 یا متن یک پیکربندی WireGuard با قالب wg-quick را وارد کن. فقط قالب‌هایی که تبدیل امن آن‌ها پشتیبانی می‌شود ذخیره خواهند شد.", color = Color.White)
+                        Text("لینک اشتراک، چند لینک، متن Base64، پیکربندی WireGuard با قالب wg-quick یا متن کامل فایل .ovpn را وارد کن. پروفایل OpenVPN فقط در صورت داشتن تنظیمات و تأیید هویت پشتیبانی‌شده پذیرفته می‌شود.", color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = importText,
