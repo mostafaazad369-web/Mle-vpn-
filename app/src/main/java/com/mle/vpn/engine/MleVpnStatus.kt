@@ -15,7 +15,9 @@ enum class MleConnectionPhase {
 
 data class MleConnectionStatus(
     val phase: MleConnectionPhase = MleConnectionPhase.DISCONNECTED,
-    val detail: String = "اتصال برقرار نیست"
+    val detail: String = "اتصال برقرار نیست",
+    val bytesOut: Long = 0L,
+    val bytesIn: Long = 0L
 )
 
 /**
@@ -52,6 +54,14 @@ object MleVpnStatus {
         mutableStatus.value = MleConnectionStatus(
             MleConnectionPhase.NO_INTERNET,
             message.ifBlank { "تونل فعال است اما دسترسی اینترنت از داخل VPN تأیید نشد." }
+        )
+    }
+
+    /** Publishes monotonic engine counters for the current session; values are never logged here. */
+    fun updateTraffic(bytesOut: Long, bytesIn: Long) {
+        mutableStatus.value = mutableStatus.value.copy(
+            bytesOut = bytesOut.coerceAtLeast(0L),
+            bytesIn = bytesIn.coerceAtLeast(0L)
         )
     }
 
