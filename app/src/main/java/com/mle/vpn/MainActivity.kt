@@ -439,7 +439,6 @@ private fun MleApp() {
     }
 }
 
-@Composable
 private fun formatTrafficBytes(bytes: Long): String {
     val value = bytes.coerceAtLeast(0L).toDouble()
     return when {
@@ -450,6 +449,7 @@ private fun formatTrafficBytes(bytes: Long): String {
     }
 }
 
+@Composable
 private fun HomeScreen(
     server: String,
     profileCount: Int,
