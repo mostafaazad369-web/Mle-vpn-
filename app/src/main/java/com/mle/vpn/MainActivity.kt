@@ -518,7 +518,7 @@ private fun HomeScreen(
             Icon(Icons.Default.ChevronLeft, null, tint = Muted)
         }
         Spacer(Modifier.height(22.dp))
-        Text("نسخه 1.0.0 • موتور sing-box در مرحله آزمایش", color = Muted, fontSize = 11.sp)
+        Text("نسخه 1.0.0 • موتورهای sing-box و OpenVPN در مرحله آزمایش", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -669,6 +669,6 @@ private fun ProfilesScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text("توجه: اتصال از موتور sing-box استفاده می‌کند؛ پایداری آن به کیفیت سرور و نتیجه آزمایش روی دستگاه بستگی دارد.", color = Muted, fontSize = 12.sp)
+        Text("توجه: موتور متناسب با نوع پروفایل انتخاب می‌شود؛ پایداری اتصال به کیفیت سرور و نتیجه آزمایش روی دستگاه بستگی دارد.", color = Muted, fontSize = 12.sp)
     }
 }
