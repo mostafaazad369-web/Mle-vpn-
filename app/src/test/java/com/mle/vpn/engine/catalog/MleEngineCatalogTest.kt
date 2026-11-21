@@ -15,8 +15,8 @@ class MleEngineCatalogTest {
     @Test
     fun existingSingBoxProtocolsAreNotMarkedAsUnimplemented() {
         val implemented = MleEngineCatalog.items
-            .filter { it.id in setOf("vless", "vmess", "trojan", "shadowsocks", "hysteria2", "tuic", "outline") }
-        assertEquals(7, implemented.size)
+            .filter { it.id in setOf("vless", "vmess", "trojan", "shadowsocks", "wireguard", "hysteria2", "tuic", "outline") }
+        assertEquals(8, implemented.size)
         assertTrue(implemented.all { it.integration == Integration.EXISTING_SING_BOX_PATH })
     }
 
