@@ -35,6 +35,26 @@ class MleEngineManagerTest {
     }
 
     @Test
+    fun managerCleansUpRuntimeWhenStartupThrowsAfterPartialAllocation() = runBlocking {
+        val broken = object : MleEngineAdapter {
+            override val id = "broken"
+            override val displayName = id
+            val events = mutableListOf<String>()
+            override suspend fun start(config: String) {
+                events += "start"
+                error("simulated native startup failure")
+            }
+            override suspend fun stop() { events += "stop" }
+        }
+        val manager = MleEngineManager(listOf(broken))
+        assertTrue(runCatching { manager.start("broken", "{}") }.isFailure)
+        assertEquals(listOf("start", "stop"), broken.events)
+        assertNull(manager.activeEngineId())
+        manager.stop()
+        assertEquals(listOf("start", "stop"), broken.events)
+    }
+
+    @Test
     fun managerRejectsUnregisteredEngine() = runBlocking {
         val manager = MleEngineManager(listOf(FakeEngine("sing-box")))
         val result = runCatching { manager.start("xray", "{}") }
