@@ -24,7 +24,10 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-
 
 ## Current limitations
 - Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
-- The MLM-style engine catalog is present, but OpenVPN, WireGuard, WARP, MASQUE, NPV-specific formats, provider engines, Cloudflare tools and Gereh are not yet integrated as connectable backends.
+- OpenVPN 3 native/JNI integration, `.ovpn` preflight/import and shared VPN-service lifecycle are present on `integration/mlmvpn-foundation`; both `arm64-v8a` and `armeabi-v7a` libraries are CI-built and packaged. Real-device connection, DNS/IPv6 leak and teardown tests are still pending.
+- WireGuard `.conf` parsing and sing-box configuration assembly exist, but end-to-end device verification is pending.
+- NPV standard share links use the shared supported-profile importer. Native `.npvt` / `.npvs` files are not decrypted or executed by MLE; they require the separate NPV Tunnel app/integration.
+- WARP, MASQUE, provider engines, Cloudflare tools, Gereh and the remaining MLM-specific systems are still migration work, not connectable MLE backends.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
