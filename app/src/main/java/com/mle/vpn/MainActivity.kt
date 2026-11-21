@@ -686,7 +686,7 @@ private fun SettingsScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("اتصال خودکار به کانفیگ جایگزین", color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text("در صورت برقرار نشدن اینترنت، حداکثر ۳ پروفایل بررسی می‌شود.", color = Muted, fontSize = 12.sp)
+                Text("در صورت برقرار نشدن اینترنت، حداکثر ۲۵ مسیر جایگزین به‌صورت خودکار بررسی می‌شود.", color = Muted, fontSize = 12.sp)
             }
             Switch(checked = automaticFailover, onCheckedChange = onAutomaticFailoverChange)
         }
