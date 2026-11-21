@@ -22,6 +22,7 @@ object SingBoxOutboundBuilder {
         ProfileProtocol.ANYTLS -> buildAnyTls(URI(profile.sourceUri))
         ProfileProtocol.SOCKS -> buildSocks(URI(profile.sourceUri))
         ProfileProtocol.HTTP -> buildHttp(URI(profile.sourceUri))
+        ProfileProtocol.WIREGUARD -> WireGuardConfigParser.decodeStored(profile.sourceUri).toSingBoxEndpoint()
         else -> throw IllegalArgumentException("تبدیل خودکار این پروتکل هنوز پیاده‌سازی نشده است: ${profile.protocol}")
     }
 
