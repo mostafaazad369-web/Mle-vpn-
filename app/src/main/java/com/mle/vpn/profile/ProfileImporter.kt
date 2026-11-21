@@ -60,6 +60,12 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
+        if (raw.startsWith("[Interface]", ignoreCase = true) || raw.startsWith("# WireGuard", ignoreCase = true)) {
+            return when (val parsed = parse(raw)) {
+                is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
+                is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
+            }
+        }
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
                 String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
@@ -90,6 +96,22 @@ object ProfileImporter {
         if (raw.isEmpty() || raw.length > 64_000) {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
         }
+        if (raw.startsWith("[Interface]", ignoreCase = true) || raw.startsWith("# WireGuard", ignoreCase = true)) {
+            return parseWireGuard(raw)
+        }
+        if (raw.startsWith("wgconf://", ignoreCase = true)) {
+            return runCatching {
+                val config = WireGuardConfigParser.decodeStored(raw)
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.WIREGUARD,
+                    displayName = "WireGuard • ${config.peers.first().host}",
+                    host = config.peers.first().host,
+                    port = config.peers.first().port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "WireGuard profile invalid.") }
+        }
         if (raw.startsWith("vmess://", ignoreCase = true)) return parseVmess(raw)
         if (raw.startsWith("ss://", ignoreCase = true)) return parseShadowsocks(raw)
 
@@ -118,6 +140,20 @@ object ProfileImporter {
             ProfileParseResult.Failure("ساختار لینک کانفیگ قابل خواندن نیست.")
         }
     }
+
+
+    private fun parseWireGuard(raw: String): ProfileParseResult = runCatching {
+        val config = WireGuardConfigParser.parse(raw)
+        val peer = config.peers.first()
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.WIREGUARD,
+            displayName = "WireGuard • ${peer.host}",
+            host = peer.host,
+            port = peer.port,
+            sourceUri = WireGuardConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "فایل WireGuard معتبر نیست.") }
 
     private fun parseShadowsocks(raw: String): ProfileParseResult = try {
         val parsed = ShadowsocksLinkParser.parse(raw)
