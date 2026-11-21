@@ -103,6 +103,9 @@ object PublicSubscriptionFetcher {
     private const val MAX_LINES = 500
     private val allowedHosts = setOf("raw.githubusercontent.com", "cdn.jsdelivr.net")
 
+    private fun bounded(text: String, source: PublicNodeSource): String =
+        text.lineSequence().take(source.maxNodes).joinToString("\\n")
+
     suspend fun fetch(context: Context, source: PublicNodeSource): PublicSourceFetchResult =
         withContext(Dispatchers.IO) {
             val cacheDir = File(context.filesDir, "public_sources").apply { mkdirs() }
@@ -138,7 +141,7 @@ object PublicSubscriptionFetcher {
                         val status = connection.responseCode
                         if (status == HttpURLConnection.HTTP_NOT_MODIFIED && bodyFile.exists()) {
                             return@withContext PublicSourceFetchResult(
-                                bodyFile.readText(), true, candidateUrl
+                                bounded(bodyFile.readText(), source), true, candidateUrl
                             )
                         }
                         require(status in 200..299) { "دریافت منبع ناموفق بود (HTTP $status)." }
@@ -173,7 +176,7 @@ object PublicSubscriptionFetcher {
                                 .put("fetchedAt", System.currentTimeMillis())
                                 .toString()
                         )
-                        return@withContext PublicSourceFetchResult(text, false, candidateUrl)
+                        return@withContext PublicSourceFetchResult(bounded(text, source), false, candidateUrl)
                     } finally {
                         connection.disconnect()
                     }
@@ -184,7 +187,7 @@ object PublicSubscriptionFetcher {
 
             if (bodyFile.exists()) {
                 return@withContext PublicSourceFetchResult(
-                    bodyFile.readText(), true, meta.optString("url", source.primaryUrl)
+                    bounded(bodyFile.readText(), source), true, meta.optString("url", source.primaryUrl)
                 )
             }
             throw (lastError ?: IllegalStateException("دریافت منبع عمومی ناموفق بود."))
