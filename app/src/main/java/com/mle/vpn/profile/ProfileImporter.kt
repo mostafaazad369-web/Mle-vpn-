@@ -60,6 +60,10 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
+        if (raw.startsWith("[Interface]", ignoreCase = true)) {
+            val profile = parseWireGuardConfig(raw)
+            return ProfileBatchResult(listOf(profile), 0, 0)
+        }
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
                 String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
@@ -99,6 +103,9 @@ object ProfileImporter {
                 ?: return ProfileParseResult.Failure("نوع لینک مشخص نیست.")
             val protocol = schemes[scheme]
                 ?: return ProfileParseResult.Failure("این نوع کانفیگ هنوز پشتیبانی نمی‌شود.")
+            if (protocol == ProfileProtocol.WIREGUARD) {
+                return ProfileParseResult.Failure("برای WireGuard فایل تنظیمات [Interface]/[Peer] را وارد کنید.")
+            }
             val host = uri.host ?: return ProfileParseResult.Failure("آدرس سرور در لینک وجود ندارد.")
             val port = uri.port
             if (port !in 1..65535) return ProfileParseResult.Failure("پورت سرور معتبر نیست.")
@@ -160,6 +167,59 @@ object ProfileImporter {
         } catch (_: Exception) {
             ProfileParseResult.Failure("لینک VMess معتبر نیست یا JSON آن قابل خواندن نیست.")
         }
+    }
+
+
+    /**
+     * Imports a standard WireGuard .conf document. AmneziaWG obfuscation
+     * directives are rejected until an AmneziaWG-capable runtime is bundled.
+     */
+    private fun parseWireGuardConfig(raw: String): ImportedProfile {
+        require(raw.length <= 64_000) { "فایل WireGuard بیش از حد بزرگ است." }
+        val sections = linkedMapOf<String, MutableMap<String, String>>()
+        var section: String? = null
+        raw.lineSequence().forEach { original ->
+            val line = original.substringBefore('#').substringBefore(';').trim()
+            if (line.isEmpty()) return@forEach
+            if (line.startsWith("[") && line.endsWith("]")) {
+                section = line.substring(1, line.length - 1).trim().lowercase()
+                sections.getOrPut(section!!) { linkedMapOf() }
+            } else if (section != null && '=' in line) {
+                sections[section!!]?.set(line.substringBefore('=').trim().lowercase(), line.substringAfter('=').trim())
+            }
+        }
+        val iface = sections["interface"] ?: error("بخش [Interface] وجود ندارد.")
+        val peer = sections["peer"] ?: error("بخش [Peer] وجود ندارد.")
+        val unsupportedAwg = setOf("jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4")
+        require(unsupportedAwg.none { it in iface || it in peer }) {
+            "این فایل شامل پارامترهای مبهم‌سازی AmneziaWG است؛ موتور AmneziaWG هنوز به MLE متصل نشده است."
+        }
+        fun validKey(value: String): Boolean = runCatching {
+            android.util.Base64.decode(value, android.util.Base64.DEFAULT).size == 32
+        }.getOrDefault(false)
+        require(validKey(iface["privatekey"].orEmpty())) { "کلید خصوصی WireGuard معتبر نیست." }
+        require(validKey(peer["publickey"].orEmpty())) { "کلید عمومی Peer معتبر نیست." }
+        val addresses = iface["address"].orEmpty().split(',').map(String::trim).filter(String::isNotBlank)
+        require(addresses.isNotEmpty() && addresses.all { '/' in it }) { "آدرس محلی WireGuard باید شامل CIDR باشد." }
+        val endpoint = java.net.URI("udp://${peer["endpoint"].orEmpty()}")
+        val host = endpoint.host ?: error("آدرس Endpoint در فایل WireGuard معتبر نیست.")
+        val port = endpoint.port
+        require(port in 1..65535) { "پورت Endpoint در فایل WireGuard معتبر نیست." }
+        val allowed = peer["allowedips"].orEmpty().split(',').map(String::trim).filter(String::isNotBlank)
+        require(allowed.isNotEmpty() && allowed.all { '/' in it }) { "AllowedIPs در فایل WireGuard معتبر نیست." }
+        peer["persistentkeepalive"]?.toIntOrNull()?.let { require(it in 0..65535) { "PersistentKeepalive معتبر نیست." } }
+        peer["reserved"]?.takeIf(String::isNotBlank)?.let { rawReserved ->
+            val bytes = rawReserved.split(',').mapNotNull { it.trim().toIntOrNull() }
+            require(bytes.size == 3 && bytes.all { it in 0..255 }) { "Reserved باید دقیقاً سه عدد بین صفر تا ۲۵۵ باشد." }
+        }
+        return ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.WIREGUARD,
+            displayName = "WireGuard • ${addresses.first()}",
+            host = host,
+            port = port,
+            sourceUri = raw.trim()
+        )
     }
 
     private fun decode(value: String): String =
