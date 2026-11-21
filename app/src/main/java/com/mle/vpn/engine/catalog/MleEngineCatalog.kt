@@ -23,7 +23,9 @@ enum class Integration {
     /** Requires a separately reviewed native core, SDK, or provider integration. */
     NATIVE_OR_PROVIDER_REQUIRED,
     /** Requires user-supplied configuration, account, or credentials. */
-    USER_CONFIG_OR_ACCOUNT_REQUIRED
+    USER_CONFIG_OR_ACCOUNT_REQUIRED,
+    /** Diagnostic/network utility only; it is not a VPN transport. */
+    DIAGNOSTIC_ONLY
 }
 
 object MleEngineCatalog {
@@ -59,7 +61,7 @@ object MleEngineCatalog {
         MleEngineCatalogItem("iran-configs", "Iran Configs", "iran", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "Import user-provided profiles; do not bundle unverified endpoints."),
         MleEngineCatalogItem("sni-fronting", "SNI / ECH", "fronting", Integration.ADAPTER_REQUIRED, "Implement only supported standards and test platform compatibility."),
         MleEngineCatalogItem("cloudflare-panel", "Cloudflare Panel", "cloudflare", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User-owned Cloudflare account and Worker deployment required."),
-        MleEngineCatalogItem("cloudflare-doctor", "Cloudflare Doctor", "cfdoctor", Integration.ADAPTER_REQUIRED, "Diagnostic suite; results must distinguish reachability from VPN connectivity."),
+        MleEngineCatalogItem("cloudflare-doctor", "Cloudflare Doctor", "cfdoctor", Integration.DIAGNOSTIC_ONLY, "Cloudflare trace diagnostics are available; this checks the current route and WARP flag but does not create a VPN tunnel."),
         MleEngineCatalogItem("config-studio", "Config Studio", "configstudio", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User-owned Worker backend; never embed private deployment credentials."),
         MleEngineCatalogItem("mlm-scout", "MLM Scout", "scout", Integration.ADAPTER_REQUIRED, "Cancellable real-route tests and transparent ranking required."),
         MleEngineCatalogItem("game-booster", "Game Booster", "game", Integration.ADAPTER_REQUIRED, "Latency measurement and per-game routing require device validation."),
