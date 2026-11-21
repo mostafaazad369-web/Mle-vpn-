@@ -1,6 +1,6 @@
 package com.mle.vpn.engine.vpngate
 
-import java.util.Base64
+import android.util.Base64
 
 /**
  * Parser for the public VPN Gate 15-column CSV. Malformed rows are skipped independently.
@@ -32,7 +32,7 @@ object VpnGateCsvParser {
             val encoded = columns[14].trim()
             if (encoded.isEmpty() || encoded.length > MAX_PROFILE_CHARS * 2) return@forEach
             val profile = runCatching {
-                String(Base64.getMimeDecoder().decode(encoded), Charsets.UTF_8)
+                String(Base64.decode(encoded, Base64.DEFAULT), Charsets.UTF_8)
             }.getOrNull()?.takeIf { it.isNotBlank() && it.length <= MAX_PROFILE_CHARS }
                 ?: return@forEach
             val remote = remotePattern.find(profile) ?: return@forEach
