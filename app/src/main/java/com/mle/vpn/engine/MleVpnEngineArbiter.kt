@@ -18,7 +18,7 @@ enum class MleVpnEngine {
 }
 
 object MleVpnEngineArbiter {
-    data class Lease internal constructor(
+    class Lease internal constructor(
         val engine: MleVpnEngine,
         internal val generation: Long
     )
