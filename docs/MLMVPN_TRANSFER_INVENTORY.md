@@ -291,3 +291,29 @@ The upstream `core/` package contains 79 Kotlin source files, including:
 - `core/warp/XrayProbeService.kt`
 
 The public source README explicitly distinguishes the main app, the Gereh Rust/Android/relay subsystem and the Telegram-derived chat UI. These remain separate audit and migration units.
+
+
+## 13. Gradle and dependency compatibility audit
+
+The build files were compared directly (versions below are those declared in the audited public source and MLE branch; this is not a recommendation to upgrade blindly).
+
+| Component | MLMVPN | MLEVPN baseline | Compatibility implication |
+|---|---|---|---|
+| Android Gradle Plugin | 8.13.2 | 8.7.3 | Do not copy upstream plugin configuration wholesale; evaluate any native/AAR dependency against MLE's AGP |
+| Kotlin Gradle plugin | 2.1.0 | 2.0.21 | Kotlin metadata and compiler plugin compatibility must be checked per dependency |
+| Compose compiler plugin | Kotlin 2.1.0 plugin | Kotlin 2.0.21 plugin | Keep Compose compiler aligned with MLE's Kotlin version |
+| compileSdk | 36 | 35 | Upstream Telegram-derived modules may require APIs unavailable to current MLE compileSdk |
+| targetSdk | 34 | 35 | VPN foreground-service behavior differs by target SDK; keep MLE's declared behavior intentional |
+| minSdk | 24 | 24 | Shared minimum API, but native libraries and desugaring still need per-ABI/API validation |
+| Java | 17 + core-library desugaring | Java 17 (no declared desugaring dependency) | Any upstream java.time/API 24 use needs a deliberate desugaring decision |
+| Coroutine versions | 1.7.3 | 1.9.0 | Avoid duplicate/transitive coroutine versions; verify binary compatibility |
+| Compose BOM | upstream property-managed | 2024.12.01 | UI source imports may require a different Compose API surface |
+| sing-box/libbox | upstream includes several Xray/libbox and local AARs | libbox 1.14.4 | Reuse MLE runtime where valid; do not add another core solely to match upstream structure |
+| AmneziaWG Android | `com.zaneschepke:amneziawg-android:2.1.13` | not declared | Requires independent source/license, Maven provenance, ABI, API 24, JNI and lifecycle review before adding |
+| Telegram-derived chat | `:TMessagesProj`, Telegram build logic and media modules | absent | Large independent build graph; do not import as an incidental dependency |
+| Gereh Rust core | `:mlmchat-core` project in upstream settings | absent | Separate Cargo/NDK/Gradle bridge, ABI, crypto and relay audit |
+| Local AARs | `fileTree(libs, *.aar)` plus upstream `jniLibs` | no equivalent broad AAR import | Never bulk-copy local AAR/JAR/native payloads; require source, immutable version, checksum and license |
+
+Upstream's Android build also includes legacy AndroidX/UI components, OkHttp, Google sign-in, ZXing, JSON, preference/fragment, desugaring and other libraries. MLE should add a dependency only when an audited port actually uses it; no wholesale dependency block was transferred.
+
+**Decision:** preserve MLE's current AGP/Kotlin/Compose/SDK baseline during the foundation port. Introduce a dependency only in the commit that adds the corresponding reviewed feature, with version pin, license notice, ABI/API check and tests. The upstream `fileTree(libs, *.aar)`, checked-in native libraries, release APK contents and private account/server configuration are excluded from migration.
