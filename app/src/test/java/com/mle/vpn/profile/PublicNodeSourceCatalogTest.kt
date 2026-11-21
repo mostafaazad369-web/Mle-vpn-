@@ -70,6 +70,11 @@ class PublicNodeSourceCatalogTest {
         assertTrue("flux-mg-vless" in ids)
         assertTrue("flux-mg-trojan" in ids)
         assertTrue("flux-mg-hy2" in ids)
+        assertTrue("quickconnect-global" in ids)
+        assertTrue("quickconnect-verified" in ids)
+        assertTrue("quickconnect-fast" in ids)
+        assertTrue("quickconnect-secure" in ids)
+        assertTrue("quickconnect-all" in ids)
         assertTrue(ids.none { it.contains("openvpn", true) || it.contains("psiphon", true) || it.contains("tor", true) || it.contains("geph", true) })
     }
 
