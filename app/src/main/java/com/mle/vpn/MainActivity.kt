@@ -152,6 +152,7 @@ private fun MleApp() {
     LaunchedEffect(Unit) {
         profiles = vault.loadAll()
         selectedProfileId = profiles.firstOrNull()?.id
+        selectedServer = profiles.firstOrNull()?.displayName ?: "کانفیگی انتخاب نشده"
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
     }
     MaterialTheme(colorScheme = darkColorScheme(
@@ -203,12 +204,24 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
+                1 -> ServerScreen(
+                    profiles = profiles,
+                    selectedProfileId = selectedProfileId,
+                    onSelect = { profile ->
+                        selectedProfileId = profile.id
+                        selectedServer = profile.displayName
+                    },
+                    onAdd = { showImport = true },
+                    padding = padding
+                )
                 2 -> ProfilesScreen(
                     profiles = profiles,
                     selectedProfileId = selectedProfileId,
                     probeResults = probeResults,
-                    onSelect = { selectedProfileId = it.id },
+                    onSelect = {
+                        selectedProfileId = it.id
+                        selectedServer = it.displayName
+                    },
                     onAdd = { showImport = true },
                     onExport = { profile -> exportProfile = profile },
                     onProbe = { profile ->
@@ -494,23 +507,55 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun ServerScreen(selected: String, onSelect: (String) -> Unit, padding: PaddingValues) {
-    val servers = listOf("بهترین موقعیت", "آلمان", "هلند", "فنلاند", "ترکیه", "فرانسه")
-    Column(Modifier.fillMaxSize().padding(padding).padding(22.dp)) {
-        Text("موقعیت‌ها", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-        Text("موقعیت دلخواهت را انتخاب کن", color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 22.dp))
-        servers.forEachIndexed { index, server ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).clickable { onSelect(server) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (index == 0) Icons.Default.Bolt else Icons.Default.Public, null, tint = if (selected == server) Mint else Violet)
-                Spacer(Modifier.width(14.dp))
-                Text(server, color = Color.White, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                if (selected == server) Icon(Icons.Default.CheckCircle, null, tint = Mint)
+private fun ServerScreen(
+    profiles: List<ImportedProfile>,
+    selectedProfileId: String?,
+    onSelect: (ImportedProfile) -> Unit,
+    onAdd: () -> Unit,
+    padding: PaddingValues
+) {
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)
+    ) {
+        Text("سرورهای من", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("این فهرست از کانفیگ‌های واقعی ذخیره‌شده ساخته می‌شود؛ موقعیت‌های نمایشی حذف شده‌اند.", color = Muted,
+            fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+        Button(onClick = onAdd, modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
+            Icon(Icons.Default.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("افزودن سرور یا اشتراک")
+        }
+        Spacer(Modifier.height(16.dp))
+        if (profiles.isEmpty()) {
+            Box(
+                Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(22.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("هنوز سرور واقعی اضافه نشده است. از بخش منابع، فهرست‌های عمومی را دریافت کن یا کانفیگ خودت را وارد کن.", color = Muted)
+            }
+        } else {
+            profiles.forEach { profile ->
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 9.dp)
+                        .background(if (profile.id == selectedProfileId) Mint.copy(alpha = .10f) else Panel, RoundedCornerShape(15.dp))
+                        .border(1.dp, if (profile.id == selectedProfileId) Mint.copy(alpha = .5f) else Color.Transparent, RoundedCornerShape(15.dp))
+                        .clickable { onSelect(profile) }
+                        .padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Public, null, tint = if (profile.id == selectedProfileId) Mint else Violet)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(profile.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("${profile.protocol} • ${profile.host}:${profile.port}", color = Muted, fontSize = 11.sp)
+                    }
+                    if (profile.id == selectedProfileId) Icon(Icons.Default.CheckCircle, null, tint = Mint)
+                }
             }
         }
-        Text("این موارد فعلاً گزینه‌های نمایشی هستند؛ سرور واقعی پس از اتصال موتور VPN اضافه می‌شود.", color = Muted, fontSize = 12.sp)
     }
 }
-
 
 @Composable
 private fun TelegramSourcesScreen(
