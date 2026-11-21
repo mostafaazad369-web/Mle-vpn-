@@ -85,6 +85,23 @@ object ProfileImporter {
         return ProfileBatchResult(accepted.values.toList(), rejected, duplicates)
     }
 
+    /** Imports a single wg-quick .conf profile. Never logs or exposes the private key. */
+    fun parseWireGuardConfig(input: String): ProfileParseResult = try {
+        val data = WireGuardConfigParser.parse(input)
+        ProfileParseResult.Success(
+            ImportedProfile(
+                id = java.util.UUID.randomUUID().toString(),
+                protocol = ProfileProtocol.WIREGUARD,
+                displayName = "WireGuard • ${data.peerHost}",
+                host = data.peerHost,
+                port = data.peerPort,
+                sourceUri = input
+            )
+        )
+    } catch (error: Exception) {
+        ProfileParseResult.Failure(error.message ?: "فایل WireGuard معتبر نیست.")
+    }
+
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
         if (raw.isEmpty() || raw.length > 64_000) {
