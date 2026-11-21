@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "upstream": "https://github.com/mlmvpn/mlmvpn_android",
+  "upstreamRevision": "main (snapshot reviewed 2026-11-21)",
+  "license": "GPL-3.0; preserve upstream notices and source availability",
+  "attribution": "MLM VPN / mlmvpn",
+  "assets": [
+    {"id":"mae_services","path":"mae/services.json","kind":"data","status":"bundled_not_wired","description":"MAE service and app/domain routing hints; requires MAE runtime"},
+    {"id":"cf_doctor_plan","path":"cf_doctor_plan.json","kind":"data","status":"bundled_not_wired","description":"Cloudflare Doctor probe plan; use only with rate limits and explicit user action"},
+    {"id":"game_catalog","path":"game_catalog.json","kind":"data","status":"bundled_not_wired","description":"Game regions and diagnostic host metadata; entries require live verification"},
+    {"id":"iran_profiles","path":"iran_profiles.json","kind":"profiles","status":"bundled_not_wired","description":"Routing profile templates; require compatible Xray core and validation"},
+    {"id":"iran_ipv4_cidrs","path":"smart_iran/ir_cidr.txt","kind":"network_data","status":"bundled_not_wired","description":"IPv4 CIDR dataset; provenance and freshness must be checked before routing"},
+    {"id":"exit_proxy_index","path":"exit_proxies/index.json","kind":"metadata","status":"bundled_not_wired","description":"Country proxy count metadata only; not an actual proxy list"},
+    {"id":"edge_gateway_worker","path":"edge_gateway/worker.js","kind":"cloud_worker","status":"source_only","description":"User-deployed Cloudflare VLESS WebSocket relay"},
+    {"id":"edge_gateway_modules","path":"edge_gateway/","kind":"cloud_worker","status":"source_only","description":"Worker modules; requires deployment, UUID secret binding and security review"},
+    {"id":"openvpn_sources","path":"openvpn-licenses/sources.json","kind":"provenance","status":"reference_only","description":"OpenVPN native dependency source and checksum manifest"}
+  ],
+  "not_imported": [
+    "Upstream private or redacted server endpoints, API tokens, account credentials and relay secrets",
+    "Prebuilt native binaries (.so, .aar, .dat) not present in the public source tree",
+    "Gereh messenger and Telegram-derived chat UI: separate Rust/Android application subsystem",
+    "The full 15,000+ path upstream repository and all 309+ engine implementation Kotlin files"
+  ],
+  "important": "Bundled resources do not imply a working service. Each engine needs native/runtime dependencies, lifecycle integration, permissions, user configuration and device tests. Never show catalog-only entries as connectable."
+}
