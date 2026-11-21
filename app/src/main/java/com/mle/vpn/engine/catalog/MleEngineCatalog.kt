@@ -32,7 +32,7 @@ object MleEngineCatalog {
         MleEngineCatalogItem("vmess", "VMess", "vmess", Integration.EXISTING_SING_BOX_PATH, "Only variants accepted by the current outbound builder."),
         MleEngineCatalogItem("trojan", "Trojan", "trojan", Integration.EXISTING_SING_BOX_PATH, "Only variants accepted by the current outbound builder."),
         MleEngineCatalogItem("shadowsocks", "Shadowsocks", "shadowsocks", Integration.EXISTING_SING_BOX_PATH, "SIP002 and legacy import plus sing-box outbound conversion are implemented; plugin transports fail closed."),
-        MleEngineCatalogItem("wireguard", "WireGuard", "wireguard", Integration.ADAPTER_REQUIRED, "Single-peer wg-quick import, encrypted vault storage and sing-box endpoint config assembly are implemented; live-device verification remains."),
+        MleEngineCatalogItem("wireguard", "WireGuard", "wireguard", Integration.EXISTING_SING_BOX_PATH, "Strict single-peer wg-quick import, encrypted vault storage and sing-box endpoint config assembly are implemented; real-device routing verification remains."),
         MleEngineCatalogItem("warp", "Cloudflare WARP", "warp", Integration.ADAPTER_REQUIRED, "Provider-compatible WARP configuration and real exit verification required."),
         MleEngineCatalogItem("masque", "MASQUE", "masque", Integration.ADAPTER_REQUIRED, "Separate MASQUE transport and runtime adapter required."),
         MleEngineCatalogItem("warp-on-warp", "WARP-in-WARP", "warp_on_warp", Integration.ADAPTER_REQUIRED, "Nested tunnel orchestration and routing tests required."),
