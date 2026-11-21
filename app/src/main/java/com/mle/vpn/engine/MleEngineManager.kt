@@ -56,8 +56,11 @@ class MleEngineManager(adapters: List<MleEngineAdapter>) {
             ?: error("موتور $engineId در این نسخه نصب یا فعال نشده است.")
         val previous = activeEngine
         if (previous != null) {
-            activeEngine = null
+            // Keep ownership until stop succeeds. If a native runtime fails to
+            // release its TUN, the manager must not forget it or start a second
+            // VPN engine on top of a potentially live interface.
             previous.stop()
+            activeEngine = null
         }
         try {
             next.start(config)
@@ -74,8 +77,9 @@ class MleEngineManager(adapters: List<MleEngineAdapter>) {
 
     suspend fun stop() = lock.withLock {
         val current = activeEngine ?: return@withLock
-        activeEngine = null
+        // Retain the active reference if shutdown throws so callers can retry.
         current.stop()
+        activeEngine = null
     }
 
     fun activeEngineId(): String? = activeEngine?.id
