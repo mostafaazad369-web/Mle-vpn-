@@ -66,6 +66,20 @@ object PublicNodeSourceCatalog {
         ),
     )
 
+    /** Public Quick Connect feeds copied from MLM's own QuickConnectRepository. */
+    private val quickConnectSources = listOf(
+        source("quickconnect-global", "MLM Quick Connect • Global", "منبع عمومی Global که در Quick Connect خود MLM استفاده می‌شود",
+            "iampedii/whitedns-sub", "base64.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-verified", "MLM Quick Connect • Verified", "فهرست Verified از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "verified/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-fast", "MLM Quick Connect • Fast", "فهرست Fast از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "fast/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-secure", "MLM Quick Connect • Secure", "فهرست Secure از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "secure/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500),
+        source("quickconnect-all", "MLM Quick Connect • All", "فهرست گسترده All از تجمیع‌گر مورد استفاده Quick Connect در MLM",
+            "0xRadikal/Free-v2ray-Configs", "all/configs.txt", maxBytes = 2 * 1024 * 1024, maxNodes = 500)
+    )
+
     /** Hysteria2 subset of MLM Amnezia public collectors; WireGuard files are omitted until MLE ships a tested importer. */
     private val amneziaSources = listOf(
         source("amz-morpheus-hy2", "Morpheus • Hysteria 2", "کانفیگ‌های گردآوری‌شده Hysteria 2",
@@ -90,7 +104,7 @@ object PublicNodeSourceCatalog {
             "10Dream/sub-mod", "sub/split/protocols/hy2.txt")
     )
 
-    val all: List<PublicNodeSource> = (fluxSources + amneziaSources).distinctBy { it.id }
+    val all: List<PublicNodeSource> = (fluxSources + quickConnectSources + amneziaSources).distinctBy { it.id }
     fun find(id: String): PublicNodeSource? = all.firstOrNull { it.id == id }
 }
 
