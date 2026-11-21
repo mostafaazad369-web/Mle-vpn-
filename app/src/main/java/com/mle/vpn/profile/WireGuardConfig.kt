@@ -21,6 +21,7 @@ data class WireGuardProfileData(
     val presharedKey: String?,
     val allowedIps: List<String>,
     val persistentKeepalive: Int,
+    val listenPort: Int?,
     val mtu: Int?
 )
 
@@ -78,7 +79,7 @@ object WireGuardConfigParser {
             (interfaceValues["listenport"]!!.toIntOrNull()?.let { it in 1..65535 } == true)) { "ListenPort معتبر نیست." }
         return WireGuardProfileData(
             addresses, privateKey, endpoint.first, endpoint.second, publicKey, psk,
-            allowedIps, keepalive, mtu
+            allowedIps, keepalive, interfaceValues["listenport"]?.toInt(), mtu
         )
     }
 
@@ -149,5 +150,6 @@ object WireGuardEndpointBuilder {
             .put("address", JSONArray(data.addresses))
             .put("private_key", data.privateKey)
             .put("peers", JSONArray().put(peer))
+            .also { endpoint -> data.listenPort?.let { endpoint.put("listen_port", it) } }
     }
 }
