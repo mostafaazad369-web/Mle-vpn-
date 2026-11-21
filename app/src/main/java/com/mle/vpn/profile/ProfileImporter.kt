@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 enum class ProfileProtocol {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA, HYSTERIA2,
-    TUIC, ANYTLS, WIREGUARD, WARP, SOCKS, HTTP, UNKNOWN
+    TUIC, ANYTLS, WIREGUARD, WARP, OPENVPN, SOCKS, HTTP, UNKNOWN
 }
 
 data class ImportedProfile(
@@ -62,7 +62,7 @@ object ProfileImporter {
     fun parseBatch(input: String): ProfileBatchResult {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
-        if (raw.contains("[Interface]", ignoreCase = true)) {
+        if (raw.contains("[Interface]", ignoreCase = true) || isOpenVpnText(raw)) {
             return when (val parsed = parse(raw)) {
                 is ProfileParseResult.Success -> ProfileBatchResult(listOf(parsed.profile), 0, 0)
                 is ProfileParseResult.Failure -> ProfileBatchResult(emptyList(), 1, 0)
@@ -71,9 +71,9 @@ object ProfileImporter {
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
                 String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
-            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) } ?: raw
+            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) || isOpenVpnText(it) } ?: raw
         }
-        if (decoded.contains("[Interface]", ignoreCase = true)) return parseBatch(decoded)
+        if (decoded.contains("[Interface]", ignoreCase = true) || isOpenVpnText(decoded)) return parseBatch(decoded)
         val lines = decoded.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
@@ -96,12 +96,27 @@ object ProfileImporter {
 
     fun parse(input: String): ProfileParseResult {
         val raw = input.trim()
-        if (raw.isEmpty() || raw.length > 64_000) {
+        if (raw.isEmpty() || raw.length > 128_000) {
             return ProfileParseResult.Failure("لینک خالی یا بیش از حد طولانی است.")
         }
         if (raw.contains("[Interface]", ignoreCase = true)) {
             return parseWireGuard(raw)
         }
+        if (raw.startsWith("openvpn-conf://", ignoreCase = true)) {
+            return runCatching {
+                val config = OpenVpnConfigParser.decodeStored(raw)
+                val remote = config.remotes.first()
+                ProfileParseResult.Success(ImportedProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    protocol = ProfileProtocol.OPENVPN,
+                    displayName = "OpenVPN • ${remote.host}",
+                    host = remote.host,
+                    port = remote.port,
+                    sourceUri = raw
+                ))
+            }.getOrElse { ProfileParseResult.Failure(it.message ?: "OpenVPN profile invalid.") }
+        }
+        if (isOpenVpnText(raw)) return parseOpenVpn(raw)
         if (raw.startsWith("wireguard-conf://", ignoreCase = true)) {
             return runCatching {
                 val config = WireGuardConfigParser.decodeStored(raw)
@@ -144,6 +159,26 @@ object ProfileImporter {
         }
     }
 
+
+    private fun isOpenVpnText(value: String): Boolean {
+        val lines = value.lineSequence().map { it.trim().lowercase() }.toList()
+        return lines.any { it == "client" } &&
+            lines.any { it.startsWith("remote ") } &&
+            (lines.any { it == "<ca>" } || lines.any { it.startsWith("ca ") })
+    }
+
+    private fun parseOpenVpn(raw: String): ProfileParseResult = runCatching {
+        val config = OpenVpnConfigParser.parse(raw)
+        val remote = config.remotes.first()
+        ProfileParseResult.Success(ImportedProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            protocol = ProfileProtocol.OPENVPN,
+            displayName = "OpenVPN • ${remote.host}",
+            host = remote.host,
+            port = remote.port,
+            sourceUri = OpenVpnConfigParser.encodeForStorage(raw)
+        ))
+    }.getOrElse { ProfileParseResult.Failure(it.message ?: "OpenVPN profile invalid.") }
 
     private fun parseWireGuard(raw: String): ProfileParseResult = runCatching {
         val config = WireGuardConfigParser.parse(raw)
