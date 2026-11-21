@@ -131,7 +131,7 @@ private fun MleApp() {
             return
         }
         // WARP is a WireGuard data plane and is currently available through sing-box only.
-        val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
+        val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP || profile.protocol == ProfileProtocol.OPENVPN) "sing-box" else selectedEngine
         val orderedProfiles = if (automaticFailover) {
             val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
             val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$connectionEngineId:${it.id}" })
@@ -399,7 +399,7 @@ private fun MleApp() {
                 title = { Text("افزودن کانفیگ", color = Mint, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / Cloudflare WARP با پسوند .conf را وارد کن. پروفایل‌های WARP شناسایی و با موتور sing-box اجرا می‌شوند؛ ثبت‌نام حساب WARP خودکار انجام نمی‌شود.", color = Color.White)
+                        Text("لینک اشتراک، متن Base64 یا فایل WireGuard / WARP با پسوند .conf و OpenVPN با پسوند .ovpn را وارد کن. فایل OpenVPN باید گواهی‌ها و در صورت نیاز اطلاعات ورود را به‌صورت inline داشته باشد.", color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { wireGuardFilePicker.launch(arrayOf("text/*", "application/octet-stream", "application/wireguard")) },
@@ -408,7 +408,7 @@ private fun MleApp() {
                         ) {
                             Icon(Icons.Default.FolderOpen, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("انتخاب فایل WireGuard / WARP (.conf)")
+                            Text("انتخاب فایل VPN (.conf / .ovpn)")
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
