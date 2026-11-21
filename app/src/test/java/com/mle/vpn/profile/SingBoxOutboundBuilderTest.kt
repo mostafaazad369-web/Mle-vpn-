@@ -41,6 +41,27 @@ class SingBoxOutboundBuilderTest {
         assertEquals("wireguard", endpoint.getString("type"))
         assertEquals("wg.example.com", endpoint.getJSONArray("peers").getJSONObject(0).getString("address"))
         assertEquals(3, endpoint.getJSONArray("peers").getJSONObject(0).getJSONArray("reserved").length())
+        assertEquals("proxy", json.getJSONObject("route").getString("final"))
+        assertFalse(json.getJSONArray("outbounds").toString().contains("wireguard"))
+    }
+
+
+    @Test
+    fun rejectsMultipleWireGuardPeersRatherThanDroppingPeers() {
+        val config = """
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            Address = 10.10.0.2/32
+            [Peer]
+            PublicKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+            Endpoint = wg.example.com:51820
+            AllowedIPs = 0.0.0.0/0
+            [Peer]
+            PublicKey = AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=
+            Endpoint = wg2.example.com:51820
+            AllowedIPs = 0.0.0.0/0
+        """.trimIndent()
+        assertTrue(ProfileImporter.parseBatch(config).profiles.isEmpty())
     }
 
     @Test
