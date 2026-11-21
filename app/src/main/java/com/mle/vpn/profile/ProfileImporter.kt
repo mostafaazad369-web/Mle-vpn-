@@ -69,8 +69,9 @@ object ProfileImporter {
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
                 String(Base64.decode(raw, Base64.DEFAULT), StandardCharsets.UTF_8)
-            }.getOrNull()?.takeIf { it.contains("://") } ?: raw
+            }.getOrNull()?.takeIf { it.contains("://") || it.contains("[Interface]", ignoreCase = true) } ?: raw
         }
+        if (decoded.contains("[Interface]", ignoreCase = true)) return parseBatch(decoded)
         val lines = decoded.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
