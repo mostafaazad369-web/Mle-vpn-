@@ -220,6 +220,9 @@ class MleVpnService : VpnService() {
             .addDnsServer("1.1.1.1")
             .addDnsServer("1.0.0.1")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
+        val includePackages = getSharedPreferences("mle_settings", MODE_PRIVATE)
+            .getStringSet("split_tunnel_packages", emptySet()).orEmpty().plus(packageName).distinct().take(128)
+        includePackages.forEach { packageName -> builder.addAllowedApplication(packageName) }
         builder.addAddress("fd73:6d6c:6500::1", 126)
             .addRoute("::", 0)
         return checkNotNull(builder.establish()) {
