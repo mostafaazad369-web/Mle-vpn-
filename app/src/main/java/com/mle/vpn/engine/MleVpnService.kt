@@ -43,6 +43,8 @@ class MleVpnService : VpnService() {
     // OpenVPN keeps the service-owned descriptor while native core receives a detached duplicate.
     private var openVpnTun: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
+    // Service teardown must never wait for a native VPN worker on Android's main thread.
+    private val destroyed = AtomicBoolean(false)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
@@ -180,8 +182,12 @@ class MleVpnService : VpnService() {
                     if (stopping.get()) MleVpnStatus.disconnected()
                     else MleVpnStatus.failed("اتصال OpenVPN پایان یافت")
                 }
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                if (destroyed.get()) {
+                    serviceScope.coroutineContext[Job]?.cancel()
+                } else {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
         )
         openVpnRuntime = runtime
@@ -327,24 +333,30 @@ class MleVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        destroyed.set(true)
         stopping.set(true)
         trafficProbeJob?.cancel()
-        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-            val openVpn = openVpnRuntime
-            val stopped = openVpn?.stopAndAwait() ?: true
-            if (stopped) {
-                openVpnRuntime = null
-                stopTunnelResources()
-                releaseEngineLease()
-                MleVpnStatus.disconnected()
-            } else {
-                // Do not close a descriptor that the native worker may still be
-                // using. Its onFinished callback owns final cleanup after run().
-                android.util.Log.w("MLE-VPN", "OpenVPN worker did not stop before service teardown timeout; deferring TUN cleanup.")
+
+        // OpenVPN's native run() is blocking. Signal it and let its worker's
+        // finally/onFinished path release the handle and TUN after run() returns.
+        val openVpn = openVpnRuntime
+        if (openVpn != null) {
+            openVpn.stop()
+        } else {
+            // sing-box shutdown is suspending; finish it off the main thread.
+            // Keep this scope alive until cleanup completes instead of cancelling
+            // the coroutine that owns the shutdown operation.
+            serviceScope.launch {
+                try {
+                    if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
+                } finally {
+                    stopTunnelResources()
+                    releaseEngineLease()
+                    MleVpnStatus.disconnected()
+                    serviceScope.coroutineContext[Job]?.cancel()
+                }
             }
         }
-        serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
     }
 
