@@ -133,8 +133,13 @@ private fun MleApp() {
         // WARP is a WireGuard data plane and is currently available through sing-box only.
         val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
         val orderedProfiles = if (automaticFailover) {
+            val sourceManagedIds = context.getSharedPreferences("mle_silent_sources_v1", 0)
+                .getStringSet("profile_ids", emptySet()).orEmpty()
+            val prioritizedProfiles = listOf(profile) +
+                profiles.filter { it.id != profile.id && it.id in sourceManagedIds } +
+                profiles.filter { it.id != profile.id && it.id !in sourceManagedIds }
             val bounded = ProfileFailoverPlanner.order(
-                profiles,
+                prioritizedProfiles,
                 profile.id,
                 maxAttempts = 10
             )
