@@ -50,8 +50,36 @@ foreach ($abi in $Abis) {
     }
 
     $programHeaders = & (Join-Path $llvm 'llvm-readelf.exe') -lW $library
-    if ($LASTEXITCODE -or ($programHeaders -notmatch '0x4000')) {
-        throw "16-KiB ELF segment alignment was not found for $abi."
+    if ($LASTEXITCODE) {
+        throw "ELF program-header inspection failed for $abi."
+    }
+
+    # Validate every PT_LOAD segment, not merely the presence of the text
+    # "0x4000" somewhere in readelf output. PowerShell's -notmatch operator
+    # on an array returns non-matching lines, which made the previous check
+    # fail even when the ELF was correctly aligned.
+    $loadSegments = @($programHeaders | Where-Object { $_ -match '^\s*LOAD\s+' })
+    if ($loadSegments.Count -eq 0) {
+        throw "No ELF PT_LOAD segments were reported for $abi."
+    }
+    foreach ($segment in $loadSegments) {
+        $columns = ($segment.Trim() -split '\s+')
+        $alignment = $columns[-1]
+        if ($alignment -notmatch '^0x[0-9a-fA-F]+
+
+    $destination = Join-Path $root "app/src/main/jniLibs/$abi/libmleopenvpn.so"
+    New-Item -ItemType Directory -Force -Path (Split-Path $destination -Parent) | Out-Null
+    Copy-Item -LiteralPath $library -Destination $destination -Force
+    $hash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+    $built += [pscustomobject]@{ Abi = $abi; File = $destination; Sha256 = $hash }
+}
+
+$built | Format-Table -AutoSize
+Write-Host 'OpenVPN libraries built, JNI symbol checked and 16-KiB ELF alignment verified.'
+ -or
+            [Convert]::ToInt64($alignment.Substring(2), 16) -lt 16384) {
+            throw "ELF PT_LOAD segment is not 16-KiB aligned for $abi: $segment"
+        }
     }
 
     $destination = Join-Path $root "app/src/main/jniLibs/$abi/libmleopenvpn.so"
