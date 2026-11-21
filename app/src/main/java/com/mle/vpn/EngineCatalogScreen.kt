@@ -228,6 +228,19 @@ fun EngineCatalogScreen(
                 vpnGateMessage?.let {
                     Text(it, color = Color(0xFF42E8D5), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
                 }
+                if (vpnGateServers.isNotEmpty()) {
+                    val quickest = vpnGateServers.first()
+                    OutlinedButton(
+                        onClick = { onImportVpnGate(quickest) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                    ) {
+                        Text("واردکردن سریع گزینه اول بر اساس Ping اعلام‌شده")
+                    }
+                    Text(
+                        "رتبه‌بندی بر اساس داده منتشرشده توسط VPN Gate است، نه سنجش زنده و نه تأیید اتصال VPN.",
+                        color = Color(0xFF929BB5), fontSize = 10.sp
+                    )
+                }
                 vpnGateServers.forEach { server ->
                     Row(
                         Modifier.fillMaxWidth().padding(top = 10.dp),
