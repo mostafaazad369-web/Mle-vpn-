@@ -79,8 +79,8 @@ object OpenVpnConfigParser {
             "client", "dev", "proto", "remote", "remote-random", "resolv-retry", "nobind",
             "persist-key", "persist-tun", "remote-cert-tls", "verify-x509-name", "tls-version-min",
             "cipher", "data-ciphers", "auth", "auth-nocache", "verb", "mute", "pull",
-            "redirect-gateway", "key-direction", "explicit-exit-notify", "auth-user-pass",
-            "ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2", "setenv"
+            "redirect-gateway", "key-direction", "explicit-exit-notify", "auth-user-pass", "tun-mtu",
+            "ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2"
         )
         require(directives.keys.all { it in allowed }) {
             "Unsupported OpenVPN directive: ${directives.keys.first { it !in allowed }}."
@@ -132,6 +132,7 @@ object OpenVpnConfigParser {
             when (it) { "0" -> "server"; "1" -> "client"; else -> error("Invalid OpenVPN key-direction.") }
         }
         if (wrapType == "tls_auth") require(direction != null) { "tls-auth requires key-direction 0 or 1." }
+        require(directives["remote-cert-tls"]?.firstOrNull()?.firstOrNull()?.let { it == "server" } != false) { "OpenVPN remote-cert-tls must be server." }
         val verify = directives["verify-x509-name"]?.firstOrNull()
         val serverName = verify?.firstOrNull()
         val serverNameType = verify?.getOrNull(1)?.lowercase()?.takeIf { it in setOf("name", "subject", "name-prefix") }
