@@ -192,6 +192,9 @@ private fun MleApp() {
                     profileCount = profiles.size,
                     connectionDetail = connectionStatus.detail,
                     connectionPhase = connectionStatus.phase,
+                    trafficStatsAvailable = connectionStatus.trafficStatsAvailable,
+                    bytesOut = connectionStatus.bytesOut,
+                    bytesIn = connectionStatus.bytesIn,
                     onServers = { selectedTab = 1 },
                     onConnect = {
                         if (profiles.isEmpty()) {
@@ -437,11 +440,24 @@ private fun MleApp() {
 }
 
 @Composable
+private fun formatTrafficBytes(bytes: Long): String {
+    val value = bytes.coerceAtLeast(0L).toDouble()
+    return when {
+        value >= 1024.0 * 1024.0 * 1024.0 -> String.format(java.util.Locale.ROOT, "%.2f GB", value / (1024.0 * 1024.0 * 1024.0))
+        value >= 1024.0 * 1024.0 -> String.format(java.util.Locale.ROOT, "%.1f MB", value / (1024.0 * 1024.0))
+        value >= 1024.0 -> String.format(java.util.Locale.ROOT, "%.1f KB", value / 1024.0)
+        else -> String.format(java.util.Locale.ROOT, "%.0f B", value)
+    }
+}
+
 private fun HomeScreen(
     server: String,
     profileCount: Int,
     connectionDetail: String,
     connectionPhase: com.mle.vpn.engine.MleConnectionPhase,
+    trafficStatsAvailable: Boolean,
+    bytesOut: Long,
+    bytesIn: Long,
     onServers: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -488,6 +504,22 @@ private fun HomeScreen(
                     Text(if (profileCount > 0) "$profileCount کانفیگ ذخیره‌شده" else "ابتدا کانفیگ اضافه کن", color = Muted, fontSize = 12.sp)
                 }
             }
+        }
+        if (trafficStatsAvailable) {
+            Row(
+                Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("ارسال‌شده", color = Muted, fontSize = 11.sp)
+                    Text(formatTrafficBytes(bytesOut), color = Mint, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("دریافت‌شده", color = Muted, fontSize = 11.sp)
+                    Text(formatTrafficBytes(bytesIn), color = Mint, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
         }
         Spacer(Modifier.height(28.dp))
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
