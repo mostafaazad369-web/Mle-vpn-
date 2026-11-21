@@ -38,6 +38,8 @@ import kotlinx.coroutines.withContext
 import com.mle.vpn.engine.cloudflare.CloudflareDoctor
 import com.mle.vpn.engine.catalog.Integration
 import com.mle.vpn.engine.catalog.MleEngineCatalog
+import com.mle.vpn.engine.vpngate.VpnGateRepository
+import com.mle.vpn.engine.vpngate.VpnGateServer
 
 /** Short, stable brand marks: each engine gets a distinct visual identity without emoji fallback. */
 private val EngineMarks = mapOf(
@@ -107,10 +109,16 @@ private fun EngineMark(iconKey: String) {
 }
 
 @Composable
-fun EngineCatalogScreen(padding: androidx.compose.foundation.layout.PaddingValues) {
+fun EngineCatalogScreen(
+    padding: androidx.compose.foundation.layout.PaddingValues,
+    onImportVpnGate: (VpnGateServer) -> Unit
+) {
     var doctorLoading by remember { mutableStateOf(false) }
     var doctorMessage by remember { mutableStateOf<String?>(null) }
     var doctorDetails by remember { mutableStateOf<String?>(null) }
+    var vpnGateLoading by remember { mutableStateOf(false) }
+    var vpnGateMessage by remember { mutableStateOf<String?>(null) }
+    var vpnGateServers by remember { mutableStateOf<List<VpnGateServer>>(emptyList()) }
     val scope = rememberCoroutineScope()
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(18.dp)
@@ -173,6 +181,71 @@ fun EngineCatalogScreen(padding: androidx.compose.foundation.layout.PaddingValue
                 Text(
                     "این نتیجه فقط پاسخ trace را نشان می‌دهد و به‌تنهایی اتصال VPN یا محافظت‌شدن ترافیک را اثبات نمی‌کند.",
                     color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2036))
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EngineMark("vpngate")
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("VPN Gate • سرورهای عمومی", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("فهرست عمومی داوطلبانه؛ دریافت فقط با درخواست شما", color = Color(0xFF929BB5), fontSize = 10.sp)
+                    }
+                }
+                Button(
+                    onClick = {
+                        if (!vpnGateLoading) {
+                            vpnGateLoading = true
+                            vpnGateMessage = null
+                            scope.launch {
+                                runCatching { VpnGateRepository.fetchPublicServers() }
+                                    .onSuccess { servers ->
+                                        vpnGateServers = servers.sortedWith(
+                                            compareBy<VpnGateServer> { if (it.pingMs < 0) Int.MAX_VALUE else it.pingMs }
+                                                .thenByDescending { it.score }
+                                        ).take(10)
+                                        vpnGateMessage = "دریافت شد: ${servers.size} سرور دارای پروفایل OpenVPN"
+                                    }
+                                    .onFailure { error ->
+                                        vpnGateMessage = error.message ?: "دریافت فهرست VPN Gate ناموفق بود."
+                                    }
+                                vpnGateLoading = false
+                            }
+                        }
+                    },
+                    enabled = !vpnGateLoading,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                ) {
+                    if (vpnGateLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("دریافت سرورهای عمومی")
+                }
+                vpnGateMessage?.let {
+                    Text(it, color = Color(0xFF42E8D5), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+                vpnGateServers.forEach { server ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${server.country} • ${server.hostName}", color = Color.White, fontSize = 12.sp)
+                            Text(
+                                "Ping: ${server.pingMs.takeIf { it >= 0 }?.let { "${it} ms" } ?: "نامشخص"} • ${"%.1f".format(java.util.Locale.ROOT, server.speedMbps)} Mbps",
+                                color = Color(0xFF929BB5), fontSize = 10.sp
+                            )
+                        }
+                        Button(onClick = { onImportVpnGate(server) }) { Text("واردکردن") }
+                    }
+                }
+                Text(
+                    "این فهرست، سرورهای عمومی اشخاص ثالث است. پایداری، حریم خصوصی و دسترس‌پذیری آن‌ها تضمین نمی‌شود؛ واردکردن، اتصال را شروع نمی‌کند.",
+                    color = Color(0xFF929BB5), fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }
