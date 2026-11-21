@@ -112,11 +112,16 @@ class AwgHostService : Service() {
             "وضعیت مالکیت موتور AmneziaWG ناسازگار است."
         }
         if (currentBackend != null && currentTunnel != null) {
-            // Do not clear our references until the backend confirms DOWN.
-            // GoBackend.setState(DOWN) owns the VPN-service teardown itself.
+            // Keep our Java-side references if setState throws. This only
+            // verifies GoBackend's Java state transition: in the pinned
+            // upstream revision, GoBackend clears currentTunnel/currentHandle
+            // before awgTurnOff(), while the JNI/Go shutdown API returns void
+            // and ignores close errors. Therefore DOWN is NOT proof that the
+            // native device was fully closed; a native teardown failure cannot
+            // currently be detected or retried by this wrapper.
             currentBackend.setState(currentTunnel, Tunnel.State.DOWN, null)
             check(currentBackend.getState(currentTunnel) == Tunnel.State.DOWN) {
-                "AmneziaWG خاموش‌شدن تونل را تأیید نکرد."
+                "تغییر وضعیت AmneziaWG به DOWN تأیید نشد."
             }
         }
         backend = null
