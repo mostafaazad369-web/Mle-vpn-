@@ -4,6 +4,7 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
+import java.net.URLDecoder
 
 data class WireGuardPeer(
     val host: String,
@@ -22,6 +23,23 @@ data class WireGuardConfig(
     val mtu: Int,
     val peers: List<WireGuardPeer>
 ) {
+    fun toConf(): String = buildString {
+        append("[Interface]\n")
+        append("PrivateKey = ").append(privateKey).append('\n')
+        append("Address = ").append(addresses.joinToString(", ")).append('\n')
+        if (dnsServers.isNotEmpty()) append("DNS = ").append(dnsServers.joinToString(", ")).append('\n')
+        append("MTU = ").append(mtu).append('\n')
+        peers.forEach { peer ->
+            append("\n[Peer]\n")
+            append("PublicKey = ").append(peer.publicKey).append('\n')
+            peer.presharedKey?.let { append("PresharedKey = ").append(it).append('\n') }
+            append("Endpoint = ").append(if (peer.host.contains(':')) "[${peer.host}]:${peer.port}" else "${peer.host}:${peer.port}").append('\n')
+            append("AllowedIPs = ").append(peer.allowedIps.joinToString(", ")).append('\n')
+            peer.keepaliveSeconds?.let { append("PersistentKeepalive = ").append(it).append('\n') }
+            peer.reserved?.let { append("Reserved = ").append(it.joinToString(", ")).append('\n') }
+        }
+    }
+
     fun toSingBoxEndpoint(tag: String = "wg-ep"): JSONObject {
         val peerJson = JSONArray()
         peers.forEach { peer ->
@@ -113,6 +131,66 @@ object WireGuardConfigParser {
         }
         return WireGuardConfig(addresses, privateKey, dns, mtu, peers)
     }
+
+    fun parseUri(link: String): Pair<WireGuardConfig, String> {
+        val raw = link.trim()
+        val scheme = raw.substringBefore("://", "").lowercase()
+        require(scheme == "wireguard" || scheme == "wg") { "لینک WireGuard معتبر نیست." }
+        val rest = raw.substringAfter("://")
+        val hash = rest.indexOf('#')
+        val name = if (hash >= 0) decodeUri(rest.substring(hash + 1)) else ""
+        val noFragment = if (hash >= 0) rest.substring(0, hash) else rest
+        val queryIndex = noFragment.indexOf('?')
+        val authority = (if (queryIndex >= 0) noFragment.substring(0, queryIndex) else noFragment).trimEnd('/')
+        val at = authority.lastIndexOf('@')
+        require(at > 0) { "لینک WireGuard باید private-key@host:port داشته باشد." }
+        val privateKey = decodeUri(authority.substring(0, at)).trim()
+        val (host, port) = parseEndpoint(authority.substring(at + 1))
+        val query = linkedMapOf<String, String>()
+        if (queryIndex >= 0) {
+            noFragment.substring(queryIndex + 1).split('&').filter(String::isNotBlank).forEach { pair ->
+                val split = pair.indexOf('=')
+                require(split > 0) { "پارامتر لینک WireGuard معتبر نیست." }
+                val key = decodeUri(pair.substring(0, split)).lowercase()
+                val value = decodeUri(pair.substring(split + 1))
+                require(query.putIfAbsent(key, value) == null) { "پارامتر تکراری در لینک WireGuard: $key" }
+            }
+        }
+        val allowedKeys = setOf(
+            "publickey", "public_key", "peer_public_key", "pk", "address", "ip",
+            "allowedips", "allowed_ips", "dns", "mtu", "keepalive", "persistentkeepalive",
+            "presharedkey", "psk", "reserved"
+        )
+        require(query.keys.all { it in allowedKeys }) {
+            "لینک شامل گزینه‌های اختصاصی AmneziaWG یا پارامتر پشتیبانی‌نشده است؛ از تبدیل بی‌صدای آن به WireGuard جلوگیری شد."
+        }
+        require(isKey(privateKey)) { "کلید خصوصی WireGuard معتبر نیست." }
+        val publicKey = (query["publickey"] ?: query["public_key"] ?: query["peer_public_key"] ?: query["pk"]).orEmpty()
+        require(isKey(publicKey)) { "کلید عمومی Peer معتبر نیست." }
+        val addresses = csv(query["address"] ?: query["ip"])
+        require(addresses.isNotEmpty() && addresses.all(::isCidr)) { "آدرس محلی WireGuard باید با CIDR مشخص شود." }
+        val dns = csv(query["dns"])
+        require(dns.size <= 8 && dns.all(::isDnsServer)) { "DNS در لینک WireGuard معتبر نیست." }
+        val mtuRaw = query["mtu"]
+        val mtu = mtuRaw?.toIntOrNull() ?: if (mtuRaw.isNullOrBlank()) 1408 else error("MTU در لینک WireGuard معتبر نیست.")
+        require(mtu in 576..9000) { "MTU در لینک WireGuard خارج از محدوده است." }
+        val allowedIps = csv(query["allowedips"] ?: query["allowed_ips"]).ifEmpty { listOf("0.0.0.0/0", "::/0") }
+        require(allowedIps.all(::isCidr)) { "AllowedIPs در لینک WireGuard معتبر نیست." }
+        val keepaliveRaw = query["keepalive"] ?: query["persistentkeepalive"]
+        val keepalive = keepaliveRaw?.toIntOrNull()
+        require(keepaliveRaw.isNullOrBlank() || keepalive != null && keepalive in 0..65535) { "Keepalive در لینک WireGuard معتبر نیست." }
+        val psk = (query["presharedkey"] ?: query["psk"])?.takeIf(String::isNotBlank)
+        require(psk == null || isKey(psk)) { "PresharedKey در لینک WireGuard معتبر نیست." }
+        val reservedRaw = query["reserved"]
+        val reserved = if (reservedRaw.isNullOrBlank()) null else csv(reservedRaw).map {
+            it.toIntOrNull() ?: error("Reserved باید سه عدد باشد.")
+        }.also { require(it.size == 3 && it.all { value -> value in 0..255 }) { "Reserved باید سه عدد بین صفر تا ۲۵۵ باشد." } }
+        val peer = WireGuardPeer(host, port, publicKey, psk, allowedIps, keepalive?.takeIf { it > 0 }, reserved)
+        return WireGuardConfig(addresses, privateKey, dns, mtu, listOf(peer)) to name
+    }
+
+    private fun decodeUri(value: String): String =
+        URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8.name())
 
     fun encodeForStorage(text: String): String =
         PREFIX + Base64.encodeToString(text.toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
