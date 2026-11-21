@@ -18,10 +18,10 @@ This register separates connection engines, protocol support, account/provider i
 | Xray / libv2ray | [x] | VLESS, VMess, Trojan, Shadowsocks mapped; XHTTP and device validation |
 | FLUX adaptive route planner | [ ] | Candidate racing, country/IP preferences, exit verification, standbys, per-network learning |
 | MAE per-app adaptive routing | [ ] | Service registry, classifier, probes, policy compiler, live balancer and per-app rules |
-| Cloudflare WARP | [ ] | Registration, WireGuard identity, account terms and device tests |
+| Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
 | WARP-in-WARP | [ ] | Nested route orchestration, MTU and loop validation |
 | Aether / MASQUE | [ ] | Permitted MASQUE/WireGuard runtime and ABI review |
-| AmneziaWG | [ ] | Native runtime, config import, ABI/license review |
+| AmneziaWG | [ ] | Detects AWG obfuscation fields and rejects downgrade; native Go/CMake tunnel module integration, one-TUN lifecycle and ABI/device tests remain |
 | WireGuard | [~] | Standard .conf import and sing-box endpoint config implemented; physical-device routing, DNS and leak validation remain |
 | Hysteria 2 | [~] | sing-box share-link mapping; expand fixtures and UDP device tests |
 | TUIC | [~] | sing-box share-link mapping; expand fixtures and UDP tests |
@@ -47,7 +47,10 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Batch import, encrypted local profile vault and subscription fetch.
 - [x] Public Telegram source catalog and explicit public-preview fetch.
 - [~] MLM FLUX/Amnezia-inspired VLESS, Trojan, Hysteria2 and multi-protocol Morpheus/FastNodes public feed catalog; GitHub raw/jsDelivr mirrors, bounded download, ETag cache and last-good fallback are integrated. Verify CI and real feed availability before marking fully validated.
-- [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests; AmneziaWG-specific obfuscation fields remain unsupported.
+- [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests.
+- [x] Cloudflare WARP peer-key recognition for imported registered WARP `.conf` files; WARP profiles automatically select sing-box for the data plane. Automatic account registration/provisioning is not implemented.
+- [x] Explicit AmneziaWG obfuscation-field detection and fail-closed rejection; no silent downgrade to standard WireGuard.
+- [ ] Integrate official AmneziaWG Android tunnel module with ABI builds, foreground service and single-VpnService lifecycle.
 - [ ] OpenVPN .ovpn import, inline certs and credential handling.
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
