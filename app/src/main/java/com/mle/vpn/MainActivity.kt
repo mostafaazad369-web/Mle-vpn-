@@ -208,7 +208,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "MAE" to Icons.Default.Apps)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "موتورها" to Icons.Default.Extension, "MAE" to Icons.Default.Apps)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -305,6 +305,7 @@ private fun MleApp() {
                             .putBoolean("automatic_failover", it).apply()
                     }
                 )
+                4 -> EngineCatalogScreen(padding)
                 else -> MlmToolsScreen(
                     selectedPackages = selectedPackages,
                     onSelectedPackagesChange = { packages ->
@@ -644,6 +645,54 @@ private fun TelegramSourcesScreen(
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun EngineCatalogScreen(padding: PaddingValues) {
+    val engines = com.mle.vpn.engine.EngineCatalog.all
+    Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)) {
+        Text("موتورها و پروتکل‌ها", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("وضعیت‌ها صادقانه تفکیک شده‌اند؛ نمایش نام یک موتور به معنی اتصال فعال آن نیست.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+        engines.forEach { engine ->
+            val glyph = when (engine.id) {
+                "sing_box" -> "◈"; "xray" -> "✦"; "wireguard" -> "⇄"; "warp" -> "☁"
+                "openvpn" -> "⇋"; "amnezia" -> "⌁"; "aether" -> "◎"; "slipnet" -> "⌘"
+                "outline" -> "◇"; "psiphon" -> "➤"; "tor" -> "◉"; "geph" -> "✣"
+                "lantern" -> "✧"; "proton" -> "△"; "windscribe" -> "≋"; "fenix" -> "◌"
+                "urnetwork" -> "⌬"; "vpngate" -> "▤"; "npv" -> "▦"; "sni_ech" -> "⌖"
+                else -> "◆"
+            }
+            val status = when (engine.id) {
+                "sing_box", "xray" -> "موتور قابل انتخاب در برنامه • تست دستگاه باقی است"
+                "wireguard", "warp", "openvpn" -> "پروفایل از مسیر sing-box • تست دستگاه باقی است"
+                "amnezia" -> "منبع رسمی pin شده • runtime هنوز متصل نیست"
+                else -> "فقط فهرست قابلیت • هنوز قابل اتصال نیست"
+            }
+            val accent = when (engine.state) {
+                com.mle.vpn.engine.IntegrationState.DEVICE_VERIFIED -> Color(0xFF62E6A7)
+                com.mle.vpn.engine.IntegrationState.ADAPTER_IN_PROGRESS -> Mint
+                com.mle.vpn.engine.IntegrationState.CATALOG_ONLY -> Violet
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 9.dp)
+                    .background(Panel, RoundedCornerShape(15.dp)).padding(13.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(42.dp).background(accent.copy(alpha = .14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text(glyph, color = accent, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(engine.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(engine.protocols.joinToString(" • "), color = Muted, fontSize = 10.sp)
+                    Text(status, color = accent, fontSize = 10.sp)
+                    Text(engine.requirement, color = Muted, fontSize = 10.sp)
+                }
+            }
+        }
+        Text("MLE VPN • با حفظ انتساب و مجوزهای منابع متن‌باز", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
     }
 }
 
