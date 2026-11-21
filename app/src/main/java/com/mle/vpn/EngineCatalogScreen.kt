@@ -30,7 +30,7 @@ private val EngineGlyphs = mapOf(
     "vless" to "🔗", "vmess" to "🛰️", "trojan" to "🐴",
     "shadowsocks" to "🧩", "wireguard" to "🛡️", "warp" to "☁️",
     "masque" to "🎭", "warp_on_warp" to "🌀", "amneziawg" to "🔐",
-    "hysteria2" to "🚀", "openvpn" to "🌐", "npv" to "📦",
+    "hysteria2" to "🚀", "tuic" to "🧬", "openvpn" to "🌐", "npv" to "📦",
     "outline" to "🗝️", "psiphon" to "🦋", "tor" to "🧅",
     "geph" to "🪁", "lantern" to "🏮", "urnetwork" to "🌍",
     "proton" to "⚛️", "windscribe" to "💨", "fenix" to "🔥",
