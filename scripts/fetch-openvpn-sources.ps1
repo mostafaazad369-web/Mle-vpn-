@@ -75,7 +75,15 @@ foreach ($source in $lock.sources) {
         }
     }
     if ((Test-Path -LiteralPath $destination) -and !$Force) {
-        throw "Destination exists without matching provenance marker: $destination (use -Force only after review)"
+        # GitHub source ZIPs omit submodule contents but may leave an empty
+        # submodule directory (Mbed TLS leaves framework/). It is safe to
+        # replace only a genuinely empty directory; never overwrite user data.
+        $existingItem = Get-ChildItem -LiteralPath $destination -Force -ErrorAction Stop | Select-Object -First 1
+        if ($null -eq $existingItem) {
+            Remove-Item -LiteralPath $destination -Force
+        } else {
+            throw "Destination exists without matching provenance marker: $destination (use -Force only after review)"
+        }
     }
 
     if (!(Test-Path -LiteralPath $archivePath) -or (Get-Sha256 $archivePath) -ne $source.sha256) {
