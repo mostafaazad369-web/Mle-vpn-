@@ -92,3 +92,9 @@ The ABI comparison is source-level only: it does not prove that the upstream nat
 ## MLE JNI contract scaffold
 
 The branch now contains `MleOpenVpnNative.kt`, an MLE-package JNI facade with the audited native entry-point signatures, optional library loading (`mleopenvpn`) and a kept callback base class. `MleOpenVpnNativeContractTest` uses JVM reflection to pin the entry-point and callback method descriptors. This is an ABI scaffold only: no `mleopenvpn` shared library, CMake target, OpenVPN source archive, runtime service adapter or connection path has been added. `available()` therefore remains false on builds without the native library, and the catalog must not present this as a working engine.
+
+## Dynamic OpenVPN TUN groundwork
+
+MLE now has an Android-independent `OpenVpnTunConfig.Builder` that collects server-pushed interface addresses, routes, DNS servers, search domains and MTU. It validates numeric IP literals and prefix lengths, normalizes IDN search domains, bounds collection sizes and requires at least one interface address and route before a TUN can be established. Unit tests cover IPv4/IPv6, default routes, reset semantics, malformed hostnames/prefixes and MTU bounds.
+
+`MleVpnService.establishOpenVpnTun` translates that validated model into a dynamic Android `VpnService.Builder`. It retains the original `ParcelFileDescriptor` in the service and returns a detached duplicate fd to the future native callback, matching the audited upstream ownership contract. The retained descriptor is closed by the shared service cleanup paths. This is deliberately only a service primitive: no OpenVPN action, native worker, callback adapter or OPENVPN arbiter lease is wired yet. The existing sing-box start path remains the only active service engine, preventing a second TUN owner from being started accidentally.
