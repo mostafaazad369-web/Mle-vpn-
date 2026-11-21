@@ -133,11 +133,18 @@ private fun MleApp() {
         // WARP is a WireGuard data plane and is currently available through sing-box only.
         val connectionEngineId = if (profile.protocol == ProfileProtocol.WARP) "sing-box" else selectedEngine
         val orderedProfiles = if (automaticFailover) {
-            val bounded = ProfileFailoverPlanner.order(profiles, profile.id)
-            val rankedIds = MleRouteHealthStore(context).rank(bounded.map { "$connectionEngineId:${it.id}" })
-            val ranked = rankedIds.mapNotNull { key -> bounded.firstOrNull { "$connectionEngineId:${it.id}" == key } }
-            listOfNotNull(bounded.firstOrNull { it.id == profile.id }) +
-                ranked.filterNot { it.id == profile.id }
+            val bounded = ProfileFailoverPlanner.order(
+                profiles,
+                profile.id,
+                maxAttempts = 10
+            )
+            val rankedIds = MleRouteHealthStore(context).rank(
+                bounded.filterNot { it.id == profile.id }.map { "$connectionEngineId:${it.id}" }
+            )
+            val ranked = rankedIds.mapNotNull { key ->
+                bounded.firstOrNull { "$connectionEngineId:${it.id}" == key }
+            }
+            listOfNotNull(bounded.firstOrNull { it.id == profile.id }) + ranked
         } else listOf(profile)
         val validCandidates = orderedProfiles.mapNotNull { candidate ->
             runCatching {
@@ -196,7 +203,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload, "MAE" to Icons.Default.Apps)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "MAE" to Icons.Default.Apps)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -292,74 +299,6 @@ private fun MleApp() {
                         context.getSharedPreferences("mle_settings", 0).edit()
                             .putBoolean("automatic_failover", it).apply()
                     }
-                )
-                4 -> TelegramSourcesScreen(
-                    sources = telegramSources,
-                    publicSources = PublicNodeSourceCatalog.all,
-                    fetchingSource = fetchingSource,
-                    status = sourceStatus,
-                    onFetchPublic = { source ->
-                        if (fetchingSource == null) {
-                            fetchingSource = source.id
-                            sourceStatus = null
-                            scope.launch {
-                                runCatching {
-                                    val fetched = PublicSubscriptionFetcher.fetch(context, source)
-                                    val batch = ProfileImporter.parseBatch(fetched.text)
-                                    val existing = profiles.map { it.sourceUri }.toSet()
-                                    val supported = batch.profiles.filter { profile ->
-                                        profile.sourceUri !in existing && runCatching {
-                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                            else SingBoxOutboundBuilder.build(profile)
-                                        }.isSuccess
-                                    }
-                                    supported.forEach(vault::save)
-                                    profiles = vault.loadAll()
-                                    if (selectedProfileId == null) {
-                                        val firstProfile = profiles.firstOrNull()
-                                        selectedProfileId = firstProfile?.id
-                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
-                                    }
-                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
-                                    "${source.title}: ${supported.size} کانفیگ جدید ذخیره شد؛ ${rejected} مورد نامعتبر، ناسازگار یا تکراری بود. ${if (fetched.fromCache) "از نسخه ذخیره‌شده استفاده شد." else "منبع تازه دریافت شد."}"
-                                }.onSuccess { sourceStatus = it }
-                                    .onFailure { sourceStatus = "${source.title}: ${it.message ?: "دریافت منبع ناموفق بود."}" }
-                                fetchingSource = null
-                            }
-                        }
-                    },
-                    onFetch = { channel ->
-                        if (fetchingSource == null) {
-                            fetchingSource = channel
-                            sourceStatus = null
-                            scope.launch {
-                                runCatching {
-                                    val links = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
-                                    val batch = ProfileImporter.parseBatch(links)
-                                    val existing = profiles.map { it.sourceUri }.toSet()
-                                    val supported = batch.profiles.filter { profile ->
-                                        profile.sourceUri !in existing &&
-                                            runCatching {
-                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
-                                            else SingBoxOutboundBuilder.build(profile)
-                                        }.isSuccess
-                                    }
-                                    supported.forEach(vault::save)
-                                    profiles = vault.loadAll()
-                                    if (selectedProfileId == null) {
-                                        val firstProfile = profiles.firstOrNull()
-                                        selectedProfileId = firstProfile?.id
-                                        selectedServer = firstProfile?.displayName ?: "کانفیگی انتخاب نشده"
-                                    }
-                                    val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
-                                    "$channel: ${supported.size} کانفیگ جدید ذخیره شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود."
-                                }.onSuccess { sourceStatus = it }
-                                    .onFailure { sourceStatus = "$channel: ${it.message ?: "دریافت منبع ناموفق بود."}" }
-                                fetchingSource = null
-                            }
-                        }
-                    },
-                    padding = padding
                 )
                 else -> MlmToolsScreen(
                     selectedPackages = selectedPackages,
@@ -598,7 +537,7 @@ private fun ServerScreen(
                 Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(22.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("هنوز سرور واقعی اضافه نشده است. از بخش منابع، فهرست‌های عمومی را دریافت کن یا کانفیگ خودت را وارد کن.", color = Muted)
+                Text("هنوز سرور ذخیره‌شده‌ای وجود ندارد. دریافت خودکار مسیرهای جایگزین در پس‌زمینه انجام می‌شود؛ همچنین می‌توانی کانفیگ خودت را وارد کنی.", color = Muted)
             }
         } else {
             profiles.forEach { profile ->
