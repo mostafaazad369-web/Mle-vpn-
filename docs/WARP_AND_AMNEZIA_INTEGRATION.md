@@ -31,3 +31,12 @@ Before exposing AmneziaWG as a selectable engine, MLE must:
 - Official Android tunnel manifest: https://github.com/amnezia-vpn/amneziawg-android/blob/master/tunnel/src/main/AndroidManifest.xml
 
 No AmneziaWG source, binary, branding or private WARP API implementation is copied into MLE by this change.
+
+
+## OpenVPN TLS client profile support
+
+MLE accepts a strict subset of OpenVPN client files and maps them to the sing-box 1.14 `openvpn-client` endpoint. Supported fields include UDP/TCP remotes (up to 16), inline CA, optional paired client certificate/private key, inline `tls-auth` or `tls-crypt`, cipher/data-cipher preferences, minimum TLS version and selected keepalive/MTU settings.
+
+External credential files, username/password prompts, scripts/plugins, compression, static-key mode, external certificate/key paths and unknown directives are rejected. The imported profile is stored using the existing encrypted profile vault. OpenVPN profiles always use the sing-box data plane even when Xray is selected globally.
+
+This is endpoint-based OpenVPN client support, not a separate OpenVPN native engine. GitHub CI and real-device handshake, DNS, UDP, MTU and leak testing are still required before calling it verified.
