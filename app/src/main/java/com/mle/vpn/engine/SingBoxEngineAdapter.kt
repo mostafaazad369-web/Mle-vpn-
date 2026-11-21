@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -23,16 +24,12 @@ class SingBoxEngineAdapter(context: Context) : EngineAdapter {
         }
 
     override suspend fun prepare(): EngineResult {
-        val consentIntent = VpnService.prepare(appContext)
-        return if (consentIntent == null) {
-            EngineResult(
-                success = true,
-                message = "اجازه سیستمی VPN قبلاً صادر شده است."
-            )
+        return if (VpnService.prepare(appContext) == null) {
+            EngineResult(true, "اجازه سیستمی VPN قبلاً صادر شده است.")
         } else {
             EngineResult(
-                success = false,
-                message = "ابتدا باید پنجره اجازه اتصال VPN را از رابط کاربری اندروید تأیید کنید."
+                false,
+                "ابتدا باید پنجره اجازه اتصال VPN را از رابط کاربری اندروید تأیید کنید."
             )
         }
     }
@@ -41,7 +38,6 @@ class SingBoxEngineAdapter(context: Context) : EngineAdapter {
         if (profile.isBlank()) {
             return EngineResult(false, "پروفایل یا پیکربندی sing-box خالی است.")
         }
-
         if (VpnService.prepare(appContext) != null) {
             return EngineResult(
                 false,
@@ -49,13 +45,13 @@ class SingBoxEngineAdapter(context: Context) : EngineAdapter {
             )
         }
 
-        val startIntent = Intent(appContext, MleVpnService::class.java).apply {
-            action = MleVpnService.ACTION_START
-            putExtra(MleVpnService.EXTRA_CONFIG, profile)
-        }
-
-        return runCatching {
+        return try {
+            val startIntent = Intent(appContext, MleVpnService::class.java).apply {
+                action = MleVpnService.ACTION_START
+                putExtra(MleVpnService.EXTRA_CONFIG, profile)
+            }
             ContextCompat.startForegroundService(appContext, startIntent)
+
             val startup = withTimeoutOrNull(10_000) {
                 MleVpnStatus.status.first {
                     it.phase == MleConnectionPhase.STARTING ||
@@ -82,7 +78,9 @@ class SingBoxEngineAdapter(context: Context) : EngineAdapter {
             } else {
                 EngineResult(false, verified.detail)
             }
-        }.getOrElse { error ->
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
             EngineResult(
                 false,
                 error.message ?: "ارسال درخواست شروع sing-box ناموفق بود."
@@ -90,14 +88,14 @@ class SingBoxEngineAdapter(context: Context) : EngineAdapter {
         }
     }
 
-    override suspend fun disconnect(): EngineResult = runCatching {
+    override suspend fun disconnect(): EngineResult = try {
         appContext.startService(
             Intent(appContext, MleVpnService::class.java).apply {
                 action = MleVpnService.ACTION_STOP
             }
         )
         EngineResult(true, "درخواست قطع اتصال sing-box ارسال شد.")
-    }.getOrElse { error ->
+    } catch (error: Exception) {
         EngineResult(false, error.message ?: "قطع اتصال sing-box ناموفق بود.")
     }
 
