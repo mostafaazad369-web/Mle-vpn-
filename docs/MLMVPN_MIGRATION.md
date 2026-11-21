@@ -155,6 +155,6 @@ The MLE app dependency currently pins `com.github.singbox-android:libbox:1.14.4`
 
 - UI-import commit `f5093118b3c97bc58419f1e93db5ad5b23af32a2`: Android CI run `44907382833` passed unit tests and debug APK packaging; Android build run `44907382882` also passed.
 - Strict single-peer/multiple-peer parser commit `c41e8bc977f5c29f9c3a12350623006fa2bf5b9d`: Android CI run `44907461593` passed the JVM/Android unit-test job, including the WireGuard parser/endpoint/config-assembly tests.
-- The matching Android build run `44907461507` was still assembling the debug APK at the time of this update.
+- The matching Android build run `44907461507` completed successfully, including debug APK assembly and artifact upload.
 
 An earlier test attempt encountered transient Robolectric/Maven artifact-fetch 404s across unrelated existing tests; later test runs above completed successfully.
