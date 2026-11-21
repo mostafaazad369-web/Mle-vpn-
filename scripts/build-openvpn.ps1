@@ -1,6 +1,7 @@
 param(
     [string]$Ndk = 'I:/Android/ndk/android-ndk-r27d',
-    [string]$Cmake = 'C:/Program Files/CMake/bin/cmake.exe',
+    [string]$Cmake = 'cmake',
+    [string]$Generator = 'Ninja',
     [string[]]$Abis = @('arm64-v8a', 'armeabi-v7a'),
     [switch]$SkipFetch
 )
@@ -20,15 +21,13 @@ if (!(Test-Path -LiteralPath (Join-Path $core 'client/ovpncli.cpp'))) {
 }
 
 $llvm = Join-Path $Ndk 'toolchains/llvm/prebuilt/windows-x86_64/bin'
-$make = Join-Path $Ndk 'prebuilt/windows-x86_64/bin/make.exe'
 $toolchain = Join-Path $Ndk 'build/cmake/android.toolchain.cmake'
 $built = @()
 
 foreach ($abi in $Abis) {
     if ($abi -notin @('arm64-v8a', 'armeabi-v7a')) { throw "Unsupported ABI: $abi" }
     $build = Join-Path $root "build/openvpn/$abi"
-    & $Cmake -S "$root/app/src/main/cpp/openvpn" -B $build -G 'MinGW Makefiles' `
-        "-DCMAKE_MAKE_PROGRAM=$make" `
+    & $Cmake -S "$root/app/src/main/cpp/openvpn" -B $build -G $Generator `
         "-DCMAKE_TOOLCHAIN_FILE=$toolchain" `
         "-DANDROID_ABI=$abi" -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static `
         "-DOPENVPN_CORE_DIR=$core" `
