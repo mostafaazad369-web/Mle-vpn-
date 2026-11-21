@@ -75,7 +75,7 @@ object WireGuardConfigParser {
         val mtu = interfaceValues["mtu"]?.toIntOrNull()
         require(mtu == null || mtu in 576..9000) { "MTU خارج از محدودهٔ مجاز است." }
         require(interfaceValues["listenport"] == null ||
-            interfaceValues["listenport"]!!.toIntOrNull() in 1..65535) { "ListenPort معتبر نیست." }
+            (interfaceValues["listenport"]!!.toIntOrNull()?.let { it in 1..65535 } == true)) { "ListenPort معتبر نیست." }
         return WireGuardProfileData(
             addresses, privateKey, endpoint.first, endpoint.second, publicKey, psk,
             allowedIps, keepalive, mtu
@@ -106,8 +106,8 @@ object WireGuardConfigParser {
             }
         }
         val port = portText.toIntOrNull()
-        require(port in 1..65535) { "پورت Endpoint معتبر نیست." }
-        return host to port!!
+        require(port != null && port in 1..65535) { "پورت Endpoint معتبر نیست." }
+        return host to port
     }
 
     private fun isWireGuardKey(value: String): Boolean = runCatching {
