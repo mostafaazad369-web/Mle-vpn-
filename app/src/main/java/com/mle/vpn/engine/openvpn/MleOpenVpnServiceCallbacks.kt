@@ -5,9 +5,9 @@ import com.mle.vpn.engine.MleVpnService
 /**
  * Adapts OpenVPN 3's tun_builder callbacks to the single MLE VpnService.
  *
- * This callback object is intentionally not wired to a native run loop yet.
- * It is the service boundary that the JNI worker will receive after the
- * OPENVPN arbiter lease and cancellation lifecycle are implemented.
+ * The JNI worker receives this callback object after the OPENVPN arbiter
+ * lease is acquired. It translates server-pushed TUN settings into the shared
+ * MLE VpnService and forwards lifecycle and traffic events to the runtime.
  */
 class MleOpenVpnServiceCallbacks(
     private val service: MleVpnService,
