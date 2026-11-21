@@ -34,6 +34,7 @@ import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
 import com.mle.vpn.engine.MleVpnStatus
+import com.mle.vpn.engine.openvpn.OpenVpnEngineAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
@@ -86,24 +87,27 @@ private fun MleApp() {
     val connectionStatus by MleVpnStatus.status.collectAsState()
 
     fun startOpenVpnProfile(profile: ImportedProfile, username: String = "", password: String = "") {
-        val serviceIntent = Intent(context, MleVpnService::class.java).apply {
-            action = MleVpnService.ACTION_START_OPENVPN
-            putExtra(MleVpnService.EXTRA_OPENVPN_PROFILE, profile.sourceUri)
-            putExtra(MleVpnService.EXTRA_OPENVPN_USERNAME, username)
-            putExtra(MleVpnService.EXTRA_OPENVPN_PASSWORD, password)
+        scope.launch {
+            vpnPermissionMessage = "در حال راه‌اندازی و بررسی اتصال OpenVPN..."
+            showNotice = true
+            val result = runCatching {
+                OpenVpnEngineAdapter(context).connect(profile.sourceUri, username, password)
+            }.getOrElse { error ->
+                com.mle.vpn.engine.EngineResult(
+                    false,
+                    error.message ?: "راه‌اندازی OpenVPN ناموفق بود."
+                )
+            }
+            // Do not retain user-entered credentials in Compose state after the start attempt.
+            openVpnUsername = ""
+            openVpnPassword = ""
+            vpnPermissionGranted = result.success
+            vpnPermissionMessage = result.message
+            showNotice = true
+            if (!result.success) {
+                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+            }
         }
-        runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
-            .onSuccess {
-                vpnPermissionGranted = true
-                vpnPermissionMessage = "درخواست راه‌اندازی موتور OpenVPN 3 ارسال شد؛ نتیجه اتصال در وضعیت سرویس نمایش داده می‌شود."
-                showNotice = true
-            }
-            .onFailure { error ->
-                vpnPermissionGranted = false
-                MleVpnStatus.failed(error.message ?: "راه‌اندازی OpenVPN ناموفق بود.")
-                vpnPermissionMessage = error.message ?: "راه‌اندازی OpenVPN ناموفق بود."
-                showNotice = true
-            }
     }
 
     fun startSelectedProfile() {
