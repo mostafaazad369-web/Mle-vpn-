@@ -39,7 +39,7 @@ object MleEngineCatalog {
         MleEngineCatalogItem("amneziawg", "AmneziaWG", "amneziawg", Integration.NATIVE_OR_PROVIDER_REQUIRED, "Review upstream core, ABI coverage and license before vendoring."),
         MleEngineCatalogItem("hysteria2", "Hysteria2", "hysteria2", Integration.EXISTING_SING_BOX_PATH, "Outbound conversion is implemented; UDP behavior and real-device interoperability still require testing."),
         MleEngineCatalogItem("tuic", "TUIC", "tuic", Integration.EXISTING_SING_BOX_PATH, "Outbound conversion is implemented with UUID/password, TLS and supported congestion/UDP options; device verification remains."),
-        MleEngineCatalogItem("openvpn", "OpenVPN", "openvpn", Integration.NATIVE_OR_PROVIDER_REQUIRED, "OpenVPN 3 core/JNI and its separate license notices must be reviewed."),
+        MleEngineCatalogItem("openvpn", "OpenVPN", "openvpn", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "OpenVPN 3 native core/JNI, shared VPN service lifecycle and .ovpn preflight are integrated; ABI packaging and real-device connection still require verification."),
         MleEngineCatalogItem("npv", "NPV", "npv", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "Define supported NPV file formats and import/export behavior."),
         MleEngineCatalogItem("outline", "Outline", "outline", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User-owned access keys; compatible Shadowsocks adapter required."),
         MleEngineCatalogItem("psiphon", "Psiphon", "psiphon", Integration.NATIVE_OR_PROVIDER_REQUIRED, "Review official SDK availability, terms and Android lifecycle."),
