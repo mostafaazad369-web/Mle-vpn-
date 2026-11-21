@@ -96,10 +96,13 @@ class OpenVpnEngineAdapter(context: Context) : EngineAdapter {
                         MleConnectionPhase.ERROR
                     )
                 }
-            } ?: return EngineResult(
-                false,
-                "تونل شروع شده است، اما دسترسی HTTPS از داخل VPN هنوز تأیید نشده است."
-            )
+            } ?: run {
+                disconnect()
+                return EngineResult(
+                    false,
+                    "زمان تأیید اتصال OpenVPN تمام شد؛ درخواست توقف تونل ارسال شد."
+                )
+            }
 
             when (finalState.phase) {
                 MleConnectionPhase.INTERNET_VERIFIED ->
