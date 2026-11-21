@@ -20,9 +20,16 @@ class PublicNodeSourceCatalogTest {
     }
 
     @Test
-    fun doesNotAdvertiseUnimplementedWireGuardOrUnlicensedEnginesAsFeeds() {
-        assertTrue(PublicNodeSourceCatalog.all.none { it.id.contains("wireguard", ignoreCase = true) })
-        assertTrue(PublicNodeSourceCatalog.all.none { it.id.contains("warp", ignoreCase = true) })
+    fun includesSupportedWireGuardAndWarpFeedsButNotUnimplementedEngines() {
+        val ids = PublicNodeSourceCatalog.all.map { it.id }.toSet()
+        assertTrue("amz-morpheus-wg" in ids)
+        assertTrue("amz-vcc-wg" in ids)
+        assertTrue("amz-argh94-wg" in ids)
+        assertTrue("amz-argh94-auto-wg" in ids)
+        assertTrue("amz-vcf-wg" in ids)
+        assertTrue("amz-submod-wg" in ids)
+        assertTrue("amz-warp-links" in ids)
+        assertFalse(ids.any { it.contains("psiphon", true) || it.contains("tor", true) || it.contains("geph", true) })
     }
 
     @Test
@@ -67,6 +74,8 @@ class PublicNodeSourceCatalogTest {
         assertTrue("amz-autoconfig-hy2" in ids)
         assertTrue("amz-vpnclash-hy2" in ids)
         assertTrue("amz-submod-hy2" in ids)
+        assertTrue("amz-morpheus-wg" in ids)
+        assertTrue("amz-warp-links" in ids)
         assertTrue("flux-mg-vless" in ids)
         assertTrue("flux-mg-trojan" in ids)
         assertTrue("flux-mg-hy2" in ids)
