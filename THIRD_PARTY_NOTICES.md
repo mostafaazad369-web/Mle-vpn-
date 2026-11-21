@@ -44,3 +44,7 @@ The build tool is adapted from MLM VPN's GPL-3.0 script and preserves its attrib
 - The imported assets are not represented as live or functional VPN services until the corresponding engine, server infrastructure and device tests are complete.
 
 Preserve upstream copyright, GPL-3.0 and applicable third-party license notices when modifying or distributing these assets. MLE VPN is not affiliated with or endorsed by MLM VPN.
+
+
+## MLE MAE integration note
+The app parses the attributed MLM MAE service registry as read-only hints and offers a user-controlled per-app allow-list. This does not copy or claim the full upstream adaptive routing engine. Package routing is implemented through sing-box TUN `include_package` and Android `VpnService.Builder.addAllowedApplication` for Xray. The MLE app itself is kept inside the allow-list so end-to-end tunnel verification remains meaningful.
