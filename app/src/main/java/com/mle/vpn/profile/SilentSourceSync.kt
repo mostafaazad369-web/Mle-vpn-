@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
  */
 object SilentSourceSync {
     private const val MAX_IMPORTED_PROFILES = 120
-    private const val MAX_PROFILES_PER_SOURCE = 25
+    private const val MAX_PROFILES_PER_SOURCE = 5
     private const val MAX_SOURCE_ATTEMPTS_PER_REFRESH = 6
     private const val REFRESH_INTERVAL_MS = 60L * 60L * 1000L
 
