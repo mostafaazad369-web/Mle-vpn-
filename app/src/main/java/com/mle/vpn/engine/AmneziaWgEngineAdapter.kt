@@ -36,10 +36,10 @@ class AmneziaWgEngineAdapter(context: Context) : MleEngineAdapter {
     private suspend fun request(action: Int, config: String?) = withContext(Dispatchers.IO) {
         val connected = CountDownLatch(1)
         val replied = CountDownLatch(1)
-        @Volatile var remote: Messenger? = null
-        @Volatile var responseOk = false
-        @Volatile var responseError: String? = null
-        @Volatile var bindError: String? = null
+        var remote: Messenger? = null
+        var responseOk = false
+        var responseError: String? = null
+        var bindError: String? = null
 
         val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
             val data = message.data
