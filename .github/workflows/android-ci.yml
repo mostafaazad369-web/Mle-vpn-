@@ -3,8 +3,10 @@ name: Android CI
 on:
   push:
     branches: [ main, "feature/**" ]
+  # PR #4 targets another feature branch while the integration work is staged.
+  # Include feature/** so the same build and unit-test gates run for that PR.
   pull_request:
-    branches: [ main ]
+    branches: [ main, "feature/**" ]
   workflow_dispatch:
 
 permissions:
