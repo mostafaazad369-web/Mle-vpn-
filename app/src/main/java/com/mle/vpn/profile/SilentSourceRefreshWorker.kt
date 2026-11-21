@@ -14,7 +14,14 @@ class SilentSourceRefreshWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result = try {
         SilentSourceSync.refresh(applicationContext)
-        Result.success()
+        val lastSuccess = applicationContext
+            .getSharedPreferences("mle_silent_sources_v1", Context.MODE_PRIVATE)
+            .getLong("last_successful_fetch_ms", 0L)
+        val successIsRecent = lastSuccess > 0L &&
+            System.currentTimeMillis() - lastSuccess < 24L * 60L * 60L * 1000L
+        if (successIsRecent) Result.success()
+        else if (runAttemptCount < 5) Result.retry()
+        else Result.failure()
     } catch (_: Exception) {
         if (runAttemptCount < 5) Result.retry() else Result.failure()
     }
