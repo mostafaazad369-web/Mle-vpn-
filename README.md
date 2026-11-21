@@ -12,7 +12,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 ## Implemented
 - Persian RTL Compose interface and profile manager with explicit active-profile selection
 - Encrypted local profile storage using Android Keystore AES-GCM
-- VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP outbound conversion for supported link variants; standard WireGuard `.conf` import through sing-box endpoints
+- VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS and HTTP outbound conversion for supported link variants; standard WireGuard `.conf` import through sing-box endpoints; Cloudflare WARP `.conf` profiles are identified by the official WARP peer key and routed through sing-box
 - Per-profile TCP endpoint preflight diagnostics
 - Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
 - Android VPN permission flow
@@ -29,6 +29,8 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 - Supported protocol variants are limited to those explicitly accepted by the builders. Standard WireGuard `.conf` import accepts Interface private key/address/DNS/MTU and Peer public/preshared key/endpoint/allowed IPs/keepalive/reserved fields; unsupported scripts and AmneziaWG obfuscation options are rejected. WireGuard device routing still needs physical-device validation. Current V2Ray transports include WebSocket, gRPC, HTTP and HTTPUpgrade. QUIC, XHTTP and unsupported security options are rejected rather than silently downgraded. Additional profiles are tried only when automatic failover is enabled, and only after end-to-end HTTPS verification.
 - Curated public node feeds inspired by MLM FLUX/Amnezia source catalogs (including Morpheus mini/lite and FastNodes top/verified bundles) are integrated with GitHub raw/jsDelivr mirrors, bounded downloads, ETag/Last-Modified caching, offline last-good fallback and selected-engine validation; community nodes are untrusted and may be offline.
 - Telegram public-preview source fetching is integrated; private channels and Telegram account login are not supported.
+- Cloudflare WARP profile import is supported only for a user-supplied registered WARP WireGuard config; automatic Cloudflare account registration and WARP API provisioning are not implemented.
+- AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5) are explicitly detected and rejected rather than silently downgraded to plain WireGuard. The official Amnezia Android tunnel module requires a native Go/CMake build and owns its own VpnService; a safe adapter into MLE's single-TUN lifecycle is still being implemented.
 - Additional engines beyond sing-box/Xray are not yet integrated.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
@@ -41,7 +43,7 @@ Development is being extended on the `feature/mlm-engine-upgrade` branch without
 
 ### Runtime status (honest capability list)
 
-- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS, HTTP and standard WireGuard `.conf` endpoint variants explicitly handled by its builders. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks. Public node feeds based on MLM FLUX/Amnezia source catalogs are now exposed in the Sources screen for protocols the selected engine can convert.
+- **Available in code:** sing-box/libbox and Xray/libv2ray adapters. sing-box conversion currently covers VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS, SOCKS, HTTP, standard WireGuard `.conf` and imported Cloudflare WARP `.conf` endpoint variants explicitly handled by its builders. Xray conversion covers VLESS, VMess, Trojan and Shadowsocks. Public node feeds based on MLM FLUX/Amnezia source catalogs are now exposed in the Sources screen for protocols the selected engine can convert.
 - **Not yet connectable as separate engines:** FLUX, MAE, WARP/Aether, AmneziaWG, OpenVPN, Psiphon, Tor, Geph, Lantern, URnetwork, Proton, Windscribe and FENIX. Each still needs its own reviewed runtime/auth flow or a verified mapping through an existing core.
 - **Companion tools not yet integrated:** Gereh messenger, Cloud panel, Config Studio, Cloudflare Doctor, MLM Scout, Game Booster, GitHub Tunnel, Telegram Proxy, LAN sharing, signed engine store and backup/restore.
 
