@@ -50,6 +50,9 @@ class MleOpenVpnServiceCallbacks(
 
     @Synchronized
     override fun establishTun(): Int = runCatching {
+        // Fail closed for IPv6: if the profile/core did not negotiate IPv6,
+        // route it into the tunnel anyway so it cannot escape via the underlay.
+        tun.addRoute("::", 0)
         service.establishOpenVpnTun(tun.build())
     }.getOrDefault(-1)
 
