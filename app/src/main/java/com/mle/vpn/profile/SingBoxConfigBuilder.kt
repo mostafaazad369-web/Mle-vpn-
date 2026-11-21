@@ -9,7 +9,13 @@ import org.json.JSONObject
  */
 object SingBoxConfigBuilder {
     fun build(profile: ImportedProfile, allowedPackages: List<String> = emptyList()): JSONObject {
-        val safePackages = (allowedPackages + "com.mle.vpn").distinct().filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }.take(128)
+        val requestedPackages = allowedPackages.distinct()
+            .filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }
+            .take(127)
+        // No include_package rule means all apps use the VPN. Add the MLE app only
+        // when the user explicitly enables split tunneling for selected packages.
+        val safePackages = if (requestedPackages.isEmpty()) emptyList()
+            else (requestedPackages + "com.mle.vpn").distinct().take(128)
         if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile, safePackages)
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
