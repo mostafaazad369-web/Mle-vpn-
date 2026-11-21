@@ -133,7 +133,7 @@ private fun MleApp() {
     )) {
         Scaffold(containerColor = Navy, bottomBar = {
             NavigationBar(containerColor = Panel, contentColor = Mint) {
-                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
+                val tabs = listOf("خانه" to Icons.Default.Home, "سرورها" to Icons.Default.Public, "کانفیگ‌ها" to Icons.Default.List, "موتورها" to Icons.Default.Extension, "تنظیمات" to Icons.Default.Settings, "منابع" to Icons.Default.CloudDownload)
                 tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -204,7 +204,8 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                3 -> SettingsScreen(padding)
+                3 -> EngineCatalogScreen(padding)
+                4 -> SettingsScreen(padding)
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
                     fetchingSource = fetchingSource,
