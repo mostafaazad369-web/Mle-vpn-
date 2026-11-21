@@ -20,6 +20,8 @@ enum class Integration {
     EXISTING_SING_BOX_PATH,
     /** OpenVPN 3/JNI runtime and shared Android VPN service adapter are integrated. */
     EXISTING_OPENVPN_PATH,
+    /** Public VPN Gate relay discovery is available; connecting still requires explicit import and OpenVPN consent. */
+    PUBLIC_DISCOVERY_ONLY,
     /** UI/catalog entry only; a real engine adapter and lifecycle are still required. */
     ADAPTER_REQUIRED,
     /** Requires a separately reviewed native core, SDK, or provider integration. */
@@ -54,7 +56,7 @@ object MleEngineCatalog {
         MleEngineCatalogItem("proton", "Proton VPN", "proton", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User account and supported provider protocol required."),
         MleEngineCatalogItem("windscribe", "Windscribe", "windscribe", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "User account and supported provider protocol required."),
         MleEngineCatalogItem("fenix", "FENIX / Firefox VPN", "fenix", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "Verify provider availability, account flow and current service terms."),
-        MleEngineCatalogItem("vpngate", "VPN Gate", "vpngate", Integration.ADAPTER_REQUIRED, "Public server discovery plus supported protocol adapter required."),
+        MleEngineCatalogItem("vpngate", "VPN Gate", "vpngate", Integration.PUBLIC_DISCOVERY_ONLY, "Public relay discovery over HTTPS is implemented; selected .ovpn import, user consent and device verification are still required."),
         MleEngineCatalogItem("quick-connect", "Quick Connect", "quick", Integration.ADAPTER_REQUIRED, "Build a real probe/ranking pipeline; never label a TCP probe as VPN success."),
         MleEngineCatalogItem("flux", "FLUX", "flux", Integration.ADAPTER_REQUIRED, "Adaptive route selection and independent exit verification required."),
         MleEngineCatalogItem("mae", "MAE", "mae", Integration.ADAPTER_REQUIRED, "Per-app/per-network policy engine; requires a tested routing architecture."),
