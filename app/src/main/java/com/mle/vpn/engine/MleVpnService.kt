@@ -349,11 +349,18 @@ class MleVpnService : VpnService() {
         trafficProbeJob?.cancel()
         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-            openVpnRuntime?.stopAndAwait()
-            openVpnRuntime = null
-            stopTunnelResources()
-            releaseEngineLease()
-            MleVpnStatus.disconnected()
+            val openVpn = openVpnRuntime
+            val stopped = openVpn?.stopAndAwait() ?: true
+            if (stopped) {
+                openVpnRuntime = null
+                stopTunnelResources()
+                releaseEngineLease()
+                MleVpnStatus.disconnected()
+            } else {
+                // Do not close a descriptor that the native worker may still be
+                // using. Its onFinished callback owns final cleanup after run().
+                android.util.Log.w("MLE-VPN", "OpenVPN worker did not stop before service teardown timeout; deferring TUN cleanup.")
+            }
         }
         serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
