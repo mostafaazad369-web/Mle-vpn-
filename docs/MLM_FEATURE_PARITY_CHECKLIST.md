@@ -21,7 +21,7 @@ This register separates connection engines, protocol support, account/provider i
 | Cloudflare WARP | [~] | Detects user-supplied registered WARP WireGuard configs and routes via sing-box; automatic registration, WARP API provisioning and device tests remain |
 | WARP-in-WARP | [ ] | Nested route orchestration, MTU and loop validation |
 | Aether / MASQUE | [ ] | Permitted MASQUE/WireGuard runtime and ABI review |
-| AmneziaWG | [ ] | Detects AWG obfuscation fields and rejects downgrade; native Go/CMake tunnel module integration, one-TUN lifecycle and ABI/device tests remain |
+| AmneziaWG | [~] | Official Apache-2.0 Android source pinned as submodule; native Go/CMake build, one-TUN lifecycle, parser/runtime adapter and ABI/device tests remain |
 | WireGuard | [~] | Standard .conf import and sing-box endpoint config implemented; physical-device routing, DNS and leak validation remain |
 | Hysteria 2 | [~] | sing-box share-link mapping; expand fixtures and UDP device tests |
 | TUIC | [~] | sing-box share-link mapping; expand fixtures and UDP tests |
@@ -50,7 +50,8 @@ This register separates connection engines, protocol support, account/provider i
 - [x] Standard WireGuard .conf importer, bounded file picker, encrypted-at-rest private-key storage, parser validation and sing-box endpoint config tests.
 - [x] Cloudflare WARP peer-key recognition for imported registered WARP `.conf` files; WARP profiles automatically select sing-box for the data plane. Automatic account registration/provisioning is not implemented.
 - [x] Explicit AmneziaWG obfuscation-field detection and fail-closed rejection; no silent downgrade to standard WireGuard.
-- [ ] Integrate official AmneziaWG Android tunnel module with ABI builds, foreground service and single-VpnService lifecycle.
+- [~] Pin official AmneziaWG Android source at upstream commit `ff15093bf3856fea0947923474870b86efb682f0` as `vendor/amneziawg-android`; integration and runtime remain incomplete. See [docs/AMNEZIAWG_ENGINE_INTEGRATION.md](AMNEZIAWG_ENGINE_INTEGRATION.md).
+- [ ] Build the pinned AmneziaWG tunnel module for Android ABIs and integrate a single-VpnService lifecycle.
 - [ ] OpenVPN .ovpn import, inline certs and credential handling.
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
