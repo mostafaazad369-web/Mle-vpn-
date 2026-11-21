@@ -64,5 +64,7 @@ class WireGuardConfigParserTest {
         val json = SingBoxConfigBuilder.build(profile.profile)
         assertEquals("wireguard", json.getJSONArray("endpoints").getJSONObject(0).getString("type"))
         assertEquals("wg-ep", json.getJSONObject("route").getString("final"))
+        assertEquals("bootstrap", json.getJSONObject("route").getString("default_domain_resolver"))
+        assertEquals("1.1.1.1", json.getJSONObject("dns").getJSONArray("servers").getJSONObject(1).getString("server"))
     }
 }
