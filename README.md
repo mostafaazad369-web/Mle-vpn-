@@ -31,7 +31,7 @@ An Android VPN client with a custom Kotlin/Jetpack Compose interface and selecta
 - Telegram public-preview source fetching is integrated; private channels and Telegram account login are not supported.
 - Cloudflare WARP profile import is supported only for a user-supplied registered WARP WireGuard config; automatic Cloudflare account registration and WARP API provisioning are not implemented.
 - AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5) are explicitly detected and rejected rather than silently downgraded to plain WireGuard. The official Apache-2.0 Android source is pinned at `vendor/amneziawg-android` (upstream commit `ff15093bf3856fea0947923474870b86efb682f0`) for integration work, but it is not yet built, linked, or registered as a runtime engine. See [AmneziaWG integration status](docs/AMNEZIAWG_ENGINE_INTEGRATION.md).
-- Additional engines beyond sing-box/Xray are not yet integrated.
+- Additional engines beyond sing-box/Xray are not yet integrated. The MAE tab now loads the upstream service-hint registry and provides an app picker for split tunneling; this is a basic include-list, not the full adaptive MAE engine or domain-level steering.
 - Optional root-only libbox features are intentionally disabled.
 - Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
 - No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
