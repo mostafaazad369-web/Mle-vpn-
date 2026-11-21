@@ -43,6 +43,8 @@ target_include_directories(mleopenvpn PRIVATE
 target_compile_definitions(mleopenvpn PRIVATE
     USE_ASIO
     ASIO_STANDALONE
+    USE_TUN_BUILDER
+    OPENVPN_PLATFORM_ANDROID
     USE_MBEDTLS
     HAVE_LZ4
     OPENVPN_CORE_API_VISIBILITY_HIDDEN
