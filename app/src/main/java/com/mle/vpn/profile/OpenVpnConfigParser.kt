@@ -155,14 +155,19 @@ object OpenVpnConfigParser {
         val remotes = values["remote"].orEmpty().map { args ->
             require(args.isNotEmpty()) { "دستور remote ناقص است." }
             val host = args[0]
-            val port = args.getOrNull(1)?.toIntOrNull() ?: 1194
-            val proto = args.getOrNull(2) ?: scalar("proto") ?: "udp"
+            val explicitPort = args.getOrNull(1)?.toIntOrNull()
+            val port = explicitPort ?: 1194
+            val proto = (if (explicitPort == null) args.getOrNull(1) else args.getOrNull(2))
+                ?: scalar("proto") ?: "udp"
             val network = when (proto.lowercase()) {
                 "udp", "udp4", "udp6" -> "udp"
                 "tcp", "tcp-client", "tcp4-client", "tcp6-client" -> "tcp"
                 else -> error("پروتکل OpenVPN پشتیبانی نمی‌شود: $proto")
             }
             require(host.isNotBlank() && port in 1..65535) { "آدرس یا پورت remote معتبر نیست." }
+            require(runCatching { URI("$network://$host:$port").host != null }.getOrDefault(false)) {
+                "نام میزبان remote معتبر نیست."
+            }
             OpenVpnRemote(host, port, network)
         }.distinct()
         require(remotes.isNotEmpty() && remotes.size <= 16) { "حداقل یک و حداکثر ۱۶ سرور remote لازم است." }
@@ -204,7 +209,6 @@ object OpenVpnConfigParser {
             tlsAuth != null -> "tls_auth"
             else -> null
         }
-        if (tlsAuth != null) require(keyDirection != null) { "tls-auth به key-direction نیاز دارد." }
         return OpenVpnConfig(
             remotes = remotes,
             ca = ca,
