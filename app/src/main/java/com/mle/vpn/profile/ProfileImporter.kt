@@ -61,8 +61,8 @@ object ProfileImporter {
         require(input.length <= 1_000_000) { "فهرست کانفیگ بیش از حد بزرگ است." }
         val raw = input.trim()
         if (raw.startsWith("[Interface]", ignoreCase = true)) {
-            val profile = parseWireGuardConfig(raw)
-            return ProfileBatchResult(listOf(profile), 0, 0)
+            return runCatching { ProfileBatchResult(listOf(parseWireGuardConfig(raw)), 0, 0) }
+                .getOrElse { ProfileBatchResult(emptyList(), 1, 0) }
         }
         val decoded = if (raw.contains("://")) raw else {
             runCatching {
