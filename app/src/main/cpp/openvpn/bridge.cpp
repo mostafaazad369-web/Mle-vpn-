@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MLE adaptation of the OpenVPN 3 JNI integration audited from mlmvpn/mlmvpn_android.
+// Upstream credit: https://github.com/mlmvpn/mlmvpn_android
+
 #include <jni.h>
 #include <android/log.h>
 
