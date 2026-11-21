@@ -9,7 +9,7 @@ import org.json.JSONObject
  */
 object SingBoxConfigBuilder {
     fun build(profile: ImportedProfile, allowedPackages: List<String> = emptyList()): JSONObject {
-        val safePackages = allowedPackages.distinct().filter { it.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+")) }.take(128)
+        val safePackages = allowedPackages.distinct().filter { it.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) }.take(128)
         if (profile.protocol == ProfileProtocol.WIREGUARD || profile.protocol == ProfileProtocol.WARP) return buildWireGuard(profile, safePackages)
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
