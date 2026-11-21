@@ -191,9 +191,9 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 this.name = name
                 index = native.index
                 mtu = runCatching { native.mtu }.getOrDefault(1500)
-                addresses = MleStringIterator(native.interfaceAddresses.map {
-                    val address = if (it.address is Inet6Address) it.address.hostAddress.substringBefore("%") else it.address.hostAddress
-                    "$address/${it.networkPrefixLength}"
+                addresses = MleStringIterator(native.interfaceAddresses.mapNotNull { addressInfo ->
+                    val host = addressInfo.address.hostAddress ?: return@mapNotNull null
+                    "${host.substringBefore("%")}/${addressInfo.networkPrefixLength}"
                 })
                 dnsServer = MleStringIterator(props.dnsServers.mapNotNull { it.hostAddress })
                 gateway = MleStringIterator(props.routes.mapNotNull { it.gateway?.hostAddress })
