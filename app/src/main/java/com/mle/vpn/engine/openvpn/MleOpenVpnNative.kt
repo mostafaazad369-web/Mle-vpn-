@@ -5,9 +5,9 @@ import androidx.annotation.Keep
 /**
  * Stable MLE-owned JNI boundary for the OpenVPN 3 core.
  *
- * The native library is intentionally optional until the OpenVPN 3 source,
- * CMake target and ABI artifacts are built and verified. No service starts
- * through this facade merely because the catalog lists OpenVPN.
+ * The native library remains optional on ABIs where it is not packaged. The
+ * app only requests a service start for an explicitly selected and preflighted
+ * OpenVPN profile after Android VPN consent has been granted.
  */
 @Keep
 object MleOpenVpnNative {
