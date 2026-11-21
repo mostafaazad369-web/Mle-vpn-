@@ -18,6 +18,8 @@ data class MleEngineCatalogItem(
 enum class Integration {
     /** Supported by the existing MLE sing-box converter/runtime, subject to profile compatibility. */
     EXISTING_SING_BOX_PATH,
+    /** OpenVPN 3/JNI runtime and shared Android VPN service adapter are integrated. */
+    EXISTING_OPENVPN_PATH,
     /** UI/catalog entry only; a real engine adapter and lifecycle are still required. */
     ADAPTER_REQUIRED,
     /** Requires a separately reviewed native core, SDK, or provider integration. */
@@ -41,7 +43,7 @@ object MleEngineCatalog {
         MleEngineCatalogItem("amneziawg", "AmneziaWG", "amneziawg", Integration.NATIVE_OR_PROVIDER_REQUIRED, "Review upstream core, ABI coverage and license before vendoring."),
         MleEngineCatalogItem("hysteria2", "Hysteria2", "hysteria2", Integration.EXISTING_SING_BOX_PATH, "Outbound conversion is implemented; UDP behavior and real-device interoperability still require testing."),
         MleEngineCatalogItem("tuic", "TUIC", "tuic", Integration.EXISTING_SING_BOX_PATH, "Outbound conversion is implemented with UUID/password, TLS and supported congestion/UDP options; device verification remains."),
-        MleEngineCatalogItem("openvpn", "OpenVPN", "openvpn", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "OpenVPN 3 native core/JNI, shared VPN service lifecycle and .ovpn preflight are integrated; both Android ABI libraries are packaged and CI-verified, while real-device connection and leak checks remain."),
+        MleEngineCatalogItem("openvpn", "OpenVPN", "openvpn", Integration.EXISTING_OPENVPN_PATH, "OpenVPN 3 native core/JNI, shared VPN service lifecycle, .ovpn preflight and EngineAdapter are integrated; real-device connection and leak checks remain."),
         MleEngineCatalogItem("npv", "NPV", "npv", Integration.USER_CONFIG_OR_ACCOUNT_REQUIRED, "MLM's NPV module is a profile library: standard VLESS/VMess/Trojan/Shadowsocks/Hysteria2/TUIC links run through Xray, while native .npvt/.npvs files are only handed to the separate NPV Tunnel app. MLE's shared importer already accepts supported standard links; native NPV file execution is not implemented and must not be implied."),
         MleEngineCatalogItem("outline", "Outline", "outline", Integration.EXISTING_SING_BOX_PATH, "Outline access keys use the existing Shadowsocks SIP002 parser and sing-box outbound path; unsupported plugin transports remain rejected."),
         MleEngineCatalogItem("psiphon", "Psiphon", "psiphon", Integration.NATIVE_OR_PROVIDER_REQUIRED, "Review official SDK availability, terms and Android lifecycle."),
