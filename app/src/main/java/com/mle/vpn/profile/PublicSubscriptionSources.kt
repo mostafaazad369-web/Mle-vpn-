@@ -103,7 +103,9 @@ object PublicNodeSourceCatalog {
 data class PublicSourceFetchResult(
     val text: String,
     val fromCache: Boolean,
-    val sourceUrl: String
+    val sourceUrl: String,
+    /** True when this response was confirmed by a successful HTTP request, including 304. */
+    val networkValidated: Boolean = !fromCache
 )
 
 object PublicSubscriptionFetcher {
@@ -149,7 +151,7 @@ object PublicSubscriptionFetcher {
                         val status = connection.responseCode
                         if (status == HttpURLConnection.HTTP_NOT_MODIFIED && bodyFile.exists()) {
                             return@withContext PublicSourceFetchResult(
-                                bounded(bodyFile.readText(), source), true, candidateUrl
+                                bounded(bodyFile.readText(), source), true, candidateUrl, networkValidated = true
                             )
                         }
                         require(status in 200..299) { "دریافت منبع ناموفق بود (HTTP $status)." }
@@ -195,7 +197,7 @@ object PublicSubscriptionFetcher {
 
             if (bodyFile.exists()) {
                 return@withContext PublicSourceFetchResult(
-                    bounded(bodyFile.readText(), source), true, meta.optString("url", source.primaryUrl)
+                    bounded(bodyFile.readText(), source), true, meta.optString("url", source.primaryUrl), networkValidated = false
                 )
             }
             throw (lastError ?: IllegalStateException("دریافت منبع عمومی ناموفق بود."))
