@@ -59,7 +59,7 @@ This register separates connection engines, protocol support, account/provider i
 - [ ] Outline access-key variants.
 - [ ] NPV format fixtures and parser.
 - [ ] Xray XHTTP mapping and tests.
-- [~] Silent startup source refresh and bounded automatic fallback are implemented; periodic WorkManager scheduling, expiry, source-level telemetry and per-network health remain.
+- [~] Silent startup refresh plus a six-hour WorkManager refresh is scheduled with bounded retries when feeds remain unreachable; subscription expiry, source-level telemetry and per-network health remain.
 
 ## Companion tools and app features
 
