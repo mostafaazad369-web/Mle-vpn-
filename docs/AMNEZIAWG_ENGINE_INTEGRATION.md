@@ -7,37 +7,29 @@ The official Android implementation is pinned as a Git submodule:
 - Repository: https://github.com/amnezia-vpn/amneziawg-android
 - Upstream commit: `ff15093bf3856fea0947923474870b86efb682f0`
 - Local path: `vendor/amneziawg-android`
-- Submodule declaration: `.gitmodules`
-- License in upstream: Apache-2.0; preserve upstream copyright/SPDX notices and the licenses of both submodules.
+- License: Apache-2.0; preserve upstream copyright/SPDX notices and the licenses of nested submodules.
 
-The submodule is source pinning only. CI now verifies the exact upstream revision, recursively initializes both nested submodules, checks required source/license/build files, and separately attempts to build the official `:tunnel:assembleDebug` AAR using the upstream Gradle 8.13 / AGP 8.13 / SDK 36 / NDK 26.1.10909125 toolchain. This isolated AAR build is a buildability milestone only: it is not yet a dependency of MLE, does not add an AmneziaWG engine to the runtime registry, and does not make AWG configs connectable.
+## Integrated runtime path
 
-## Why the native engine is not wired into MLE yet
+- The upstream `:tunnel` module is included as `:awg-tunnel` and linked into the MLE APK.
+- The app build uses AGP 8.13.0, Gradle 8.13, compileSdk 36, NDK 26.1.10909125 and CMake 3.22.1 to match the pinned upstream toolchain.
+- `AmneziaWgConfigParser` delegates config validation to the official `org.amnezia.awg.config.Config` parser. It preserves the original AWG directives and stores the complete config in the existing Android Keystore AES-GCM profile vault using an `awg-conf://` envelope.
+- `AmneziaWgEngineAdapter` communicates with `AwgHostService` through a private Messenger channel. The raw config is not logged.
+- `AwgHostService` and the official `GoBackend.VpnService` share the isolated `:awg` process. This keeps AmneziaWG's gomobile Go runtime separate from Xray's Go runtime in the main process.
+- `MleEngineManager` serializes start/stop and registers AmneziaWG as a separate engine. AmneziaWG profiles always select this adapter and are never converted to standard WireGuard or sing-box.
+- The orchestrator verifies real HTTPS connectivity after the AWG tunnel is started. A successful native start alone is not reported as verified internet.
 
-The official source includes a `:tunnel` Android library, Java configuration parser/model, `GoBackend`, and CMake/Go native targets:
-- `libwg-go.so`
-- `libwg.so`
-- `libwg-quick.so`
+## Important ownership detail
 
-Its build currently uses Android Gradle Plugin 8.13.0, compileSdk 36, NDK 26.1.10909125 and CMake. MLE currently uses Android Gradle Plugin 8.7.3, compileSdk 35 and Gradle 8.9. A direct include without a coordinated toolchain upgrade is not a safe integration.
+The official AmneziaWG backend establishes its own Android TUN through `GoBackend.VpnService`. For AWG profiles, MLE's `MleVpnService` acts as the foreground session/orchestration service and does not start sing-box or Xray; the AWG backend is the active TUN provider. EngineManager ensures only one data-plane adapter is active at a time. Do not start an MLE sing-box/Xray TUN alongside the AWG backend.
 
-The official `GoBackend` uses its own `VpnService` bridge and owns tunnel creation/state. MLE's `MleVpnService` currently owns its own VPN/TUN lifecycle and selects exactly one engine adapter. Simply starting both backends risks two competing VPN services/interfaces. The AWG service integration therefore needs a single explicit owner and lifecycle bridge before an engine can be registered.
+## Validation still required
 
-## Next implementation steps
+- CI must complete a fresh native build and unit-test run on the exact current branch head.
+- Confirm all intended APK ABIs and 16 KB ELF page alignment in the generated APK.
+- Physical-device tests: VPN permission/revocation, start/stop, failed-start cleanup, process death, reboot behavior, Wi-Fi/mobile handover, DNS, IPv4/IPv6 routes and leak protection, UDP, MTU, handshake and sustained traffic.
+- The AWG runtime remains marked adapter-in-progress until those device checks pass.
 
-1. Initialize the pinned submodule recursively in CI and verify both nested submodule commit pins.
-2. Use the isolated upstream AAR CI build to validate the official native toolchain; then decide whether to keep it isolated or coordinate an app-wide Gradle/AGP/SDK/NDK/CMake upgrade.
-3. Confirm the AAR includes arm64-v8a and armeabi-v7a; build x86_64 for emulator CI. Verify ELF architecture and 16 KB page alignment.
-4. Preserve the complete AWG config, including Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5, through parsing and native serialization. Never downgrade an AWG profile to WireGuard.
-5. Choose one ownership model:
-   - MLE delegates the entire VPN session to the official AWG service and serializes stop/start with its current engine; or
-   - a reviewed native backend bridge transfers/uses a single MLE-owned TUN descriptor, if the upstream API supports it without forking unsafe internals.
-6. Add foreground notification, permission/revocation, process death, reconnect, network handover, MTU, UDP, DNS, IPv4/IPv6 leak, handshake and byte-counter tests.
-7. Register `amneziawg` in `MleEngineManager` and expose it in UI only after ABI packaging and lifecycle tests pass.
+## Safety and licensing
 
-## Current behavior
-
-- Standard WireGuard configs continue to be handled by sing-box.
-- Cloudflare WARP user-supplied registered WireGuard configs continue to be recognized and routed through sing-box.
-- AmneziaWG obfuscation options are detected and rejected by the ordinary WireGuard importer.
-- The official AmneziaWG source is pinned and CI verifies it. An isolated CI job builds the upstream tunnel AAR; that artifact is not yet linked into the MLE APK, and there is no AmneziaWG runtime adapter or selectable engine yet.
+AmneziaWG's obfuscation parameters (Jc/Jmin/Jmax/S1/S2/H1-H4/I1-I5) are preserved and validated by the official parser. The importer must never strip them or downgrade them to ordinary WireGuard. Preserve Apache-2.0 notices and all nested submodule licenses. No MLM private Worker endpoint or credentials are reused.
