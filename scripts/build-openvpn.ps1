@@ -78,7 +78,7 @@ $built | Format-Table -AutoSize
 Write-Host 'OpenVPN libraries built, JNI symbol checked and 16-KiB ELF alignment verified.'
  -or
             [Convert]::ToInt64($alignment.Substring(2), 16) -lt 16384) {
-            throw "ELF PT_LOAD segment is not 16-KiB aligned for $abi: $segment"
+            throw "ELF PT_LOAD segment is not 16-KiB aligned for ${abi}: $segment"
         }
     }
 
