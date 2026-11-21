@@ -40,3 +40,20 @@ MLE accepts a strict subset of OpenVPN client files and maps them to the sing-bo
 External credential files, username/password prompts, scripts/plugins, compression, static-key mode, external certificate/key paths and unknown directives are rejected. The imported profile is stored using the existing encrypted profile vault. OpenVPN profiles always use the sing-box data plane even when Xray is selected globally.
 
 This is endpoint-based OpenVPN client support, not a separate OpenVPN native engine. GitHub CI and real-device handshake, DNS, UDP, MTU and leak testing are still required before calling it verified.
+
+
+## MLM Amnezia public WireGuard feeds
+
+After adding a strict parser for standard wireguard:// and wg:// links, the silent public-source catalog also includes the public WireGuard/WARP lists used by MLM's Amnezia source registry:
+
+- morpheusadam/v2ray-config — subs/bundles/wireguard.txt
+- Argh73/VpnConfigCollector — Splitted-By-Protocol/WireGuard.txt
+- Argh94/Proxy-List — WireGuard.txt
+- Argh94/V2RayAutoConfig — configs/WireGuard.txt
+- 10ium/VpnClashFaCollector — sub/all/wireguard.txt
+- 10Dream/sub-mod — sub/split/protocols/wireguard.txt
+- Delta-Kronecker/WARP-Config — ALL.txt
+
+These are fetched only from public HTTPS GitHub/jsDelivr URLs and filtered through the sing-box endpoint builder before being saved. The parser accepts standard WireGuard keys, addresses, endpoint, allowed IPs, DNS, MTU, keepalive and three-byte WARP reserved values. Unknown query parameters and AmneziaWG-only noise/obfuscation options are rejected.
+
+The FastNodes .conf directory listing and Delta-Kronecker AmneziaWG ZIP are not yet included: directory/ZIP source transport and an AmneziaWG native runtime are not integrated. This avoids silently treating an AWG profile as plain WireGuard.
