@@ -45,6 +45,21 @@ class ProfileImporterTest {
     }
 
     @Test
+    fun importsHysteria2FeedsUsedByPublicSourceCatalog() {
+        val parsed = ProfileImporter.parse(
+            "hysteria2://secret@example.com:443?sni=edge.example"
+        )
+        assertTrue(parsed is ProfileParseResult.Success)
+        val profile = (parsed as ProfileParseResult.Success).profile
+        assertEquals(ProfileProtocol.HYSTERIA2, profile.protocol)
+        val outbound = SingBoxOutboundBuilder.build(profile)
+        assertEquals("hysteria2", outbound.getString("type"))
+        assertEquals("example.com", outbound.getString("server"))
+        assertEquals(443, outbound.getInt("server_port"))
+        assertEquals("edge.example", outbound.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
     fun importsAnyTlsSocksAndHttpProfiles() {
         val cases = listOf(
             "anytls://secret@example.com:443?sni=front.example" to ProfileProtocol.ANYTLS,
