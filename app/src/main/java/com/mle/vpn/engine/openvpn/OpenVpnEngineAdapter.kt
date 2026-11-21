@@ -53,6 +53,9 @@ class OpenVpnEngineAdapter(context: Context) : EngineAdapter {
         if (profile.isBlank()) return EngineResult(false, "پروفایل OpenVPN خالی است.")
         val preflight = runCatching { OpenVpnProfilePreflight.inspect(profile) }
             .getOrElse { return EngineResult(false, it.message ?: "پروفایل OpenVPN معتبر نیست.") }
+        if (preflight.requiresCredentials && (username.isBlank() || password.isBlank())) {
+            return EngineResult(false, "این پروفایل به نام کاربری و گذرواژه نیاز دارد.")
+        }
 
         val readiness = prepare()
         if (!readiness.success) return readiness
