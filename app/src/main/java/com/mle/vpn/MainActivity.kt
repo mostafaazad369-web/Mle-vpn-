@@ -287,7 +287,10 @@ private fun MleApp() {
                                     val existing = profiles.map { it.sourceUri }.toSet()
                                     val supported = batch.profiles.filter { profile ->
                                         profile.sourceUri !in existing &&
-                                            runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                            runCatching {
+                                            if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
+                                            else SingBoxOutboundBuilder.build(profile)
+                                        }.isSuccess
                                     }
                                     supported.forEach(vault::save)
                                     profiles = vault.loadAll()
@@ -357,7 +360,10 @@ private fun MleApp() {
                                 val source = SubscriptionFetcher.fetchIfUrl(importText) ?: importText
                                 val parsed = ProfileImporter.parseBatch(source)
                                 val convertible = parsed.profiles.filter { profile ->
-                                    runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
+                                    runCatching {
+                                        if (selectedEngine == "xray") XrayConfigBuilder.build(profile)
+                                        else SingBoxOutboundBuilder.build(profile)
+                                    }.isSuccess
                                 }
                                 parsed.copy(
                                     profiles = convertible,
@@ -615,7 +621,7 @@ private fun SettingsScreen(
             )
         }
         Text(
-            if (selectedEngine == "xray") "Xray: VLESS، VMess و Trojan با گونه‌های تبدیل پشتیبانی‌شده."
+            if (selectedEngine == "xray") "Xray: VLESS، VMess، Trojan و Shadowsocks با گونه‌های تبدیل پشتیبانی‌شده."
             else "sing-box: پروتکل‌های پشتیبانی‌شده در مبدل کانفیگ.",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp)
         )
