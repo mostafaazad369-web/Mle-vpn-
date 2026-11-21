@@ -5,6 +5,9 @@ import android.os.Build
 import android.util.Log
 import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.SetupOptions
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.Locale
 
 /**
@@ -29,6 +33,7 @@ class MleApplication : Application() {
         super.onCreate()
         check(filesDir.exists() || filesDir.mkdirs()) { "Unable to create app files directory." }
         check(cacheDir.exists() || cacheDir.mkdirs()) { "Unable to create app cache directory." }
+        scheduleSilentSourceRefresh()
         applicationScope.launch {
             runCatching { ensureLibboxSetup() }
                 .onFailure { Log.e(TAG, "libbox initialization failed", it) }
@@ -36,6 +41,17 @@ class MleApplication : Application() {
             runCatching { com.mle.vpn.profile.SilentSourceSync.refresh(this@MleApplication) }
                 .onFailure { Log.w(TAG, "Background profile refresh was unavailable") }
         }
+    }
+
+    private fun scheduleSilentSourceRefresh() {
+        val request = PeriodicWorkRequestBuilder<com.mle.vpn.profile.SilentSourceRefreshWorker>(
+            6, TimeUnit.HOURS
+        ).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            SILENT_SOURCE_REFRESH_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 
     suspend fun ensureLibboxSetup() = setupMutex.withLock {
@@ -65,5 +81,6 @@ class MleApplication : Application() {
 
     companion object {
         private const val TAG = "MLE-Libbox"
+        private const val SILENT_SOURCE_REFRESH_WORK = "mle-silent-source-refresh-v1"
     }
 }
