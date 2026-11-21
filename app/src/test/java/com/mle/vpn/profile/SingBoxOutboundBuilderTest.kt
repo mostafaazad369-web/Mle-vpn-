@@ -18,6 +18,47 @@ class SingBoxOutboundBuilderTest {
         sourceUri = uri
     )
 
+
+    @Test
+    fun importsStandardWireGuardConfigAndBuildsEndpoint() {
+        val config = """
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            Address = 10.10.0.2/32, fd00::2/128
+            DNS = 1.1.1.1
+
+            [Peer]
+            PublicKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+            Endpoint = wg.example.com:51820
+            AllowedIPs = 0.0.0.0/0, ::/0
+            PersistentKeepalive = 25
+            Reserved = 1, 2, 3
+        """.trimIndent()
+        val profile = ProfileImporter.parseBatch(config).profiles.single()
+        assertEquals(ProfileProtocol.WIREGUARD, profile.protocol)
+        val json = SingBoxConfigBuilder.build(profile)
+        val endpoint = json.getJSONArray("endpoints").getJSONObject(0)
+        assertEquals("wireguard", endpoint.getString("type"))
+        assertEquals("wg.example.com", endpoint.getJSONArray("peers").getJSONObject(0).getString("address"))
+        assertEquals(3, endpoint.getJSONArray("peers").getJSONObject(0).getJSONArray("reserved").length())
+    }
+
+    @Test
+    fun rejectsAmneziaObfuscationUntilNativeRuntimeExists() {
+        val config = """
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            Address = 10.10.0.2/32
+            Jc = 4
+
+            [Peer]
+            PublicKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+            Endpoint = wg.example.com:51820
+            AllowedIPs = 0.0.0.0/0
+        """.trimIndent()
+        assertTrue(ProfileImporter.parseBatch(config).profiles.isEmpty())
+    }
+
     @Test
     fun buildsVlessRealityOutbound() {
         val uri = "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=reality&type=tcp&sni=www.example.com&pbk=publicKey&sid=abcd&fp=chrome#test"
