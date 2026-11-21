@@ -19,7 +19,7 @@ object VpnGateRepository {
         var current = URI(API)
         repeat(MAX_REDIRECTS + 1) { redirect ->
             require(current.scheme.equals("https", true) &&
-                current.host?.lowercase() in setOf("www.vpngate.net", "vpngate.net") &&
+                current.host?.lowercase()?.let { it == "www.vpngate.net" || it == "vpngate.net" } == true &&
                 current.userInfo == null) {
                 "VPN Gate redirect outside the official HTTPS host was rejected."
             }
