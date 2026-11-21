@@ -102,7 +102,7 @@ object ProfileImporter {
         if (raw.contains("[Interface]", ignoreCase = true)) {
             return parseWireGuard(raw)
         }
-        if (raw.startsWith("wgconf://", ignoreCase = true)) {
+        if (raw.startsWith("wireguard-conf://", ignoreCase = true)) {
             return runCatching {
                 val config = WireGuardConfigParser.decodeStored(raw)
                 ProfileParseResult.Success(ImportedProfile(
