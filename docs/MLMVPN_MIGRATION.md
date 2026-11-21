@@ -105,3 +105,24 @@ The next non-runtime migration step is now committed on the foundation branch:
 No OpenVPN source archive has yet been vendored or built, no JNI/native library is packaged, and no OpenVPN service has been registered. The imported provenance/notice files are intentionally inert and do not change the app runtime. The next safe engineering step is hash-verified acquisition of the pinned sources and an isolated native build target; service integration must wait for a single-owner VPN coordinator and reviewed JNI lifecycle.
 
 The immediately preceding foundation commit `d5857f0a65dd21be7bf6b35c3d05c18e7c11c6bf` passed Android build and Android CI (unit tests and debug APK packaging). New commits created by the provenance import trigger fresh workflows; their results must be checked separately.
+
+## Gereh messenger source audit (2026-11-21)
+
+A source-tree audit of the upstream `mlm-chat/` subtree confirms Gereh is a separate messenger product, not a VPN engine or a drop-in Android activity:
+
+- The upstream tree contains 322 paths under `mlm-chat/`. Its Rust core (`mlm-chat/core/`) is declared Apache-2.0 in Cargo.toml and implements identity, Olm/Megolm sessions, encrypted envelopes/storage, groups, channels, Bluetooth/LAN/direct transports, Google mailbox and Nostr relay paths, plus a large protocol test suite.
+- The wire contract is `mlm-chat/docs/SPEC.md` (draft 30 in the audited revision). The document explicitly describes itself as non-final; compatibility must be pinned to a reviewed spec revision and test vectors before interoperability is claimed.
+- The Android integration is split into a Kotlin library (`mlm-chat/android/core/`, namespace `org.mlmchat.core`) and Rust JNI crate (`mlm-chat/android/jni/`, output `libmlmchat.so`). `android/scripts/build-native.sh` builds native artifacts into `core/src/main/jniLibs/`; those `.so` outputs are intentionally absent from Git.
+- The core's Android build guide documents `arm64-v8a` as its currently supported default because the Telegram-derived UI native components are not built for all ABIs. The shell script comments/default ABI list are not perfectly consistent with that guide; MLE must resolve and verify the actual ABI matrix rather than copying assumptions.
+- The UI is a separate Telegram Android fork under `chat/`, with a GPLv2 license file and many nested third-party modules/notices (including JLatexMath and media libraries). It must not be blindly imported into MLE's Compose app; each copied component needs provenance and license review.
+- Upstream README states that relay addresses/keys are replaced with placeholders and release-only `.so`, `.aar` and `.dat` binaries are not in the public source tree. Do not restore, guess, or hard-code relay endpoints or credentials.
+
+**MLE impact / implementation gate:** no Gereh Rust core, JNI bridge, Kotlin core module, relay implementation or Telegram fork has been integrated into MLE. The catalog tile is only an inventory entry. A safe port requires (1) freeze the protocol/spec revision and vectors, (2) vendor the Apache-2.0 Rust core and lockfile with a dependency/license inventory, (3) build and verify `libmlmchat.so` reproducibly for the ABI(s) actually supported by MLE, (4) adapt the Kotlin API and encrypted database-key storage to MLE's lifecycle, (5) decide whether to port selected Compose UI flows or the separate Telegram fork, and (6) test Bluetooth/LAN/direct/relay transports and E2EE interoperability. Gereh should remain disabled/non-connectable until these gates pass.
+
+## CI verification update (2026-11-21)
+
+The latest head commit checked for this update, `3260bd921915b2b0d04639443f63ae910ffaeba5`, passed both GitHub Actions workflows:
+- Android build run `44900719343`: `assemble-debug` succeeded.
+- Android CI run `44900719273`: JVM/Android unit tests and debug APK packaging succeeded.
+
+These runs supersede the older CI run IDs recorded above. CI validates the current foundation branch only; it does not validate absent OpenVPN/Gereh native runtimes or real-device VPN behavior.
