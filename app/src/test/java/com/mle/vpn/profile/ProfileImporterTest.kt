@@ -92,4 +92,52 @@ class ProfileImporterTest {
         }
     }
 
+    @Test
+    fun importsInlineOpenVpnTlsProfileAndBuildsSingBoxEndpoint() {
+        val conf = listOf(
+            "client",
+            "dev tun",
+            "proto udp",
+            "remote vpn.example.com 1194",
+            "resolv-retry infinite",
+            "nobind",
+            "persist-key",
+            "persist-tun",
+            "remote-cert-tls server",
+            "auth-user-pass",
+            "<auth-user-pass>",
+            "demo-user",
+            "demo-password",
+            "</auth-user-pass>",
+            "<ca>",
+            "-----BEGIN CERTIFICATE-----",
+            "ZmFrZQ==",
+            "-----END CERTIFICATE-----",
+            "</ca>",
+            "redirect-gateway def1",
+            "verb 3"
+        ).joinToString("\n")
+        val batch = ProfileImporter.parseBatch(conf)
+        assertEquals(1, batch.profiles.size)
+        val profile = batch.profiles.single()
+        assertEquals(ProfileProtocol.OPENVPN, profile.protocol)
+        val config = SingBoxConfigBuilder.build(profile)
+        val endpoint = config.getJSONArray("endpoints").getJSONObject(0)
+        assertEquals("openvpn-client", endpoint.getString("type"))
+        assertEquals("vpn.example.com", endpoint.getJSONArray("servers").getJSONObject(0).getString("server"))
+        assertEquals("demo-user", endpoint.getString("username"))
+        assertEquals("ovpn-client", config.getJSONObject("route").getString("final"))
+        assertEquals("openvpn", config.getJSONObject("dns").getJSONArray("servers").getJSONObject(1).getString("type"))
+    }
+
+    @Test
+    fun rejectsOpenVpnProfilesThatReferenceExternalCredentialFiles() {
+        val conf = listOf(
+            "client", "dev tun", "proto udp", "remote vpn.example.com 1194",
+            "ca ca.crt", "auth-user-pass credentials.txt"
+        ).joinToString("\n")
+        val parsed = ProfileImporter.parse(conf)
+        assertTrue(parsed is ProfileParseResult.Failure)
+    }
+
 }
