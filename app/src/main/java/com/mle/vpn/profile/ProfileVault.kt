@@ -23,7 +23,8 @@ class ProfileVault(context: Context) {
 
     @Synchronized
     fun save(profile: ImportedProfile) {
-        val list = loadAll().filterNot { it.id == profile.id || it.sourceUri == profile.sourceUri }.toMutableList()
+        // Do not overwrite an unreadable vault (for example, after a Keystore key reset).
+        val list = readAllOrThrow().filterNot { it.id == profile.id || it.sourceUri == profile.sourceUri }.toMutableList()
         list += profile
         val json = JSONArray()
         list.forEach { p ->
@@ -42,29 +43,32 @@ class ProfileVault(context: Context) {
     @Synchronized
     fun loadAll(): List<ImportedProfile> {
         val encrypted = prefs.getString(DATA_KEY, null) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(decrypt(encrypted))
-            buildList {
-                for (i in 0 until array.length()) {
-                    val item = array.getJSONObject(i)
-                    add(
-                        ImportedProfile(
-                            id = item.getString("id"),
-                            protocol = ProfileProtocol.valueOf(item.getString("protocol")),
-                            displayName = item.getString("name"),
-                            host = item.getString("host"),
-                            port = item.getInt("port"),
-                            sourceUri = item.getString("uri")
-                        )
+        return runCatching { readAllOrThrow(encrypted) }.getOrDefault(emptyList())
+    }
+
+    /** Strict read used by mutations so a decryption failure can never erase saved profiles. */
+    private fun readAllOrThrow(encrypted: String = prefs.getString(DATA_KEY, null) ?: return emptyList()): List<ImportedProfile> {
+        val array = JSONArray(decrypt(encrypted))
+        return buildList {
+            for (i in 0 until array.length()) {
+                val item = array.getJSONObject(i)
+                add(
+                    ImportedProfile(
+                        id = item.getString("id"),
+                        protocol = ProfileProtocol.valueOf(item.getString("protocol")),
+                        displayName = item.getString("name"),
+                        host = item.getString("host"),
+                        port = item.getInt("port"),
+                        sourceUri = item.getString("uri")
                     )
-                }
+                )
             }
-        }.getOrDefault(emptyList())
+        }
     }
 
     @Synchronized
     fun delete(id: String) {
-        val remaining = loadAll().filterNot { it.id == id }
+        val remaining = readAllOrThrow().filterNot { it.id == id }
         if (remaining.isEmpty()) {
             prefs.edit().remove(DATA_KEY).apply()
             return
