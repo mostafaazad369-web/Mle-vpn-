@@ -47,7 +47,12 @@ class ProfileVault(context: Context) {
     }
 
     /** Strict read used by mutations so a decryption failure can never erase saved profiles. */
-    private fun readAllOrThrow(encrypted: String = prefs.getString(DATA_KEY, null) ?: return emptyList()): List<ImportedProfile> {
+    private fun readAllOrThrow(): List<ImportedProfile> {
+        val encrypted = prefs.getString(DATA_KEY, null) ?: return emptyList()
+        return readAllOrThrow(encrypted)
+    }
+
+    private fun readAllOrThrow(encrypted: String): List<ImportedProfile> {
         val array = JSONArray(decrypt(encrypted))
         return buildList {
             for (i in 0 until array.length()) {
