@@ -3,11 +3,7 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
+    repositories { google(); mavenCentral(); maven("https://jitpack.io") }
 }
-rootProject.name = "MLE VPN"
+rootProject.name = "MLE-VPN"
 include(":app")

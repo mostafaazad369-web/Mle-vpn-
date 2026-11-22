@@ -1,40 +1,35 @@
 # MLE VPN
 
-An Android VPN client with a custom Kotlin/Jetpack Compose interface and a sing-box 1.14.4 core integration.
+An independent Android VPN client project inspired by the architecture and feature set of Aether Mobile. This repository is a clean rebuild, not a copy of Aether source code.
 
-## Brand
-- App name: MLE VPN
-- Deep navy: #101426
-- Turquoise: #42E8D5
-- Violet: #8D7CFF
-- Custom vector launcher icon
+## Current status
 
-## Implemented
-- Persian RTL Compose interface and profile manager with explicit active-profile selection
-- Encrypted local profile storage using Android Keystore AES-GCM
-- Initial VLESS, VMess and Trojan share-link conversion to sing-box JSON
-- Per-profile TCP endpoint preflight diagnostics
-- Regression tests for VLESS transport parameter preservation, duplicate imports, and unsupported transport rejection
-- Android VPN permission flow
-- Native `Libbox.checkConfig` validation before startup
-- libbox initialization, CommandServer lifecycle wrapper and Android PlatformInterface adapter
-- Android TUN setup with route/DNS configuration, protected outbound sockets and descriptor lifecycle handling
-- Start and stop actions from the home screen
-- GitHub Actions workflow for unit tests and debug APK artifact generation
+This first rebuild commit establishes the Android/Compose application shell, a single VPN-service ownership boundary, engine contracts, profile-link parsing, CI and an explicit implementation roadmap. **It does not yet provide a working tunnel or claim that any server is connected.** A real packet engine must be integrated and verified before enabling connection controls.
 
-## Current limitations
-- Supported protocol variants are limited to those explicitly accepted by `SingBoxOutboundBuilder`; unsupported transport/security options are rejected.
-- The 100 Telegram channel sources and additional engines requested for future versions are not yet integrated.
-- Optional root-only libbox features are intentionally disabled.
-- Real-device tests for Android API levels, DNS behavior, traffic routing, battery/background behavior, and leak protection are still required.
-- No server profile is guaranteed to work on a restricted network. Success depends on server reachability, protocol compatibility, DNS, carrier policy and routing.
-- A successful build or CommandServer startup alone does not prove end-to-end VPN connectivity.
+## Architecture
+
+- Jetpack Compose UI and application state
+- One Android `VpnService` owner for TUN lifecycle
+- Engine adapters behind `TunnelEngine`
+- Profile import/parsing separated from engine configuration
+- Secret storage and diagnostics designed as separate security boundaries
+- CI build and unit-test workflow
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Build
-Use Android Studio with JDK 17, Android SDK Platform 35 and Gradle 8.9 or newer compatible with the Android Gradle Plugin. The repository also includes a GitHub Actions workflow that runs unit tests and uploads a debug APK artifact after a successful build.
 
-## Runtime notes
-See [sing-box runtime integration](docs/SINGBOX_RUNTIME_INTEGRATION.md) and [endpoint preflight diagnostics](docs/ENDPOINT_PREFLIGHT.md).
+Requires JDK 17 and Android SDK 35.
 
-## Third-party licensing
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The libbox dependency is GPL-3.0; redistributions must comply with its license and source-availability requirements.
+```bash
+gradle :app:testDebugUnitTest
+gradle :app:assembleDebug
+```
+
+## Security status
+
+The app shell deliberately does not create a TUN device or report a successful VPN connection until a concrete engine adapter can own the packet path. Do not use this initial rebuild as a production VPN.
+
+## License
+
+MLE VPN is distributed under AGPL-3.0-or-later. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This project is independently implemented; Aether is referenced as an architectural study only.
