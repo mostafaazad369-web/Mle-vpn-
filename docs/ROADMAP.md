@@ -1,32 +1,30 @@
-# Implementation roadmap
+# Roadmap
 
-## Phase 1 — bootstrap (this commit)
-- [x] Clean Android/Compose project structure
-- [x] Single VPN service boundary
-- [x] Engine adapter contract
-- [x] Strict URI recognition for common proxy schemes
-- [x] CI build and unit-test workflow
-- [ ] Verify Gradle build in GitHub Actions
+## Implemented foundation
+- [x] Kotlin / Jetpack Compose Android client
+- [x] sing-box/libbox runtime initialization and CommandServer lifecycle
+- [x] Android TUN PlatformInterface with route/DNS setup and socket protection
+- [x] Profile import and encrypted Android Keystore vault
+- [x] Outbound conversion for supported VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and TUIC variants
+- [x] HTTPS subscription fetch and endpoint probe foundations
+- [x] CI unit-test and debug-APK workflow
 
-## Phase 2 — real packet engine
-- [ ] Pin a sing-box/libbox version and record source/license provenance
-- [ ] Implement native platform callbacks and TUN descriptor lifecycle
-- [ ] Protect upstream sockets and handle MTU/routes/DNS/IPv6
-- [ ] Add integration tests on physical Android devices
+## Next engineering work
+- [ ] Confirm current CI build and unit tests are green
+- [ ] Device-level smoke test: VPN consent, start, stop, reconnect and Android 14/15/16 FGS behavior
+- [ ] Verify real HTTPS traffic and public exit IP through the selected profile
+- [ ] DNS and IPv6 leak tests; ensure fail-closed routing on unsupported cases
+- [ ] Underlying network handover and process-death recovery
+- [ ] Review sing-box config schema against every advertised transport and add negative tests
+- [ ] Improve state persistence and error diagnostics without exposing secrets
 
-## Phase 3 — profiles and chains
-- [ ] VLESS/VMess/Trojan/Shadowsocks/SOCKS/WireGuard parsers
-- [ ] TLS, REALITY, WebSocket, gRPC and XHTTP schema validation
-- [ ] Encrypted profile vault backed by Android Keystore
-- [ ] Explicitly supported chain graph with cycle detection
-
-## Phase 4 — Aether-class capabilities
-- [ ] WARP (WireGuard/MASQUE) adapter after protocol and licensing review
-- [ ] Tor and Psiphon adapters with upstream provenance
-- [ ] Smart endpoint probing and network-aware route selection
-- [ ] Per-app split tunneling, kill switch, routing rules
-- [ ] Local proxy sharing with authentication and LAN firewall
-- [ ] Quick Settings tile, diagnostics and release signing
+## Aether-class parity (separate adapters, not assumed complete)
+- [ ] WARP via WireGuard/MASQUE after protocol and license review
+- [ ] Tor and Psiphon adapters after upstream packaging/license review
+- [ ] Explicit multi-hop chain graph with cycle detection, startup rollback and bounded shutdown
+- [ ] Xray-core adapter for additional transports not supported by sing-box
+- [ ] Per-app split tunneling, domain/IP routing rules and kill-switch policy
+- [ ] LAN proxy sharing, Quick Settings tile and widget
 
 ## Release gate
-No feature is marked complete until CI passes, a physical-device test confirms real HTTPS connectivity, DNS/IPv6 leak tests pass, and disconnect/reconnect behavior is stable.
+No feature is marked production-ready until CI passes, physical-device HTTPS connectivity is verified, DNS/IPv6 leak tests pass, and reconnect/handover behavior is stable.
