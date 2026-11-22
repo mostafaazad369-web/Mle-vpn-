@@ -89,7 +89,9 @@ class MleBoxRuntime(
     }
 
     override fun writeDebugMessage(message: String?) {
-        Log.i(TAG, message.orEmpty())
+        // Native debug output can contain profile endpoints or credential-bearing values.
+        // Keep the callback intentionally redacted; never forward raw engine text to logcat.
+        Log.d(TAG, "sing-box debug callback received (content redacted)")
     }
 
     override fun connectSSHAgent(): Int = -1
