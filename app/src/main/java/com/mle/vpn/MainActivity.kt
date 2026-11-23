@@ -38,6 +38,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -80,6 +86,7 @@ private fun MleApp() {
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
     var fetchingSource by remember { mutableStateOf<String?>(null) }
     var sourceStatus by remember { mutableStateOf<String?>(null) }
+    var autoScanRunning by remember { mutableStateOf(false) }
     val connectionStatus by MleVpnStatus.status.collectAsState()
 
     fun startSelectedProfile() {
@@ -109,6 +116,64 @@ private fun MleApp() {
                 vpnPermissionMessage = error.message ?: "راه‌اندازی سرویس VPN ناموفق بود."
                 showNotice = true
             }
+    }
+
+    suspend fun runAutomaticSourceScan() {
+        if (autoScanRunning) return
+        autoScanRunning = true
+        sourceStatus = "در حال دریافت و استخراج منابع…"
+        try {
+            val batches = coroutineScope {
+                telegramSources.map { channel ->
+                    async(Dispatchers.IO) {
+                        runCatching {
+                            withTimeout(12_000) {
+                                val raw = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
+                                ProfileImporter.parseBatch(raw)
+                            }
+                        }.getOrNull()
+                    }
+                }.chunked(6).flatMap { group -> group.awaitAll() }
+            }
+            val unique = batches.filterNotNull().flatMap { it.profiles }.distinctBy { it.sourceUri }
+            val supported = unique.filter { profile -> runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess }.take(20)
+            if (supported.isEmpty()) {
+                sourceStatus = "از منابع در دسترس، کانفیگ سازگار و قابل‌آزمایش پیدا نشد."
+                return
+            }
+            val verified = mutableListOf<ImportedProfile>()
+            for ((index, profile) in supported.withIndex()) {
+                sourceStatus = "آزمایش اتصال واقعی ${index + 1} از ${supported.size}: ${profile.displayName}"
+                val works = runCatching {
+                    val config = SingBoxConfigBuilder.build(profile).toString()
+                    MleVpnStatus.starting()
+                    val startIntent = Intent(context, MleVpnService::class.java).apply {
+                        action = MleVpnService.ACTION_START
+                        putExtra(MleVpnService.EXTRA_CONFIG, config)
+                    }
+                    ContextCompat.startForegroundService(context, startIntent)
+                    try {
+                        withTimeout(32_000) {
+                            MleVpnStatus.status.first { status ->
+                                status.phase == com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED ||
+                                    status.phase == com.mle.vpn.engine.MleConnectionPhase.ERROR
+                            }.phase == com.mle.vpn.engine.MleConnectionPhase.INTERNET_VERIFIED
+                        }
+                    } finally {
+                        context.startService(Intent(context, MleVpnService::class.java).apply { action = MleVpnService.ACTION_STOP })
+                        delay(900)
+                    }
+                }.getOrDefault(false)
+                if (works) { verified += profile; runCatching { vault.save(profile) } }
+            }
+            profiles = vault.loadAll()
+            if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
+            sourceStatus = "پالایش تمام شد: ${verified.size} کانفیگ با آزمون HTTPS داخل VPN تأیید و ذخیره شد؛ ${supported.size - verified.size} مورد ناموفق یا تأییدنشده کنار گذاشته شد. حداکثر ۲۰ کانفیگ آزمایش شد؛ کانفیگ‌های قبلیِ دستی حذف نشدند."
+        } catch (error: Throwable) {
+            sourceStatus = "پالایش کامل نشد: ${error.message ?: "خطای نامشخص"}"
+        } finally {
+            autoScanRunning = false
+        }
     }
 
     val vpnPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -209,6 +274,11 @@ private fun MleApp() {
                     sources = telegramSources,
                     fetchingSource = fetchingSource,
                     status = sourceStatus,
+                    autoScanRunning = autoScanRunning,
+                    onAutoScan = {
+                        if (VpnService.prepare(context) == null) scope.launch { runAutomaticSourceScan() }
+                        else sourceStatus = "برای آزمایش واقعی، ابتدا یک‌بار اجازه VPN را از صفحه خانه صادر کن؛ سپس پالایش خودکار را اجرا کن."
+                    },
                     onFetch = { channel ->
                         if (fetchingSource == null) {
                             fetchingSource = channel
@@ -444,6 +514,8 @@ private fun TelegramSourcesScreen(
     sources: List<String>,
     fetchingSource: String?,
     status: String?,
+    autoScanRunning: Boolean,
+    onAutoScan: () -> Unit,
     onFetch: (String) -> Unit,
     padding: PaddingValues
 ) {
@@ -455,6 +527,20 @@ private fun TelegramSourcesScreen(
             modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
         Text("این نام‌ها از فهرست اولیه وارد شده‌اند و فعال یا معتبر بودن همه آن‌ها تضمین نشده است. فقط پیش‌نمایش عمومی t.me خوانده می‌شود؛ کانال خصوصی یا ورود به حساب تلگرام پشتیبانی نمی‌شود.", color = Muted, fontSize = 11.sp,
             modifier = Modifier.padding(bottom = 16.dp))
+        Button(onClick = onAutoScan, enabled = fetchingSource == null && !autoScanRunning && sources.isNotEmpty(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
+            if (autoScanRunning) {
+                CircularProgressIndicator(Modifier.size(16.dp), color = Navy, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("در حال استخراج و آزمایش اتصال…")
+            } else {
+                Icon(Icons.Default.FactCheck, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("استخراج و پالایش خودکار همه منابع")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("کانفیگ‌ها استخراج و تکراری‌ها و موارد ناسازگار کنار گذاشته می‌شوند؛ سپس حداکثر ۲۰ مورد با اتصال واقعی sing-box و درخواست HTTPS آزمایش می‌شوند. فقط موارد موفق ذخیره می‌شوند. حین آزمایش، اتصال VPN گوشی موقتاً بین کانفیگ‌ها جابه‌جا می‌شود.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 14.dp))
+
         status?.let {
             Text(it, color = Mint, fontSize = 12.sp, modifier = Modifier.fillMaxWidth()
                 .background(Panel, RoundedCornerShape(12.dp)).padding(12.dp))
