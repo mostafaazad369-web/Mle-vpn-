@@ -123,17 +123,19 @@ private fun MleApp() {
         autoScanRunning = true
         sourceStatus = "در حال دریافت و استخراج منابع…"
         try {
-            val batches = coroutineScope {
-                telegramSources.map { channel ->
-                    async(Dispatchers.IO) {
-                        runCatching {
-                            withTimeout(12_000) {
-                                val raw = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
-                                ProfileImporter.parseBatch(raw)
-                            }
-                        }.getOrNull()
-                    }
-                }.chunked(6).flatMap { group -> group.awaitAll() }
+            val batches = telegramSources.chunked(6).flatMap { group ->
+                coroutineScope {
+                    group.map { channel ->
+                        async(Dispatchers.IO) {
+                            runCatching {
+                                withTimeout(12_000) {
+                                    val raw = com.mle.vpn.profile.TelegramChannelFetcher.fetchShareLinks(channel)
+                                    ProfileImporter.parseBatch(raw)
+                                }
+                            }.getOrNull()
+                        }
+                    }.awaitAll()
+                }
             }
             val unique = batches.filterNotNull().flatMap { it.profiles }.distinctBy { it.sourceUri }
             val supported = unique.filter { profile -> runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess }.take(20)
