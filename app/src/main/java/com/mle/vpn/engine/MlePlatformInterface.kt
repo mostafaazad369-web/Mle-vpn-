@@ -57,6 +57,8 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
 
         var dnsCount = 0
         var routeCount = 0
+        var ipv4RouteCount = 0
+        var ipv6RouteCount = 0
         if (options.autoRoute) {
             if (options.dnsMode.value != Libbox.DNSModeDisabled) {
                 val dns = options.dnsServerAddress
@@ -71,11 +73,13 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     while (v4Routes.hasNext()) {
                         val route = v4Routes.next()
                         builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                        ipv4RouteCount++
                         routeCount++
                     }
                 } else if (ipv4AddressCount > 0) {
                     // inet4Address was consumed above while adding interface addresses.
                     builder.addRoute("0.0.0.0", 0)
+                    ipv4RouteCount++
                     routeCount++
                 }
                 val v6Routes = options.inet6RouteAddress
@@ -83,10 +87,12 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     while (v6Routes.hasNext()) {
                         val route = v6Routes.next()
                         builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                        ipv6RouteCount++
                         routeCount++
                     }
                 } else if (ipv6AddressCount > 0) {
                     builder.addRoute("::", 0)
+                    ipv6RouteCount++
                     routeCount++
                 }
                 val v4Excluded = options.inet4RouteExcludeAddress
@@ -104,20 +110,24 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 while (v4Routes.hasNext()) {
                     val route = v4Routes.next()
                     builder.addRoute(route.address(), route.prefix())
+                    ipv4RouteCount++
                     routeCount++
                 }
                 val v6Routes = options.inet6RouteRange
                 while (v6Routes.hasNext()) {
                     val route = v6Routes.next()
                     builder.addRoute(route.address(), route.prefix())
+                    ipv6RouteCount++
                     routeCount++
                 }
-                if (ipv4AddressCount > 0 && routeCount == 0) {
+                if (ipv4AddressCount > 0 && ipv4RouteCount == 0) {
                     builder.addRoute("0.0.0.0", 0)
+                    ipv4RouteCount++
                     routeCount++
                 }
-                if (ipv6AddressCount > 0 && !options.inet6RouteRange.hasNext()) {
+                if (ipv6AddressCount > 0 && ipv6RouteCount == 0) {
                     builder.addRoute("::", 0)
+                    ipv6RouteCount++
                     routeCount++
                 }
             }
