@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets
 
 /**
  * Converts a limited set of share links into sing-box outbound JSON.
+ * TLS certificate verification remains enabled; imported URI flags cannot weaken it.
  * Unsupported variants fail closed instead of silently dropping security parameters.
  */
 object SingBoxOutboundBuilder {
@@ -123,9 +124,6 @@ object SingBoxOutboundBuilder {
         q["alpn"]?.takeIf { it.isNotBlank() }?.let {
             tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
         }
-        if (q["insecure"] == "1" || q["allowInsecure"] == "1" || q["allow_insecure"] == "1") {
-            tls.put("insecure", true)
-        }
         out.put("tls", tls)
         val obfsType = q["obfs"]?.takeIf { it.isNotBlank() }
         val obfsPassword = q["obfs-password"] ?: q["obfs_password"]
@@ -169,9 +167,6 @@ object SingBoxOutboundBuilder {
         require(relayMode in setOf("native", "quic")) { "حالت UDP در TUIC معتبر نیست." }
         val tls = JSONObject().put("enabled", true)
         q["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
-        if (q["insecure"] == "1" || q["allowInsecure"] == "1" || q["allow_insecure"] == "1") {
-            tls.put("insecure", true)
-        }
         q["alpn"]?.takeIf { it.isNotBlank() }?.let {
             tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotEmpty)))
         }

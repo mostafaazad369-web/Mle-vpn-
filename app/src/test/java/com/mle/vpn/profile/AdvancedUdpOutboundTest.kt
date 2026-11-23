@@ -68,4 +68,22 @@ class AdvancedUdpOutboundTest {
             SingBoxOutboundBuilder.build((invalidCongestion as ProfileParseResult.Success).profile)
         }.isFailure)
     }
+    @Test
+    fun hysteria2UriCannotDisableTlsCertificateVerification() {
+        val parsed = ProfileImporter.parse(
+            "hysteria2://secret@example.com:443?insecure=1"
+        ) as ProfileParseResult.Success
+        val tls = SingBoxOutboundBuilder.build(parsed.profile).getJSONObject("tls")
+        assertFalse(tls.optBoolean("insecure", false))
+    }
+
+    @Test
+    fun tuicUriCannotDisableTlsCertificateVerification() {
+        val parsed = ProfileImporter.parse(
+            "tuic://123e4567-e89b-12d3-a456-426614174000:secret@example.com:443?allowInsecure=1"
+        ) as ProfileParseResult.Success
+        val tls = SingBoxOutboundBuilder.build(parsed.profile).getJSONObject("tls")
+        assertFalse(tls.optBoolean("insecure", false))
+    }
+
 }
