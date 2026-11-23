@@ -73,7 +73,8 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                         builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
                         routeCount++
                     }
-                } else if (options.inet4Address.hasNext()) {
+                } else if (ipv4AddressCount > 0) {
+                    // inet4Address was consumed above while adding interface addresses.
                     builder.addRoute("0.0.0.0", 0)
                     routeCount++
                 }
@@ -82,8 +83,9 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     while (v6Routes.hasNext()) {
                         val route = v6Routes.next()
                         builder.addRoute(IpPrefix(InetAddress.getByName(route.address()), route.prefix()))
+                        routeCount++
                     }
-                } else if (options.inet6Address.hasNext()) {
+                } else if (ipv6AddressCount > 0) {
                     builder.addRoute("::", 0)
                     routeCount++
                 }
@@ -108,6 +110,15 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                 while (v6Routes.hasNext()) {
                     val route = v6Routes.next()
                     builder.addRoute(route.address(), route.prefix())
+                    routeCount++
+                }
+                if (ipv4AddressCount > 0 && routeCount == 0) {
+                    builder.addRoute("0.0.0.0", 0)
+                    routeCount++
+                }
+                if (ipv6AddressCount > 0 && !options.inet6RouteRange.hasNext()) {
+                    builder.addRoute("::", 0)
+                    routeCount++
                 }
             }
             val include = options.includePackage
