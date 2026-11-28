@@ -85,7 +85,8 @@ Open PRs observed:
 - [x] Created isolated branch `review/phase-1-deep-audit` from audited main HEAD.
 - [x] Reviewed architecture, app module build files, manifest, main service/runtime/platform/DNS chain, config builders, profile importer/vault, CI, docs, root tree and open PR metadata.
 - [x] Identified priority risks and branch divergence.
-- [ ] Commit this handover document and open a Draft PR (only on the review branch).
+- [x] Committed `PROJECT_HANDOVER.md` on `review/phase-1-deep-audit` (initial commit: `e220adee87c145c3e6cb758393fe1e07102ef4f1`).
+- [x] Opened Draft PR #11 targeting `main`: https://github.com/mostafaazad369-web/Mle-vpn-/pull/11 (one documentation file; no app source changes; not merged).
 - [ ] Obtain user approval before implementing any code fixes or moving to Phase 2.
 
 ## Next recommended work (after explicit user approval)
