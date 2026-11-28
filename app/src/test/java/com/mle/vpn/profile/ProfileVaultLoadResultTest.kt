@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class ProfileVaultLoadResultTest {
@@ -20,7 +21,7 @@ class ProfileVaultLoadResultTest {
     }
 
     @Test fun unreadableCiphertextIsNotReportedAsEmptyVault() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = RuntimeEnvironment.getApplication()
         val prefs = context.getSharedPreferences("mle_profiles_v1", Context.MODE_PRIVATE)
         val invalidCiphertext = "not-valid-encrypted-data"
         prefs.edit().putString("encrypted_profiles", invalidCiphertext).commit()
