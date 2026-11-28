@@ -131,10 +131,12 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
                     routeCount++
                 }
             }
-            val include = options.includePackage
-            while (include.hasNext()) runCatching { builder.addAllowedApplication(include.next()) }
-            val exclude = options.excludePackage
-            while (exclude.hasNext()) runCatching { builder.addDisallowedApplication(exclude.next()) }
+            applyPackageRules(
+                options.includePackage,
+                options.excludePackage,
+                builder::addAllowedApplication,
+                builder::addDisallowedApplication
+            )
         }
 
         Log.i(TAG, "Opening TUN: mtu=${options.mtu}, autoRoute=${options.autoRoute}, ipv4Addresses=$ipv4AddressCount, ipv6Addresses=$ipv6AddressCount, dns=$dnsCount, routes=$routeCount")
