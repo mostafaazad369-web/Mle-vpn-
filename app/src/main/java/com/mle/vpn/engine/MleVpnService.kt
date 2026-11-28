@@ -53,9 +53,9 @@ class MleVpnService : VpnService() {
             scope = serviceScope,
             onStart = ::startTunnel,
             onStop = ::performShutdown,
-            onStartFailure = { error ->
+            onStartFailure = { error, startId ->
                 android.util.Log.e(TAG, "sing-box startup failed (" + MleVpnFailure.logCategory(error) + ")")
-                scheduleShutdown(error)
+                scheduleShutdown(error, startId)
             }
         )
     }
@@ -71,7 +71,7 @@ class MleVpnService : VpnService() {
                 }
                 configureUnderlyingNetwork()
                 startForeground(NOTIFICATION_ID, buildNotification("در صف راه‌اندازی موتور sing-box"))
-                lifecycleCoordinator.enqueueStart(config)
+                lifecycleCoordinator.enqueueStart(config, startId)
             }
             else -> stopSelf(startId)
         }
@@ -171,7 +171,7 @@ class MleVpnService : VpnService() {
         if (::lifecycleCoordinator.isInitialized) lifecycleCoordinator.enqueueStop(initialFailure, stopStartId)
     }
 
-    private suspend fun startTunnel(config: String) {
+    private suspend fun startTunnel(config: String, @Suppress("UNUSED_PARAMETER") startId: Int) {
         stopping.set(false)
         trafficProbeJob?.cancel()
         startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
