@@ -42,76 +42,36 @@ class MleVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
+    private lateinit var lifecycleCoordinator: VpnLifecycleCoordinator
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        lifecycleCoordinator = VpnLifecycleCoordinator(
+            scope = serviceScope,
+            onStart = ::startTunnel,
+            onStop = ::performShutdown,
+            onStartFailure = { error, startId ->
+                android.util.Log.e(TAG, "sing-box startup failed (" + MleVpnFailure.logCategory(error) + ")")
+                scheduleShutdown(error, startId)
+            }
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> {
-                stopping.set(true)
-                trafficProbeJob?.cancel()
-                serviceScope.launch {
-                    if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-                    stopTunnelResources()
-                    MleVpnStatus.disconnected()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                }
-            }
+            ACTION_STOP -> scheduleShutdown(stopStartId = startId)
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
                 if (config.isNullOrBlank()) {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
-                stopping.set(false)
-                trafficProbeJob?.cancel()
                 configureUnderlyingNetwork()
-                MleVpnStatus.starting()
-                startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
-                if (!::boxRuntime.isInitialized) {
-                    boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
-                }
-                serviceScope.launch {
-                    runCatching { boxRuntime.start(config) }
-                        .onSuccess {
-                            // The VPN TUN is now registered; publish the physical
-                            // network as its underlay before probing app traffic.
-                            configureUnderlyingNetwork()
-                            MleVpnStatus.tunnelActive()
-                            trafficProbeJob?.cancel()
-                            trafficProbeJob = serviceScope.launch {
-                                while (isActive && !stopping.get()) {
-                                    val failure = verifyInternetThroughVpn()
-                                    if (failure == null) {
-                                        MleVpnStatus.internetVerified()
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد")
-                                        )
-                                    } else {
-                                        MleVpnStatus.trafficUnavailable(failure)
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند")
-                                        )
-                                    }
-                                    delay(15_000)
-                                }
-                            }
-                        }
-                        .onFailure { error ->
-                            android.util.Log.e("MLE-VPN", "sing-box startup failed", error)
-                            MleVpnStatus.failed(error.message ?: "راه‌اندازی موتور VPN ناموفق بود")
-                            runCatching { boxRuntime.stop() }
-                            stopTunnelResources()
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            stopSelf()
-                        }
-                }
+                startForeground(NOTIFICATION_ID, buildNotification("در صف راه‌اندازی موتور sing-box"))
+                lifecycleCoordinator.enqueueStart(config, startId)
             }
             else -> stopSelf(startId)
         }
@@ -178,27 +138,18 @@ class MleVpnService : VpnService() {
     @Synchronized
     internal fun holdTunDescriptor(descriptor: ParcelFileDescriptor) {
         check(!stopping.get()) { "VPN service is stopping." }
-        runCatching { tun?.close() }
+        tun?.close()
         tun = descriptor
     }
 
-    internal fun requestEngineStop() {
-        stopping.set(true)
-        trafficProbeJob?.cancel()
-        serviceScope.launch {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-            stopTunnelResources()
-            MleVpnStatus.disconnected()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
-    }
+    internal fun requestEngineStop() = scheduleShutdown()
 
     fun protectTunnelSocket(fd: Int): Boolean = protect(fd)
 
     @Synchronized
     fun closeTun() {
-        runCatching { tun?.close() }
+        val descriptor = tun ?: return
+        descriptor.close()
         tun = null
     }
 
@@ -208,21 +159,79 @@ class MleVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        // Never block the Android service lifecycle thread. Cleanup continues on
+        // the service-owned IO scope and closes TUN only after libbox has stopped.
+        scheduleShutdown()
+        super.onDestroy()
+    }
+
+    private fun scheduleShutdown(initialFailure: Throwable? = null, stopStartId: Int? = null) {
         stopping.set(true)
         trafficProbeJob?.cancel()
-        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            if (::boxRuntime.isInitialized) runCatching { boxRuntime.stop() }
-            stopTunnelResources()
-            MleVpnStatus.disconnected()
+        if (::lifecycleCoordinator.isInitialized) lifecycleCoordinator.enqueueStop(initialFailure, stopStartId)
+    }
+
+    private suspend fun startTunnel(config: String, @Suppress("UNUSED_PARAMETER") startId: Int) {
+        stopping.set(false)
+        trafficProbeJob?.cancel()
+        startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
+        configureUnderlyingNetwork()
+        MleVpnStatus.starting()
+        if (!::boxRuntime.isInitialized) boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
+        boxRuntime.start(config)
+        if (stopping.get()) return
+        configureUnderlyingNetwork()
+        MleVpnStatus.tunnelActive()
+        trafficProbeJob?.cancel()
+        trafficProbeJob = serviceScope.launch {
+            while (isActive && !stopping.get()) {
+                val failure = verifyInternetThroughVpn()
+                if (failure == null) {
+                    MleVpnStatus.internetVerified()
+                    getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification("اینترنت از داخل VPN تأیید شد"))
+                } else {
+                    MleVpnStatus.trafficUnavailable(failure)
+                    getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification("تونل فعال است؛ ترافیک اینترنت عبور نمی‌کند"))
+                }
+                delay(15_000)
+            }
         }
-        serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
-        super.onDestroy()
+    }
+
+    private suspend fun performShutdown(initialFailure: Throwable?, stopStartId: Int?) {
+        var cleanupFailure: Throwable? = null
+        if (::boxRuntime.isInitialized) {
+            try { boxRuntime.stop() } catch (error: Exception) { cleanupFailure = error }
+        }
+        if (cleanupFailure == null) {
+            try { stopTunnelResources() } catch (error: Exception) { cleanupFailure = error }
+        }
+        if (cleanupFailure == null) {
+            if (initialFailure == null) MleVpnStatus.disconnected()
+            else MleVpnStatus.failed(MleVpnFailure.userMessage(initialFailure))
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            val serviceStopped = if (stopStartId != null) {
+                stopSelfResult(stopStartId)
+            } else {
+                stopSelf()
+                true
+            }
+            if (serviceStopped) serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        } else {
+            android.util.Log.e(TAG, "VPN shutdown failed (" + MleVpnFailure.logCategory(cleanupFailure) + ")")
+            MleVpnStatus.failed(MleVpnFailure.userMessage(cleanupFailure))
+            getSystemService(NotificationManager::class.java).notify(
+                NOTIFICATION_ID,
+                buildNotification("خاموش‌کردن موتور VPN ناموفق بود؛ برای تلاش دوباره قطع اتصال را بزنید")
+            )
+        }
     }
 
     @Synchronized
     private fun stopTunnelResources() {
         stopping.set(true)
-        runCatching { tun?.close() }
+        val descriptor = tun ?: return
+        descriptor.close()
         tun = null
     }
 
@@ -291,6 +300,7 @@ class MleVpnService : VpnService() {
         const val ACTION_START = "com.mle.vpn.action.START"
         const val ACTION_STOP = "com.mle.vpn.action.STOP"
         const val EXTRA_CONFIG = "com.mle.vpn.extra.CONFIG"
+        private const val TAG = "MLE-VPN"
         private const val CHANNEL_ID = "mle_vpn_status"
         private const val NOTIFICATION_ID = 7301
     }
