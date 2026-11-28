@@ -22,7 +22,7 @@ class VpnLifecycleCoordinatorTest {
         try {
             val coordinator = VpnLifecycleCoordinator(
                 scope = scope,
-                onStart = { config ->
+                onStart = { config, _ ->
                     events += "start:$config"
                     if (config == "first") {
                         firstStarted.complete(Unit)
@@ -34,13 +34,13 @@ class VpnLifecycleCoordinatorTest {
                 onStop = { _, _ ->
                     events += "stop"
                 },
-                onStartFailure = { throw AssertionError("Unexpected start failure", it) }
+                onStartFailure = { error, _ -> throw AssertionError("Unexpected start failure", error) }
             )
 
-            coordinator.enqueueStart("first")
+            coordinator.enqueueStart("first", 1)
             firstStarted.await()
             coordinator.enqueueStop()
-            coordinator.enqueueStart("second")
+            coordinator.enqueueStart("second", 3)
             releaseFirst.complete(Unit)
             secondFinished.await()
 
@@ -62,12 +62,12 @@ class VpnLifecycleCoordinatorTest {
         try {
             val coordinator = VpnLifecycleCoordinator(
                 scope = scope,
-                onStart = { throw IllegalStateException("private profile data") },
+                onStart = { _, _ -> throw IllegalStateException("private profile data") },
                 onStop = { _, _ -> stopObserved.complete(Unit) },
-                onStartFailure = { failureObserved.complete(Unit) }
+                onStartFailure = { _, _ -> failureObserved.complete(Unit) }
             )
 
-            coordinator.enqueueStart("invalid-config")
+            coordinator.enqueueStart("invalid-config", 1)
             coordinator.enqueueStop()
 
             failureObserved.await()
