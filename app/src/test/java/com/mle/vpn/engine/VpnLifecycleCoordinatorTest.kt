@@ -31,7 +31,7 @@ class VpnLifecycleCoordinatorTest {
                     events += "started:$config"
                     if (config == "second") secondFinished.complete(Unit)
                 },
-                onStop = {
+                onStop = { _, _ ->
                     events += "stop"
                 },
                 onStartFailure = { throw AssertionError("Unexpected start failure", it) }
@@ -63,7 +63,7 @@ class VpnLifecycleCoordinatorTest {
             val coordinator = VpnLifecycleCoordinator(
                 scope = scope,
                 onStart = { throw IllegalStateException("private profile data") },
-                onStop = { stopObserved.complete(Unit) },
+                onStop = { _, _ -> stopObserved.complete(Unit) },
                 onStartFailure = { failureObserved.complete(Unit) }
             )
 
