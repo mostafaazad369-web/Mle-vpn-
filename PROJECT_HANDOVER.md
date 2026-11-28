@@ -65,6 +65,10 @@ User approved a bounded hardening pass covering VPN lifecycle/shutdown, safe dia
 
 ## Phase 2 status
 
+- Code commit tested by CI: `434752617b0fcfa6bb7fdf538e2d8d67ecb1a2dd`.
+- CI run: https://github.com/mostafaazad369-web/Mle-vpn-/actions/runs/46124402262 (success).
+- Draft PR: https://github.com/mostafaazad369-web/Mle-vpn-/pull/12 (open, not merged).
+
 - [x] Created isolated branch from current audited main.
 - [x] Removed blocking runBlocking shutdown from the service lifecycle.
 - [x] Added idempotent asynchronous shutdown scheduling.
@@ -74,8 +78,8 @@ User approved a bounded hardening pass covering VPN lifecycle/shutdown, safe dia
 - [x] Made per-app routing rule application fail closed.
 - [x] Added typed ProfileVault load result and UI warning.
 - [x] Added unit tests for rule failure, diagnostic redaction and vault load results.
-- [ ] Branch CI result verified.
-- [ ] Draft PR opened and reviewed.
+- [x] Branch CI verified successfully on code commit `434752617b0fcfa6bb7fdf538e2d8d67ecb1a2dd` (run `46124402262`): Unit Tests passed, Debug APK assembly passed, artifact uploaded.
+- [x] Draft PR #12 opened: https://github.com/mostafaazad369-web/Mle-vpn-/pull/12 (not merged).
 - [ ] Physical Android device validation.
 
 ## Next step — only after CI and user approval
@@ -133,4 +137,4 @@ https://github.com/mostafaazad369-web/Mle-vpn-
 8. قبل از شروع مرحله جدید از کاربر اجازه بگیر.
 9. در پایان مرحله، این گزارش را به‌روز و یک پرامپت کامل فارسی ارائه کن.
 
-اکنون ابتدا وضعیت CI شاخه `hardening/phase-2-lifecycle` را بررسی کن. اگر CI شکست خورده، فقط خطاهای همین مرحله را اصلاح کن. اگر CI موفق است، گزارش تغییرات و محدودیت‌ها را به کاربر بده و برای تست دستگاه واقعی و مرحله بعد تأیید بگیر. هیچ قابلیت DNS جدیدی را بدون اجازه اضافه نکن.
+CI روی commit `434752617b0fcfa6bb7fdf538e2d8d67ecb1a2dd` موفق شده است: تست‌های واحد و ساخت Debug APK هر دو پاس شده‌اند. لینک اجرای CI در گزارش آمده است. ابتدا وضعیت فعلی GitHub و آخرین commit را دوباره بررسی کن؛ سپس گزارش تغییرات و محدودیت‌ها را به کاربر بده و برای تست دستگاه واقعی و مرحله بعد تأیید بگیر. هیچ قابلیت DNS جدیدی را بدون اجازه اضافه نکن.
