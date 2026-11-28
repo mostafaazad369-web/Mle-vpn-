@@ -1,7 +1,6 @@
 package com.mle.vpn.profile
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ProfileVaultLoadResultTest {
     @Test fun emptyVaultIsReportedAsSuccessfulEmptyState() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("mle_profiles_v1", Context.MODE_PRIVATE).edit().clear().commit()
 
         val result = ProfileVault(context).loadAllResult()
