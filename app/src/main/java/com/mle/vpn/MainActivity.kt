@@ -31,6 +31,10 @@ import com.mle.vpn.profile.ProfileVault
 import com.mle.vpn.profile.SubscriptionFetcher
 import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
+import com.mle.vpn.profile.DnsSettings
+import com.mle.vpn.profile.DnsSettingsStore
+import com.mle.vpn.profile.DnsProvider
+import com.mle.vpn.profile.DnsProtocol
 import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
 import com.mle.vpn.engine.MleVpnFailure
@@ -81,6 +85,8 @@ private fun MleApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
+    val dnsSettingsStore = remember { DnsSettingsStore(context) }
+    var dnsSettings by remember { mutableStateOf(DnsSettings.default()) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var vaultError by remember { mutableStateOf<String?>(null) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
@@ -110,7 +116,7 @@ private fun MleApp() {
             showImport = true
             return
         }
-        val config = runCatching { SingBoxConfigBuilder.build(profile).toString() }
+        val config = runCatching { SingBoxConfigBuilder.build(profile, dnsSettings).toString() }
             .getOrElse { error ->
                 Toast.makeText(context, MleVpnFailure.userMessage(error), Toast.LENGTH_LONG).show()
                 return
@@ -162,7 +168,7 @@ private fun MleApp() {
             for ((index, profile) in supported.withIndex()) {
                 sourceStatus = "آزمایش اتصال واقعی ${index + 1} از ${supported.size}: ${profile.displayName}"
                 val works = runCatching {
-                    val config = SingBoxConfigBuilder.build(profile).toString()
+                    val config = SingBoxConfigBuilder.build(profile, dnsSettings).toString()
                     MleVpnStatus.starting()
                     val startIntent = Intent(context, MleVpnService::class.java).apply {
                         action = MleVpnService.ACTION_START
@@ -208,6 +214,7 @@ private fun MleApp() {
         refreshProfiles()
         selectedProfileId = profiles.firstOrNull()?.id
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
+        dnsSettings = dnsSettingsStore.load()
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
@@ -292,7 +299,14 @@ private fun MleApp() {
                     },
                     padding = padding
                 )
-                3 -> SettingsScreen(padding)
+                3 -> SettingsScreen(
+                    dnsSettings = dnsSettings,
+                    onSettingsChange = { updated ->
+                        dnsSettingsStore.save(updated)
+                        dnsSettings = updated
+                    },
+                    padding = padding
+                )
                 else -> TelegramSourcesScreen(
                     sources = telegramSources,
                     fetchingSource = fetchingSource,
@@ -338,7 +352,7 @@ private fun MleApp() {
                 text = { Text("پیکربندی JSON برای بازبینی و خروجی ساخته می‌شود. این کار به‌تنهایی تونل VPN را اجرا نمی‌کند.", color = Color.White) },
                 confirmButton = {
                     TextButton(onClick = {
-                        val json = SingBoxConfigBuilder.build(profile).toString(2)
+                        val json = SingBoxConfigBuilder.build(profile, dnsSettings).toString(2)
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
                         clipboard.setPrimaryClip(ClipData.newPlainText("MLE sing-box config", json))
                         Toast.makeText(context, "پیکربندی در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
@@ -597,10 +611,154 @@ private fun TelegramSourcesScreen(
 }
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues) {
-    Column(Modifier.fillMaxSize().padding(padding).padding(22.dp)) {
+private fun SettingsScreen(
+    dnsSettings: DnsSettings,
+    onSettingsChange: (DnsSettings) -> Unit,
+    padding: PaddingValues
+) {
+    var draft by remember(dnsSettings) { mutableStateOf(dnsSettings) }
+    var providerMenuExpanded by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var saveError by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)
+    ) {
         Text("تنظیمات", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
+        Text("DNS امن", color = Mint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "انتخاب DNS روی کانفیگ بعدی VPN اعمال می‌شود. در حالت سخت‌گیرانه، DNS سیستم و DNS معمولی به‌عنوان fallback استفاده نمی‌شوند.",
+            color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 14.dp)
+        )
+
+        Box {
+            OutlinedButton(onClick = { providerMenuExpanded = true }) {
+                Text("ارائه‌دهنده: ${draft.provider.label}", color = Mint)
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Mint)
+            }
+            DropdownMenu(
+                expanded = providerMenuExpanded,
+                onDismissRequest = { providerMenuExpanded = false }
+            ) {
+                DnsProvider.values().forEach { provider ->
+                    DropdownMenuItem(
+                        text = { Text(provider.label) },
+                        onClick = {
+                            draft = if (provider == DnsProvider.CUSTOM) {
+                                draft.copy(
+                                    provider = DnsProvider.CUSTOM,
+                                    serverAddress = "",
+                                    tlsServerName = "",
+                                    port = if (draft.protocol == DnsProtocol.DOH) 443 else 853
+                                )
+                            } else {
+                                DnsSettings.forProvider(provider, draft.protocol)
+                            }
+                            providerMenuExpanded = false
+                            message = null
+                            saveError = null
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text("پروتکل رمزگذاری‌شده", color = Color.White, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
+            FilterChip(
+                selected = draft.protocol == DnsProtocol.DOH,
+                onClick = {
+                    draft = if (draft.provider == DnsProvider.CUSTOM) draft.copy(protocol = DnsProtocol.DOH, port = 443)
+                    else DnsSettings.forProvider(draft.provider, DnsProtocol.DOH)
+                    message = null
+                },
+                label = { Text("DoH") }
+            )
+            FilterChip(
+                selected = draft.protocol == DnsProtocol.DOT,
+                onClick = {
+                    draft = if (draft.provider == DnsProvider.CUSTOM) draft.copy(protocol = DnsProtocol.DOT, port = 853)
+                    else DnsSettings.forProvider(draft.provider, DnsProtocol.DOT)
+                    message = null
+                },
+                label = { Text("DoT") }
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = draft.serverAddress,
+            onValueChange = { draft = draft.copy(serverAddress = it.trim()); saveError = null; message = null },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("آدرس IP سرور DNS") },
+            supportingText = { Text("در حالت سخت‌گیرانه فقط IPv4 یا IPv6 عددی پذیرفته می‌شود.") },
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = draft.tlsServerName,
+            onValueChange = { draft = draft.copy(tlsServerName = it.trim()); saveError = null; message = null },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("TLS hostname / SNI") },
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = draft.port.toString(),
+            onValueChange = { value ->
+                draft = draft.copy(port = value.toIntOrNull() ?: 0)
+                saveError = null
+                message = null
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Port") },
+            singleLine = true
+        )
+        if (draft.protocol == DnsProtocol.DOH) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = draft.dohPath,
+                onValueChange = { draft = draft.copy(dohPath = it); saveError = null; message = null },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("DoH path") },
+                singleLine = true
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Bootstrap سخت‌گیرانه: برای حل نام سرور پروکسی، درخواست DNS رمزگذاری‌شده به IP واردشده و از مسیر مستقیم شبکه زیرین ارسال می‌شود. DNS برنامه‌ها از مسیر پروکسی عبور می‌کند. در صورت شکست resolver امن، درخواست ناموفق می‌شود و به DNS معمولی برنمی‌گردد.",
+            color = Muted, fontSize = 11.sp
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = {
+                runCatching {
+                    draft.validate()
+                    onSettingsChange(draft)
+                }.onSuccess {
+                    message = "تنظیمات DNS ذخیره شد؛ برای اعمال، VPN را دوباره متصل کن."
+                    saveError = null
+                }.onFailure {
+                    saveError = it.message ?: "تنظیمات DNS معتبر نیست."
+                    message = null
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)
+        ) {
+            Icon(Icons.Default.Save, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("ذخیره تنظیمات DNS")
+        }
+        message?.let { Text(it, color = Mint, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp)) }
+        saveError?.let { Text(it, color = Color(0xFFFF7B86), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp)) }
+
+        Spacer(Modifier.height(26.dp))
+        Divider(color = Muted.copy(alpha = .25f))
+        Spacer(Modifier.height(16.dp))
         listOf("ظاهر برنامه" to "تم تیره اختصاصی", "زبان" to "فارسی", "درباره برنامه" to "MLE VPN نسخه 1.0.0").forEach { item ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Panel, RoundedCornerShape(16.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

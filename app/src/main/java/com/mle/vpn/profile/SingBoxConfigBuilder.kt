@@ -4,11 +4,17 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Builds a sing-box 1.14-compatible client configuration for review/export.
- * This does not start libbox or establish an Android VPN tunnel.
+ * Builds a sing-box 1.14-compatible client configuration.
+ * The strict bootstrap resolver is encrypted and uses an IP literal, so it
+ * never depends on Android/system DNS to resolve its own endpoint.
  */
 object SingBoxConfigBuilder {
-    fun build(profile: ImportedProfile): JSONObject {
+    fun build(
+        profile: ImportedProfile,
+        dnsSettings: DnsSettings = DnsSettings.default()
+    ): JSONObject {
+        dnsSettings.validate()
+
         val proxy = SingBoxOutboundBuilder.build(profile)
             .put("domain_resolver", "bootstrap")
         val inbounds = JSONArray().put(
@@ -25,27 +31,19 @@ object SingBoxConfigBuilder {
             .put(proxy)
             .put(JSONObject().put("type", "direct").put("tag", "direct"))
             .put(JSONObject().put("type", "block").put("tag", "block"))
-        val dnsServer = JSONObject()
-            .put("type", "https")
-            .put("tag", "secure-dns")
-            .put("server", "1.1.1.1")
-            .put("server_port", 443)
-            .put("path", "/dns-query")
-            .put("tls", JSONObject().put("enabled", true).put("server_name", "cloudflare-dns.com"))
-            .put("detour", "proxy")
-        // Resolve the proxy endpoint through Android's underlying-network
-        // resolver first; otherwise DoH itself would detour through a proxy
-        // whose hostname may still need DNS (bootstrap recursion).
-        val bootstrapDns = JSONObject()
-            .put("type", "local")
-            .put("tag", "bootstrap")
+
+        // Bootstrap is used only for resolving the proxy endpoint. It uses
+        // encrypted DNS to a numeric IP over the physical underlay (direct).
+        // Application DNS uses the same provider over the selected proxy.
+        // There is intentionally no "local" resolver and no plaintext fallback.
+        val bootstrapDns = buildDnsServer(dnsSettings, "bootstrap", "direct")
+        val secureDns = buildDnsServer(dnsSettings, "secure-dns", "proxy")
         val dns = JSONObject()
-            .put("servers", JSONArray().put(bootstrapDns).put(dnsServer))
+            .put("servers", JSONArray().put(bootstrapDns).put(secureDns))
             .put("final", "secure-dns")
             .put("strategy", "prefer_ipv4")
-        // Android's VpnService owns the outer TUN. Tell sing-box to use
-        // the Android VPN as the upstream path and bind proxy sockets to the
-        // detected underlying network, avoiding a route loop / black-holed TUN.
+            .put("timeout", "8s")
+
         val route = JSONObject()
             .put("final", "proxy")
             .put("auto_detect_interface", true)
@@ -54,11 +52,30 @@ object SingBoxConfigBuilder {
             .put("rules", JSONArray().put(
                 JSONObject().put("protocol", JSONArray().put("dns")).put("action", "hijack-dns")
             ))
+
         return JSONObject()
             .put("log", JSONObject().put("level", "info"))
             .put("dns", dns)
             .put("inbounds", inbounds)
             .put("outbounds", outbounds)
             .put("route", route)
+    }
+
+    private fun buildDnsServer(settings: DnsSettings, tag: String, detour: String): JSONObject {
+        val type = if (settings.protocol == DnsProtocol.DOH) "https" else "tls"
+        val server = JSONObject()
+            .put("type", type)
+            .put("tag", tag)
+            .put("server", settings.serverAddress)
+            .put("server_port", settings.port)
+            .put("tls", JSONObject()
+                .put("enabled", true)
+                .put("server_name", settings.tlsServerName))
+            .put("detour", detour)
+
+        if (settings.protocol == DnsProtocol.DOH) {
+            server.put("path", settings.dohPath)
+        }
+        return server
     }
 }
