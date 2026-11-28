@@ -14,12 +14,12 @@ import kotlinx.coroutines.launch
  */
 internal class VpnLifecycleCoordinator(
     scope: CoroutineScope,
-    private val onStart: suspend (String) -> Unit,
+    private val onStart: suspend (String, Int) -> Unit,
     private val onStop: suspend (Throwable?, Int?) -> Unit,
-    private val onStartFailure: (Throwable) -> Unit
+    private val onStartFailure: (Throwable, Int) -> Unit
 ) {
     private sealed interface Command {
-        data class Start(val config: String) : Command
+        data class Start(val config: String, val startId: Int) : Command
         data class Stop(val initialFailure: Throwable?, val stopStartId: Int?) : Command
     }
 
@@ -31,11 +31,11 @@ internal class VpnLifecycleCoordinator(
                 when (command) {
                     is Command.Start -> {
                         try {
-                            onStart(command.config)
+                            onStart(command.config, command.startId)
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (error: Throwable) {
-                            onStartFailure(error)
+                            onStartFailure(error, command.startId)
                         }
                     }
                     is Command.Stop -> onStop(command.initialFailure, command.stopStartId)
@@ -44,8 +44,8 @@ internal class VpnLifecycleCoordinator(
         }
     }
 
-    fun enqueueStart(config: String) {
-        check(commands.trySend(Command.Start(config)).isSuccess) {
+    fun enqueueStart(config: String, startId: Int) {
+        check(commands.trySend(Command.Start(config, startId)).isSuccess) {
             "VPN lifecycle coordinator is no longer accepting commands."
         }
     }
