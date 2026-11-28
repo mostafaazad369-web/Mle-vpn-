@@ -49,8 +49,16 @@ class MleBoxRuntime(
                 commandServer = server
                 activeConfig = configJson
             } catch (error: Throwable) {
-                runCatching { server.closeService() }
-                runCatching { server.close() }
+                try {
+                    server.closeService()
+                } catch (cleanupError: Exception) {
+                    error.addSuppressed(cleanupError)
+                }
+                try {
+                    server.close()
+                } catch (cleanupError: Exception) {
+                    error.addSuppressed(cleanupError)
+                }
                 throw error
             }
         }
