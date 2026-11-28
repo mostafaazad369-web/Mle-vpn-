@@ -42,7 +42,7 @@ class MleVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var boxRuntime: MleBoxRuntime
     private var trafficProbeJob: Job? = null
-    @Volatile private var shutdownJob: Job? = null
+    private val shutdownStarted = AtomicBoolean(false)
     @Volatile private var selectedUnderlyingNetwork: Network? = null
     internal val currentUnderlyingNetwork: Network? get() = selectedUnderlyingNetwork
 
@@ -71,6 +71,7 @@ class MleVpnService : VpnService() {
                 serviceScope.launch {
                     runCatching { boxRuntime.start(config) }
                         .onSuccess {
+                            if (stopping.get()) return@onSuccess
                             // The VPN TUN is now registered; publish the physical
                             // network as its underlay before probing app traffic.
                             configureUnderlyingNetwork()
@@ -198,9 +199,9 @@ class MleVpnService : VpnService() {
     private fun scheduleShutdown(initialFailure: Throwable? = null) {
         stopping.set(true)
         trafficProbeJob?.cancel()
-        if (shutdownJob?.isActive == true) return
+        if (!shutdownStarted.compareAndSet(false, true)) return
 
-        shutdownJob = serviceScope.launch {
+        serviceScope.launch {
             var failure: Throwable? = initialFailure
             try {
                 if (::boxRuntime.isInitialized) {
