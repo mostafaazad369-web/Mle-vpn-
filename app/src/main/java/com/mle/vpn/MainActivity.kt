@@ -86,7 +86,7 @@ private fun MleApp() {
     val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
     val dnsSettingsStore = remember { DnsSettingsStore(context) }
-    var dnsSettings by remember { mutableStateOf(DnsSettings.default()) }
+    var dnsSettings by remember { mutableStateOf(dnsSettingsStore.load()) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
     var vaultError by remember { mutableStateOf<String?>(null) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
@@ -214,7 +214,6 @@ private fun MleApp() {
         refreshProfiles()
         selectedProfileId = profiles.firstOrNull()?.id
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
-        dnsSettings = dnsSettingsStore.load()
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Navy, surface = Panel, primary = Mint,
