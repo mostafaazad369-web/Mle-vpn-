@@ -72,7 +72,7 @@ data class DnsSettings(
             val parts = value.split('.')
             return parts.size == 4 && parts.all { part ->
                 part.isNotEmpty() && part.length <= 3 &&
-                    part.all(Char::isDigit) && part.toIntOrNull() in 0..255
+                    part.all(Char::isDigit) && (part.toIntOrNull()?.let { it in 0..255 } == true)
             }
         }
 
