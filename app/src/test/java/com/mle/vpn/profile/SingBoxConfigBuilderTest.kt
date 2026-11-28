@@ -40,6 +40,7 @@ class SingBoxConfigBuilderTest {
         assertEquals("https", servers.getJSONObject(1).getString("type"))
         assertEquals("proxy", servers.getJSONObject(1).getString("detour"))
         assertEquals("/dns-query", servers.getJSONObject(1).getString("path"))
+        assertEquals("cloudflare-dns.com", servers.getJSONObject(1).getJSONObject("headers").getString("Host"))
         assertFalse((0 until servers.length()).any { servers.getJSONObject(it).optString("type") == "local" })
 
         val route = config.getJSONObject("route")

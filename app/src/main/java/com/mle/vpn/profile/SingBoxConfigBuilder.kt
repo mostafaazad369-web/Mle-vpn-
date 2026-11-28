@@ -75,6 +75,9 @@ object SingBoxConfigBuilder {
 
         if (settings.protocol == DnsProtocol.DOH) {
             server.put("path", settings.dohPath)
+            // The transport connects to a numeric IP to avoid bootstrap DNS,
+            // while HTTP Host and TLS SNI retain the provider's DNS hostname.
+            server.put("headers", JSONObject().put("Host", settings.tlsServerName))
         }
         return server
     }

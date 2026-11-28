@@ -9,6 +9,7 @@ This phase adds selectable encrypted DNS to the existing sing-box/libbox runtime
 - DoH (`https`) and DoT (`tls`) using sing-box 1.12+ DNS server formats.
 - Provider presets: Cloudflare, Google Public DNS and Quad9.
 - Custom encrypted DNS endpoint.
+- For DoH, the numeric transport IP is paired with an explicit HTTP `Host` header and TLS SNI hostname.
 - Numeric IPv4/IPv6 server address, independent TLS server name, port, and DoH path.
 - Preferences are stored locally in app SharedPreferences.
 
