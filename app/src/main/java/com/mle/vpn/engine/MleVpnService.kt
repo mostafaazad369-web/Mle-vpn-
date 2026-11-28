@@ -202,38 +202,49 @@ class MleVpnService : VpnService() {
         if (!shutdownStarted.compareAndSet(false, true)) return
 
         serviceScope.launch {
-            var failure: Throwable? = initialFailure
+            var cleanupFailure: Throwable? = null
+            var cleanupSucceeded = false
             try {
                 if (::boxRuntime.isInitialized) {
                     try {
                         boxRuntime.stop()
                     } catch (error: Exception) {
-                        if (failure == null) failure = error else failure.addSuppressed(error)
+                        cleanupFailure = error
                     }
                 }
-                if (failure == null) {
+                if (cleanupFailure == null) {
                     try {
                         stopTunnelResources()
                     } catch (error: Exception) {
-                        failure = error
+                        cleanupFailure = error
                     }
                 }
 
-                if (failure == null) {
-                    MleVpnStatus.disconnected()
+                if (cleanupFailure == null) {
+                    cleanupSucceeded = true
+                    if (initialFailure == null) MleVpnStatus.disconnected()
+                    else MleVpnStatus.failed(MleVpnFailure.userMessage(initialFailure))
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 } else {
+                    // Keep the service/TUN ownership intact when libbox has not
+                    // confirmed shutdown. The user can retry a stop command.
                     android.util.Log.e(
                         TAG,
-                        "VPN shutdown failed (${MleVpnFailure.logCategory(failure!!)})"
+                        "VPN shutdown failed (\${MleVpnFailure.logCategory(cleanupFailure)})"
                     )
-                    MleVpnStatus.failed(MleVpnFailure.userMessage(failure!!))
+                    MleVpnStatus.failed(MleVpnFailure.userMessage(cleanupFailure))
+                    getSystemService(NotificationManager::class.java).notify(
+                        NOTIFICATION_ID,
+                        buildNotification("خاموش‌کردن موتور VPN ناموفق بود؛ برای تلاش دوباره قطع اتصال را بزنید")
+                    )
                 }
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
             } finally {
-                // This service instance is stopping; no further work should be
-                // accepted after its cleanup coroutine has completed.
-                serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+                if (cleanupSucceeded) {
+                    serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+                } else {
+                    shutdownStarted.set(false)
+                }
             }
         }
     }
