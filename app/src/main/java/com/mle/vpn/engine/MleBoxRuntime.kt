@@ -59,10 +59,24 @@ class MleBoxRuntime(
     suspend fun stop() = withContext(Dispatchers.IO) {
         lifecycleMutex.withLock {
             val server = commandServer ?: return@withLock
+            var shutdownFailure: Exception? = null
+            try {
+                server.closeService()
+            } catch (error: Exception) {
+                shutdownFailure = error
+            }
+            try {
+                server.close()
+            } catch (error: Exception) {
+                if (shutdownFailure == null) shutdownFailure = error
+                else shutdownFailure.addSuppressed(error)
+            }
+            if (shutdownFailure != null) {
+                // Keep ownership so a later stop attempt can retry cleanup.
+                throw IllegalStateException("sing-box runtime shutdown failed.", shutdownFailure)
+            }
             commandServer = null
             activeConfig = null
-            runCatching { server.closeService() }
-            runCatching { server.close() }
             Libbox.discardPowerReportDraft()
         }
     }
