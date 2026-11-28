@@ -108,3 +108,30 @@ Start with a small hardening PR on a new implementation branch based on current 
 - Work on only the user-approved phase; stop and ask before starting the next phase.
 - At the end of every phase, update this file with exact branch/commit, changed files, tests, build results, remaining risks, and the next-step handover prompt.
 - Always provide the user a complete Persian section titled **پرامپت انتقال پروژه به چت بعدی**.
+
+
+## Copy-ready next-chat prompt (Persian)
+
+تو ادامه‌دهنده پروژه موجود MLE VPN هستی. مخزن صحیح:
+https://github.com/mostafaazad369-web/Mle-vpn-
+
+شاخه اصلی `main` است و در زمان ممیزی روی commit `65984ee029642a6121c7099218bb6bd1a0b1396c` قرار داشت. شاخه بررسی `review/phase-1-deep-audit` ساخته شده و PR شماره 11 به‌صورت Draft و بدون Merge باز است:
+https://github.com/mostafaazad369-web/Mle-vpn-/pull/11
+
+گزارش کامل ممیزی در فایل `PROJECT_HANDOVER.md` قرار دارد. ابتدا وضعیت فعلی GitHub، آخرین commit شاخه‌ها، PRها و CI را دوباره بررسی کن؛ اطلاعات این فایل ممکن است قدیمی شده باشد.
+
+نتیجه مرحله ۱: معماری و کدهای اصلی بررسی شده‌اند. هیچ فایل برنامه، dependency یا منطق اجرایی تغییر نکرده است. فقط `PROJECT_HANDOVER.md` روی شاخه بررسی اضافه شده است. یافته‌های مهم شامل مسدودشدن thread در `MleVpnService.onDestroy()` با `runBlocking`، احتمال ثبت جزئیات حساس در log خطای startup، نادیده‌گرفتن خطاهای package allow/deny در `MlePlatformInterface.openTun()`، نبود پیاده‌سازی concrete برای DNS tunnel chain، پوشش ناکافی آزمون اینترنت برای اثبات IP/DNS/IPv6، مخفی‌کردن خطای decrypt در `ProfileVault.loadAll()` و swallow شدن خطاهای stop در `MleBoxRuntime.stop()` است. جزئیات و اولویت‌ها را از همین فایل بخوان.
+
+قواعد:
+1. پروژه جدید نساز؛ فقط همین مخزن را ادامه بده.
+2. `main` را تغییر نده.
+3. هیچ PR را Merge نکن و Auto-merge فعال نکن.
+4. روی branch مستقل کار کن و تغییرات را در PR Draft ارائه بده.
+5. هیچ فایل یا dependency را بدون بررسی حذف/اضافه نکن.
+6. کلیدها، credentialها، share URIها و packet data را log یا commit نکن.
+7. موفقیت CI را با تست VPN روی دستگاه واقعی یکی ندان.
+8. ادعای DNS Leak protection، IPv6 Leak protection، Kill Switch یا VPN فعال را بدون شواهد end-to-end مطرح نکن.
+9. در هر مرحله فقط کار مورد تأیید کاربر را انجام بده و پیش از مرحله بعد تأیید بگیر.
+10. در پایان هر مرحله `PROJECT_HANDOVER.md` را با branch، commit، فایل‌های تغییرکرده، تست‌ها، build، خطاهای باقی‌مانده و مرحله بعد به‌روزرسانی کن و یک پرامپت انتقال کامل فارسی ارائه بده.
+
+اکنون مرحله ۱ (ممیزی عمیق) تکمیل شده است. هنوز هیچ اصلاح کدی انجام نده. یافته‌های ممیزی را به فارسی خلاصه کن و از کاربر برای شروع مرحله hardening (اصلاح lifecycle/shutdown، redaction لاگ‌ها، fail-closed کردن app filters و typed error handling) اجازه بگیر. PR #11 را Draft نگه دار و به main دست نزن.
