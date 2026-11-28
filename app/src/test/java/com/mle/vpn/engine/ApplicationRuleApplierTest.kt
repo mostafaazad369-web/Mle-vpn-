@@ -9,8 +9,8 @@ class ApplicationRuleApplierTest {
         val allowed = mutableListOf<String>()
         val denied = mutableListOf<String>()
         applyPackageRules(
-            listOf("com.example.one", "com.example.two").iterator(),
-            listOf("com.example.three").iterator(),
+            MleStringIterator(listOf("com.example.one", "com.example.two")),
+            MleStringIterator(listOf("com.example.three")),
             allowed::add,
             denied::add
         )
@@ -21,8 +21,8 @@ class ApplicationRuleApplierTest {
     @Test fun includeRuleFailureAbortsInsteadOfFailingOpen() {
         val error = assertThrows(ApplicationRuleException::class.java) {
             applyPackageRules(
-                listOf("com.example.blocked").iterator(),
-                emptyList<String>().iterator(),
+                MleStringIterator(listOf("com.example.blocked")),
+                MleStringIterator(emptyList()),
                 { throw IllegalArgumentException("platform detail") },
                 {}
             )
@@ -33,8 +33,8 @@ class ApplicationRuleApplierTest {
     @Test fun excludeRuleFailureAbortsInsteadOfFailingOpen() {
         val error = assertThrows(ApplicationRuleException::class.java) {
             applyPackageRules(
-                emptyList<String>().iterator(),
-                listOf("com.example.excluded").iterator(),
+                MleStringIterator(emptyList()),
+                MleStringIterator(listOf("com.example.excluded")),
                 {},
                 { throw IllegalArgumentException("platform detail") }
             )
