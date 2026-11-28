@@ -38,7 +38,7 @@ data class DnsSettings(
         require(port in 1..65535) { "DNS server port must be between 1 and 65535." }
         if (protocol == DnsProtocol.DOH) {
             require(dohPath.startsWith("/") && dohPath.length <= 512 &&
-                !dohPath.contains('#') && !dohPath.any(Char::isWhitespace)) {
+                !dohPath.contains('#') && !dohPath.contains('?') && !dohPath.any(Char::isWhitespace)) {
                 "DoH path must be an absolute URL path without fragments or whitespace."
             }
         }
@@ -72,12 +72,12 @@ data class DnsSettings(
             val parts = value.split('.')
             return parts.size == 4 && parts.all { part ->
                 part.isNotEmpty() && part.length <= 3 &&
-                    part.all(Char::isDigit) && (part.toIntOrNull()?.let { it in 0..255 } == true)
+                    (part.length == 1 || part.first() != '0') && part.all(Char::isDigit) && (part.toIntOrNull()?.let { it in 0..255 } == true)
             }
         }
 
         private fun isValidTlsHostname(value: String): Boolean {
-            if (value.isBlank() || value.length > 253 || value.endsWith(".")) return false
+            if (value.isBlank() || value.length > 253 || value.endsWith(".") || isIpLiteral(value)) return false
             val ascii = runCatching { IDN.toASCII(value) }.getOrNull() ?: return false
             if (ascii.length > 253 || ascii.contains(':')) return false
             return ascii.split('.').all { label ->

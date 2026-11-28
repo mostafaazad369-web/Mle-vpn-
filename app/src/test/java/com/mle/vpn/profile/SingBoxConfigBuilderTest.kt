@@ -21,6 +21,12 @@ class SingBoxConfigBuilderTest {
     @Test
     fun buildsStrictDohConfigurationWithoutSystemDnsFallback() {
         val config = SingBoxConfigBuilder.build(profile())
+        val tun = config.getJSONArray("inbounds").getJSONObject(0)
+        assertEquals("tun", tun.getString("type"))
+        assertEquals("hijack", tun.getString("dns_mode"))
+        val outbounds = config.getJSONArray("outbounds")
+        assertEquals("vless", outbounds.getJSONObject(0).getString("type"))
+        assertTrue(outbounds.length() >= 3)
         val dns = config.getJSONObject("dns")
         val servers = dns.getJSONArray("servers")
 
