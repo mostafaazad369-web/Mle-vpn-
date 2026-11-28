@@ -138,3 +138,96 @@ https://github.com/mostafaazad369-web/Mle-vpn-
 9. در پایان مرحله، این گزارش را به‌روز و یک پرامپت کامل فارسی ارائه کن.
 
 CI روی commit `434752617b0fcfa6bb7fdf538e2d8d67ecb1a2dd` موفق شده است: تست‌های واحد و ساخت Debug APK هر دو پاس شده‌اند. لینک اجرای CI در گزارش آمده است. ابتدا وضعیت فعلی GitHub و آخرین commit را دوباره بررسی کن؛ سپس گزارش تغییرات و محدودیت‌ها را به کاربر بده و برای تست دستگاه واقعی و مرحله بعد تأیید بگیر. هیچ قابلیت DNS جدیدی را بدون اجازه اضافه نکن.
+
+
+---
+
+# MLE VPN — Phase 3 Serialized Lifecycle Handover
+
+## Checkpoint
+- Repository: https://github.com/mostafaazad369-web/Mle-vpn-
+- Main remains at baseline: 65984ee029642a6121c7099218bb6bd1a0b1396c
+- Phase 2 branch: hardening/phase-2-lifecycle
+- Phase 2 head: ce11437e819d075d04677f55ee7b9d7a8fd8e5b2
+- Phase 2 Draft PR #12: https://github.com/mostafaazad369-web/Mle-vpn-/pull/12 (open, not merged)
+- Phase 3 branch: hardening/phase-3-serialized-lifecycle
+- Phase 3 Draft PR #13: https://github.com/mostafaazad369-web/Mle-vpn-/pull/13 (open, not merged)
+- PR #13 currently targets main so the existing CI workflow runs. It includes phase 2 commits plus phase 3 until PR #12 is merged and PR #13 is retargeted/rebased as appropriate.
+- No changes to main; no PR merged; no auto-merge.
+
+## Phase 3 scope and changes
+Goal: serialize Android VPN lifecycle mutations so start/reload and stop/close are not executed concurrently.
+
+Files changed relative to phase 2:
+1. app/src/main/java/com/mle/vpn/engine/VpnLifecycleCoordinator.kt — new FIFO command coordinator backed by a single coroutine consumer and an unlimited Channel. Commands are enqueued synchronously by Android service callbacks.
+2. app/src/main/java/com/mle/vpn/engine/MleVpnService.kt — routes START and STOP operations through the coordinator; retains Android startId on both START and explicit STOP; uses stopSelfResult(stopStartId) so an older stop does not stop a service that has received a newer start; preserves the policy of closing TUN only after libbox shutdown succeeds; shutdown failure leaves the service available for retry.
+3. app/src/test/java/com/mle/vpn/engine/VpnLifecycleCoordinatorTest.kt — tests FIFO START/STOP/START ordering and verifies a failed START does not prevent the following STOP command.
+
+## Validation
+- GitHub Actions workflow: Android CI, workflow file .github/workflows/android-ci.yml.
+- CI run for the phase 3 head is tracked from the Actions page linked in PR #13. At the time this handover was written, the run was pending/in progress; do not claim tests or APK assembly passed until the final conclusion is success.
+- No local Gradle execution was performed by the authoring session.
+- No physical Android device test was performed.
+- No DNS/IPv4/IPv6 leak, network handover, Android revoke, process-death, or native TUN ownership claim is made.
+
+## Remaining risks and required review
+- Review command-queue behavior when Android destroys the service while a command is in flight.
+- Verify rapid START/STOP/START, startup failure followed by a newer START, repeated STOP, revoke and shutdown retry on real Android versions.
+- The coordinator serializes commands but cannot guarantee completion after hard process death.
+- Confirm stopSelfResult(startId) behavior with actual Android service start IDs and foreground-service constraints on API 24–35.
+- Device testing remains a release gate. Keep the APK as a debug/test build only.
+
+## Next step
+1. Confirm the latest PR #13 CI run completed successfully. If it failed, inspect the failing job logs and fix only the relevant issue on this branch.
+2. Review the phase 3 diff and the interaction with phase 2 before considering either PR for merge.
+3. Do not merge PR #12 or #13 without explicit owner approval.
+4. After the user is ready, provide one combined device-test build and test START/STOP/START, repeated STOP, startup failure/retry, revoke, Wi-Fi/mobile handover, and force-stop/relaunch.
+5. Only after these lifecycle checks should the next implementation phase address DNS runtime integration and leak testing.
+
+## Rules
+- Keep main untouched.
+- No PR merge or auto-merge without explicit user approval.
+- Never report CI success until the latest head SHA has a successful run.
+- Separate CI/unit tests from physical-device validation.
+- Never claim production readiness, DNS leak prevention, IPv6 leak prevention or kill-switch guarantees without real tests.
+- Always update this handover and provide a complete Persian next-chat prompt at the end of each phase.
+
+## پرامپت انتقال پروژه به چت بعدی
+
+تو ادامه‌دهنده پروژه موجود MLE VPN هستی؛ پروژه جدید نساز.
+
+مخزن صحیح:
+https://github.com/mostafaazad369-web/Mle-vpn-
+
+هدف: اپ اندرویدی DNS + VPN واقعی، امن و قابل انتشار با Kotlin، Jetpack Compose، Android VpnService و sing-box/libbox. قابلیت‌های DNS، full-tunnel، split tunneling، IPv6، kill switch، WARP/Tor/Psiphon و multi-hop فقط پس از پیاده‌سازی و تست واقعی قابل ادعا هستند.
+
+وضعیت Git:
+- main baseline: 65984ee029642a6121c7099218bb6bd1a0b1396c و نباید بدون اجازه تغییر کند.
+- Phase 2: branch hardening/phase-2-lifecycle, head ce11437e819d075d04677f55ee7b9d7a8fd8e5b2, Draft PR #12:
+  https://github.com/mostafaazad369-web/Mle-vpn-/pull/12
+- Phase 3: branch hardening/phase-3-serialized-lifecycle, آخرین head را از GitHub دوباره بخوان، Draft PR #13:
+  https://github.com/mostafaazad369-web/Mle-vpn-/pull/13
+- PR #13 فعلاً base=main دارد تا CI اجرا شود و شامل phase 2 و phase 3 است. PR #12 و PR #13 هیچ‌کدام merge نشده‌اند. هیچ auto-merge فعال نکن.
+
+Phase 2 تغییرات: خاموش‌سازی غیرمسدودکننده، نگهداری TUN تا تأیید توقف libbox، انتقال خطاهای cleanup، redaction پیام‌های خطا، fail-closed برای package routing rules و نتیجه typed برای خطای ProfileVault. CI موفق قبلی run #46124402262 روی commit کد 434752617b0fcfa6bb7fdf538e2d8d67ecb1a2dd بوده است؛ تست فیزیکی انجام نشده.
+
+Phase 3 تغییرات:
+- فایل جدید VpnLifecycleCoordinator.kt: صف FIFO فرمان‌های START/STOP با یک مصرف‌کننده coroutine.
+- MleVpnService.kt: اجرای START/STOP از طریق coordinator، نگهداری startId و استفاده از stopSelfResult(startId) تا STOP قدیمی START جدید را متوقف نکند؛ TUN تنها پس از موفقیت shutdown libbox بسته می‌شود.
+- فایل تست جدید VpnLifecycleCoordinatorTest.kt: ترتیب START/STOP/START و ادامه کار پس از failure.
+- CI جدید را از PR #13 بررسی کن. وضعیت pending/in progress را موفق اعلام نکن. فقط اگر آخرین head SHA دارای conclusion=success بود، Unit Test و assembleDebug را موفق اعلام کن.
+- هیچ تست گوشی انجام نشده است. APK Debug را نسخه آزمایشی تلقی کن.
+
+فایل‌های مرجع را بخوان:
+- docs/ROADMAP.md
+- docs/ENGINE_INTEGRATION_PLAN.md
+- PROJECT_HANDOVER.md
+
+محدودیت‌ها:
+- تست واقعی start/stop سریع، revoke، process death، foreground service، network handover، TUN native، DNS/IPv4/IPv6 leak انجام نشده است.
+- پروژه production-ready نیست.
+- اگر CI شکست خورد، فقط همان مشکل را روی branch phase 3 رفع کن و CI جدید اجرا کن.
+- اگر CI موفق شد، گزارش دقیق بده و برای بررسی/تست واقعی دستگاه آماده شو.
+- قبل از هر مرحله جدید، هدف و محدوده را مشخص کن.
+- main را تغییر نده؛ PR را merge نکن؛ فایل/dependency را بدون بررسی حذف/اضافه نکن.
+- پایان مرحله باید گزارش کامل و پرامپت انتقال فارسی داشته باشد.
