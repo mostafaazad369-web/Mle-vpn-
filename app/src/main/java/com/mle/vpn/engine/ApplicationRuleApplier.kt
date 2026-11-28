@@ -1,5 +1,7 @@
 package com.mle.vpn.engine
 
+import io.nekohasekai.libbox.StringIterator
+
 /**
  * Applies sing-box per-application routing rules to Android's VPN Builder.
  * A failed rule must abort TUN establishment: silently skipping it could route
@@ -8,8 +10,8 @@ package com.mle.vpn.engine
 internal class ApplicationRuleException(message: String) : IllegalStateException(message)
 
 internal fun applyPackageRules(
-    include: Iterator<String>,
-    exclude: Iterator<String>,
+    include: StringIterator,
+    exclude: StringIterator,
     addAllowed: (String) -> Unit,
     addDisallowed: (String) -> Unit
 ) {
