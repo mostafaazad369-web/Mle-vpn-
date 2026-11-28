@@ -18,6 +18,11 @@ import javax.crypto.spec.GCMParameterSpec
  * (UUIDs/passwords/private keys), so it is encrypted with an Android Keystore
  * AES-256-GCM key. Plaintext profiles are never written to logs.
  */
+sealed interface ProfileVaultLoadResult {
+    data class Success(val profiles: List<ImportedProfile>) : ProfileVaultLoadResult
+    data object Unavailable : ProfileVaultLoadResult
+}
+
 class ProfileVault(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("mle_profiles_v1", Context.MODE_PRIVATE)
 
@@ -41,10 +46,25 @@ class ProfileVault(context: Context) {
     }
 
     @Synchronized
-    fun loadAll(): List<ImportedProfile> {
-        val encrypted = prefs.getString(DATA_KEY, null) ?: return emptyList()
-        return runCatching { readAllOrThrow(encrypted) }.getOrDefault(emptyList())
+    fun loadAllResult(): ProfileVaultLoadResult {
+        val encrypted = prefs.getString(DATA_KEY, null)
+            ?: return ProfileVaultLoadResult.Success(emptyList())
+        return try {
+            ProfileVaultLoadResult.Success(readAllOrThrow(encrypted))
+        } catch (_: Exception) {
+            // Do not expose decryption/parser details: they may contain stored data.
+            // Keep the ciphertext intact so recovery/export can be considered later.
+            ProfileVaultLoadResult.Unavailable
+        }
     }
+
+    /**
+     * Compatibility accessor. New UI code should use loadAllResult() so an
+     * unreadable vault is never mistaken for a genuinely empty profile list.
+     */
+    @Synchronized
+    fun loadAll(): List<ImportedProfile> =
+        (loadAllResult() as? ProfileVaultLoadResult.Success)?.profiles.orEmpty()
 
     /** Strict read used by mutations so a decryption failure can never erase saved profiles. */
     private fun readAllOrThrow(): List<ImportedProfile> {
