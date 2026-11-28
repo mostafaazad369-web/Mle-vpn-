@@ -231,7 +231,7 @@ class MleVpnService : VpnService() {
                     // confirmed shutdown. The user can retry a stop command.
                     android.util.Log.e(
                         TAG,
-                        "VPN shutdown failed (\${MleVpnFailure.logCategory(cleanupFailure)})"
+                        "VPN shutdown failed (${MleVpnFailure.logCategory(cleanupFailure)})"
                     )
                     MleVpnStatus.failed(MleVpnFailure.userMessage(cleanupFailure))
                     getSystemService(NotificationManager::class.java).notify(
