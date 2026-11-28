@@ -33,6 +33,7 @@ import com.mle.vpn.profile.SingBoxOutboundBuilder
 import com.mle.vpn.profile.SingBoxConfigBuilder
 import com.mle.vpn.engine.EndpointProbe
 import com.mle.vpn.engine.MleVpnService
+import com.mle.vpn.engine.MleVpnFailure
 import com.mle.vpn.engine.MleVpnStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -111,7 +112,7 @@ private fun MleApp() {
         }
         val config = runCatching { SingBoxConfigBuilder.build(profile).toString() }
             .getOrElse { error ->
-                Toast.makeText(context, error.message ?: "ساخت کانفیگ ناموفق بود", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, MleVpnFailure.userMessage(error), Toast.LENGTH_LONG).show()
                 return
             }
         val serviceIntent = Intent(context, MleVpnService::class.java).apply {
@@ -126,8 +127,8 @@ private fun MleApp() {
             }
             .onFailure { error ->
                 vpnPermissionGranted = false
-                MleVpnStatus.failed(error.message ?: "راه‌اندازی سرویس VPN ناموفق بود.")
-                vpnPermissionMessage = error.message ?: "راه‌اندازی سرویس VPN ناموفق بود."
+                MleVpnStatus.failed(MleVpnFailure.userMessage(error))
+                vpnPermissionMessage = MleVpnFailure.userMessage(error)
                 showNotice = true
             }
     }
