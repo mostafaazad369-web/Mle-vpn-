@@ -134,8 +134,8 @@ class MlePlatformInterface(private val service: MleVpnService) : PlatformInterfa
             applyPackageRules(
                 options.includePackage,
                 options.excludePackage,
-                builder::addAllowedApplication,
-                builder::addDisallowedApplication
+                { packageName -> builder.addAllowedApplication(packageName) },
+                { packageName -> builder.addDisallowedApplication(packageName) }
             )
         }
 
