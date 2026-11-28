@@ -62,7 +62,7 @@ class MleVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> scheduleShutdown()
+            ACTION_STOP -> scheduleShutdown(stopStartId = startId)
             ACTION_START -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG)
                 if (config.isNullOrBlank()) {
@@ -165,15 +165,17 @@ class MleVpnService : VpnService() {
         super.onDestroy()
     }
 
-    private fun scheduleShutdown(initialFailure: Throwable? = null) {
+    private fun scheduleShutdown(initialFailure: Throwable? = null, stopStartId: Int? = null) {
         stopping.set(true)
         trafficProbeJob?.cancel()
-        if (::lifecycleCoordinator.isInitialized) lifecycleCoordinator.enqueueStop(initialFailure)
+        if (::lifecycleCoordinator.isInitialized) lifecycleCoordinator.enqueueStop(initialFailure, stopStartId)
     }
 
     private suspend fun startTunnel(config: String) {
         stopping.set(false)
         trafficProbeJob?.cancel()
+        startForeground(NOTIFICATION_ID, buildNotification("در حال راه‌اندازی موتور sing-box"))
+        configureUnderlyingNetwork()
         MleVpnStatus.starting()
         if (!::boxRuntime.isInitialized) boxRuntime = MleBoxRuntime(this, MlePlatformInterface(this))
         boxRuntime.start(config)
@@ -196,7 +198,7 @@ class MleVpnService : VpnService() {
         }
     }
 
-    private suspend fun performShutdown(initialFailure: Throwable?) {
+    private suspend fun performShutdown(initialFailure: Throwable?, stopStartId: Int?) {
         var cleanupFailure: Throwable? = null
         if (::boxRuntime.isInitialized) {
             try { boxRuntime.stop() } catch (error: Exception) { cleanupFailure = error }
@@ -208,8 +210,13 @@ class MleVpnService : VpnService() {
             if (initialFailure == null) MleVpnStatus.disconnected()
             else MleVpnStatus.failed(MleVpnFailure.userMessage(initialFailure))
             stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-            serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            val serviceStopped = if (stopStartId != null) {
+                stopSelfResult(stopStartId)
+            } else {
+                stopSelf()
+                true
+            }
+            if (serviceStopped) serviceScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         } else {
             android.util.Log.e(TAG, "VPN shutdown failed (" + MleVpnFailure.logCategory(cleanupFailure) + ")")
             MleVpnStatus.failed(MleVpnFailure.userMessage(cleanupFailure))
