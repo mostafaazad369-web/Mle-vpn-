@@ -81,6 +81,7 @@ private fun MleApp() {
     val scope = rememberCoroutineScope()
     val vault = remember { ProfileVault(context) }
     var profiles by remember { mutableStateOf(emptyList<ImportedProfile>()) }
+    var vaultError by remember { mutableStateOf<String?>(null) }
     var selectedProfileId by remember { mutableStateOf<String?>(null) }
     var probeResults by remember { mutableStateOf(emptyMap<String, String>()) }
     var telegramSources by remember { mutableStateOf(emptyList<String>()) }
@@ -88,6 +89,19 @@ private fun MleApp() {
     var sourceStatus by remember { mutableStateOf<String?>(null) }
     var autoScanRunning by remember { mutableStateOf(false) }
     val connectionStatus by MleVpnStatus.status.collectAsState()
+
+    fun refreshProfiles(): Boolean = when (val result = vault.loadAllResult()) {
+        is com.mle.vpn.profile.ProfileVaultLoadResult.Success -> {
+            profiles = result.profiles
+            vaultError = null
+            true
+        }
+        com.mle.vpn.profile.ProfileVaultLoadResult.Unavailable -> {
+            profiles = emptyList()
+            vaultError = "ذخیره‌ساز کانفیگ قابل‌خواندن نیست. داده رمزگذاری‌شده حفظ شده و هیچ پروفایلی حذف نشده است."
+            false
+        }
+    }
 
     fun startSelectedProfile() {
         val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
@@ -168,7 +182,7 @@ private fun MleApp() {
                 }.getOrDefault(false)
                 if (works) { verified += profile; runCatching { vault.save(profile) } }
             }
-            profiles = vault.loadAll()
+            refreshProfiles()
             if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
             sourceStatus = "پالایش تمام شد: ${verified.size} کانفیگ با آزمون HTTPS داخل VPN تأیید و ذخیره شد؛ ${supported.size - verified.size} مورد ناموفق یا تأییدنشده کنار گذاشته شد. حداکثر ۲۰ کانفیگ آزمایش شد؛ کانفیگ‌های قبلیِ دستی حذف نشدند."
         } catch (error: Throwable) {
@@ -190,7 +204,7 @@ private fun MleApp() {
         }
     }
     LaunchedEffect(Unit) {
-        profiles = vault.loadAll()
+        refreshProfiles()
         selectedProfileId = profiles.firstOrNull()?.id
         telegramSources = runCatching { com.mle.vpn.profile.TelegramSourceCatalog.load(context.assets) }.getOrDefault(emptyList())
     }
@@ -246,6 +260,7 @@ private fun MleApp() {
                 1 -> ServerScreen(selectedServer, { selectedServer = it }, padding)
                 2 -> ProfilesScreen(
                     profiles = profiles,
+                    vaultError = vaultError,
                     selectedProfileId = selectedProfileId,
                     probeResults = probeResults,
                     onSelect = { selectedProfileId = it.id },
@@ -264,10 +279,15 @@ private fun MleApp() {
                         }
                     },
                     onDelete = { id ->
-                        vault.delete(id)
-                        profiles = vault.loadAll()
-                        if (selectedProfileId == id) selectedProfileId = profiles.firstOrNull()?.id
-                        probeResults = probeResults - id
+                        runCatching { vault.delete(id) }
+                            .onSuccess {
+                                refreshProfiles()
+                                if (selectedProfileId == id) selectedProfileId = profiles.firstOrNull()?.id
+                                probeResults = probeResults - id
+                            }
+                            .onFailure {
+                                vaultError = "حذف پروفایل انجام نشد؛ داده‌های ذخیره‌شده حفظ شدند."
+                            }
                     },
                     padding = padding
                 )
@@ -295,7 +315,7 @@ private fun MleApp() {
                                             runCatching { SingBoxOutboundBuilder.build(profile) }.isSuccess
                                     }
                                     supported.forEach(vault::save)
-                                    profiles = vault.loadAll()
+                                    refreshProfiles()
                                     if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
                                     val rejected = batch.rejectedCount + (batch.profiles.size - supported.size)
                                     "$channel: ${supported.size} کانفیگ جدید ذخیره شد؛ $rejected مورد نامعتبر، ناسازگار یا تکراری بود."
@@ -373,7 +393,7 @@ private fun MleApp() {
                                     importError = "کانفیگ قابل‌قبولی پیدا نشد؛ ${batch.rejectedCount} مورد رد شد."
                                 } else {
                                     batch.profiles.forEach(vault::save)
-                                    profiles = vault.loadAll()
+                                    refreshProfiles()
                                     if (selectedProfileId == null) selectedProfileId = profiles.firstOrNull()?.id
                                     importText = ""
                                     importError = null
@@ -596,6 +616,7 @@ private fun SettingsScreen(padding: PaddingValues) {
 @Composable
 private fun ProfilesScreen(
     profiles: List<ImportedProfile>,
+    vaultError: String?,
     selectedProfileId: String?,
     probeResults: Map<String, String>,
     onSelect: (ImportedProfile) -> Unit,
@@ -611,6 +632,11 @@ private fun ProfilesScreen(
         Text("کانفیگ‌های من", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Text("پروفایل‌ها روی همین دستگاه رمزگذاری‌شده ذخیره می‌شوند.", color = Muted, fontSize = 13.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+        vaultError?.let {
+            Text(it, color = Color(0xFFFF7B86), fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(12.dp))
+            Spacer(Modifier.height(12.dp))
+        }
         Button(onClick = onAdd, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Navy)) {
             Icon(Icons.Default.Add, null)
             Spacer(Modifier.width(8.dp))
